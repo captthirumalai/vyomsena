@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VyomSena Aviation Management System (VAMS)</title>
+    <meta name="description" content="VAMS - Digital Aviation Operations Platform. Integrate operations, training, fleet management, and regulatory DGCA compliance.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- CSS Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="light-theme">
+    <!-- Decorative Glow Spheres -->
+    <div class="glow-sphere glow-sphere-1"></div>
+    <div class="glow-sphere glow-sphere-2"></div>
+
+    <!-- MAIN ROOT CONTAINER -->
+    <div id="app-root">
+
+        <!-- ==============================================
+             1. AUTH CONTAINER (LOGIN / REGISTER / RECOVER)
+             ============================================== -->
+        <div id="auth-view" class="auth-container active">
+            <!-- Left Branding Panel -->
+            <div class="brand-panel">
+                <div class="brand-overlay"></div>
+                <div class="brand-content">
+                    <div class="logo-wrapper">
+                        <img src="vams_logo.jpg" alt="VAMS Logo" class="brand-logo">
+                        <span class="brand-title">VyomSena</span>
+                    </div>
+                    
+                    <h1 class="brand-tagline">Digital Aviation Operations Platform</h1>
+                    <p class="brand-desc">
+                        Integrate operations, crew management, regulatory compliance, and intelligent decision support into a single, cohesive ecosystem.
+                    </p>
+
+                    <!-- Feature list -->
+                    <div class="features-list">
+                        <div class="feature-item">
+                            <span class="feature-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            </span>
+                            <div>
+                                <h3>Personnel & Licence Management</h3>
+                                <p>Track crew certificates, check-rides, and medical expiries in real time.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                            </span>
+                            <div>
+                                <h3>Aircraft & Fleet Operations</h3>
+                                <p>Monitor airworthiness status, block hours, and recurring maintenance checks.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            </span>
+                            <div>
+                                <h3>DGCA Compliance Monitoring</h3>
+                                <p>Automated checks against CAR regulations to assure audit readiness.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Refined Positioning Quote -->
+                    <div class="positioning-quote">
+                        <p class="quote-text">
+                            "VyomSena is not just an aviation management software—it is a Digital Aviation Operations Platform that integrates operational management, regulatory compliance, and intelligent decision support into a single ecosystem."
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Form Panel -->
+            <div class="form-panel">
+                <!-- ================= CARD: LOGIN ================= -->
+                <div id="login-card" class="glass-card auth-card active">
+                    <div class="card-header">
+                        <h2>Access System</h2>
+                        <p>Enter your credentials to access the VAMS console</p>
+                    </div>
+                    
+                    <form id="login-form">
+                        <div class="input-group">
+                            <label for="login-email">Corporate Email</label>
+                            <div class="input-wrapper">
+                                <input type="email" id="login-email" required placeholder="admin@airvyom.com" autocomplete="email">
+                                <span class="input-icon">@</span>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <div class="label-row">
+                                <label for="login-password">Password</label>
+                                <a href="#" id="go-recover" class="card-link">Forgot Password?</a>
+                            </div>
+                            <div class="input-wrapper">
+                                <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password">
+                                <button type="button" class="password-toggle" aria-label="Toggle Password Visibility">
+                                    <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    <svg class="eye-closed hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="login-remember">
+                                <span class="checkmark"></span>
+                                Keep me logged in
+                            </label>
+                        </div>
+
+                        <div id="login-error" class="error-banner hidden">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            <span class="error-msg">Invalid credentials. Try demo login.</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="btn-login-submit">
+                            <span class="btn-text">Authenticate & Enter</span>
+                            <span class="btn-spinner hidden"></span>
+                        </button>
+                    </form>
+
+                    <div class="card-footer">
+                        <p>Deploying VAMS in your company? <a href="#" id="go-register" class="card-link">Register Organization</a></p>
+                        <div class="demo-badge">
+                            <strong>Demo Access:</strong> admin@airvyom.com / password123
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= CARD: REGISTER ================= -->
+                <div id="register-card" class="glass-card auth-card">
+                    <div class="card-header">
+                        <h2>Initialize VAMS</h2>
+                        <p>Establish a secure tenant node for your organization</p>
+                    </div>
+
+                    <form id="register-form">
+                        <div class="input-group">
+                            <label for="reg-org-name">Organization Name</label>
+                            <input type="text" id="reg-org-name" required placeholder="e.g., AeroLink Charter Services">
+                        </div>
+
+                        <div class="input-group">
+                            <label for="reg-org-type">Operator Category</label>
+                            <select id="reg-org-type" required>
+                                <option value="" disabled selected>Select Organization Type</option>
+                                <option value="NSOP">Non-Scheduled Operator (NSOP)</option>
+                                <option value="Charter">Charter Operator</option>
+                                <option value="FTO">Flying Training Organization (FTO)</option>
+                                <option value="Corporate">Corporate Flight Department</option>
+                                <option value="MRO">Maintenance Organization (MRO/CAMO)</option>
+                                <option value="Government">Government Aviation Agency</option>
+                            </select>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="reg-email">Administrator Email</label>
+                            <input type="email" id="reg-email" required placeholder="admin@operator.com">
+                        </div>
+
+                        <div class="input-group">
+                            <label for="reg-password">Security Password</label>
+                            <div class="input-wrapper">
+                                <input type="password" id="reg-password" required placeholder="Min 8 characters">
+                                <button type="button" class="password-toggle" aria-label="Toggle Password">
+                                    <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </button>
+                            </div>
+                            <div class="pwd-strength-container">
+                                <div class="pwd-strength-bar">
+                                    <div id="pwd-strength-indicator"></div>
+                                </div>
+                                <span id="pwd-strength-label">Password Strength: Weak</span>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="reg-agree" required>
+                                <span class="checkmark"></span>
+                                I agree to the regulatory compliance terms & service agreements.
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="btn-register-submit">
+                            <span class="btn-text">Deploy Tenant Space</span>
+                            <span class="btn-spinner hidden"></span>
+                        </button>
+                    </form>
+
+                    <div class="card-footer">
+                        <p>Already have an active workspace? <a href="#" id="go-login" class="card-link">Return to Sign In</a></p>
+                    </div>
+                </div>
+
+                <!-- ================= CARD: RECOVER ================= -->
+                <div id="recover-card" class="glass-card auth-card">
+                    <div class="card-header">
+                        <h2>Recover Access</h2>
+                        <p>Enter your email to request a secure reset signature</p>
+                    </div>
+
+                    <form id="recover-form">
+                        <div class="input-group">
+                            <label for="recover-email">Email Address</label>
+                            <input type="email" id="recover-email" required placeholder="admin@yourcompany.com">
+                        </div>
+
+                        <div id="recover-success" class="success-banner hidden">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <span>Security signature dispatched. Please check your inbox.</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="btn-recover-submit">
+                            <span class="btn-text">Generate Reset Link</span>
+                            <span class="btn-spinner hidden"></span>
+                        </button>
+                    </form>
+
+                    <div class="card-footer">
+                        <p>Remember your password? <a href="#" id="go-login-from-recover" class="card-link">Back to Sign In</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==============================================
+             2. MAIN OPERATIONS & COMPLIANCE DASHBOARD
+             ============================================== -->
+        <div id="dashboard-view" class="dashboard-container">
+            <!-- Sidebar Navigation -->
+            <aside class="sidebar">
+                <div class="sidebar-brand">
+                    <div class="logo-ring">
+                        <img src="vams_logo.jpg" alt="VAMS Mini Logo" class="sidebar-logo">
+                    </div>
+                    <span class="sidebar-brand-name">VAMS Portal</span>
+                </div>
+
+                <nav class="sidebar-nav">
+                    <ul>
+                        <li class="nav-item active" data-tab="ops-overview">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                            <span>Operations Dashboard</span>
+                        </li>
+                        <li class="nav-item" data-tab="fleet-manager">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                            <span>Aircraft & Fleet</span>
+                        </li>
+                        <li class="nav-item" data-tab="crew-compliance">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span>Personnel & Crew</span>
+                        </li>
+                        <li class="nav-item" data-tab="ai-assistant-tab">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            <span>AI Co-Pilot</span>
+                        </li>
+                    </ul>
+                </nav>
+
+                <div class="sidebar-footer">
+                    <!-- Light / Dark Toggle -->
+                    <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle visual theme">
+                        <span class="toggle-icon-dark">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                        </span>
+                        <span class="toggle-icon-light hidden">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                        </span>
+                        <span class="theme-text">Toggle Theme</span>
+                    </button>
+
+                    <button id="btn-logout" class="logout-btn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <span>System Exit</span>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Main Work Area -->
+            <main class="main-content">
+                <!-- Top Control Bar -->
+                <header class="dash-header">
+                    <div class="header-tenant-info">
+                        <h2 id="display-org-name">AirVyom Charter Operations</h2>
+                        <span class="badge badge-ops-category" id="display-org-type">NSOP / Corporate</span>
+                    </div>
+
+                    <div class="header-right">
+                        <div class="system-time">
+                            <span class="pulse-indicator"></span>
+                            <span id="live-clock">UTC 00:00:00</span>
+                        </div>
+                        <div class="user-avatar" id="avatar-btn">
+                            <div class="avatar-letter">A</div>
+                            <div class="avatar-details">
+                                <span class="avatar-name">System Admin</span>
+                                <span class="avatar-role">Root Coordinator</span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- ================= TAB CONTENT: OPERATIONS OVERVIEW ================= -->
+                <section id="ops-overview" class="tab-pane active">
+                    <!-- Metrics Row -->
+                    <div class="metrics-grid">
+                        <!-- Metric 1: Fleet -->
+                        <div class="metric-card">
+                            <div class="metric-icon fleet-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                            </div>
+                            <div class="metric-data">
+                                <span class="metric-label">Active Fleet Size</span>
+                                <span class="metric-value" id="count-fleet-total">14</span>
+                                <div class="metric-sub-row">
+                                    <span class="sub-stat text-success"><span class="bullet success"></span><span id="count-fleet-ready">11</span> Operational</span>
+                                    <span class="sub-stat text-warning"><span class="bullet warning"></span><span id="count-fleet-maint">3</span> CAMO Lock</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Metric 2: Personnel -->
+                        <div class="metric-card">
+                            <div class="metric-icon crew-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                            </div>
+                            <div class="metric-data">
+                                <span class="metric-label">Active Aviation Personnel</span>
+                                <span class="metric-value" id="count-crew-total">32</span>
+                                <div class="metric-sub-row">
+                                    <span class="sub-stat text-success"><span class="bullet success"></span>32 Valid Licenses</span>
+                                    <span class="sub-stat text-danger"><span class="bullet danger"></span><span id="count-crew-expiring">1</span> Expiring soon</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Metric 3: DGCA Compliance -->
+                        <div class="metric-card">
+                            <div class="metric-icon compliance-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            </div>
+                            <div class="metric-data">
+                                <span class="metric-label">DGCA CAR Compliance Score</span>
+                                <span class="metric-value" id="compliance-rating">96.8%</span>
+                                <div class="metric-sub-row">
+                                    <div class="progress-bar-small">
+                                        <div class="progress-fill" style="width: 96.8%;"></div>
+                                    </div>
+                                    <span class="sub-stat">Audit status: Fully Cleared</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Double Column Grid -->
+                    <div class="dash-double-column">
+                        <!-- Column Left: Interactive Fleet & Operations Panel -->
+                        <div class="glass-panel main-panel-left">
+                            <div class="panel-header">
+                                <h3>Quick Action Hub</h3>
+                                <p>Control core operators and fleet states directly</p>
+                            </div>
+                            <div class="action-grid">
+                                <div class="action-button-card" id="btn-trigger-audit">
+                                    <div class="btn-card-icon">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                    </div>
+                                    <h4>Simulate DGCA Audit</h4>
+                                    <p>Run dynamic checks against CAR compliance regulations.</p>
+                                </div>
+                                <div class="action-button-card" id="btn-trigger-flight">
+                                    <div class="btn-card-icon">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                                    </div>
+                                    <h4>Log Training Flight</h4>
+                                    <p>Increase crew flight block hours and update certifications.</p>
+                                </div>
+                                <div class="action-button-card" id="btn-trigger-maint">
+                                    <div class="btn-card-icon">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                                    </div>
+                                    <h4>Release Aircraft</h4>
+                                    <p>Complete CAMO maintenance and return an aircraft to active duty.</p>
+                                </div>
+                                <div class="action-button-card" id="btn-trigger-ground">
+                                    <div class="btn-card-icon">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                    </div>
+                                    <h4>Ground Aircraft</h4>
+                                    <p>Simulatively flag an operational aircraft under technical hold.</p>
+                                </div>
+                            </div>
+
+                            <!-- Real-time activity logs -->
+                            <div class="live-activity-section">
+                                <h3>Telemetry Activity Stream</h3>
+                                <ul class="activity-list" id="activity-stream">
+                                    <li class="activity-item">
+                                        <span class="activity-time">Just Now</span>
+                                        <span class="activity-text">VAMS Security Node initialized successfully.</span>
+                                    </li>
+                                    <li class="activity-item">
+                                        <span class="activity-time">5 mins ago</span>
+                                        <span class="activity-text">DGCA Compliance metrics cached for daily audit report.</span>
+                                    </li>
+                                    <li class="activity-item">
+                                        <span class="activity-time">1 hour ago</span>
+                                        <span class="activity-text">Licence tracking status updated: Capt. Verma logged 4.5 check hours.</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Column Right: VAMS Co-Pilot AI Interactive Terminal -->
+                        <div class="glass-panel co-pilot-panel">
+                            <div class="copilot-header">
+                                <div class="copilot-title">
+                                    <span class="ai-orb"></span>
+                                    <h3>VAMS Co-Pilot AI</h3>
+                                </div>
+                                <span class="badge badge-ai-mode">Ready</span>
+                            </div>
+                            <div class="copilot-description">
+                                Intelligent assistant providing operational decisions, license verification, and flight airworthiness audits.
+                            </div>
+                            
+                            <!-- Chat Area -->
+                            <div class="copilot-chat-area" id="copilot-chat">
+                                <div class="chat-message system-msg">
+                                    <div class="msg-sender">VAMS Co-Pilot</div>
+                                    <div class="msg-bubble">
+                                        Hello Operator. I am your VAMS AI Assistant. I have indexed your crew credentials, CAR logbooks, and fleet records.
+                                        <br><br>
+                                        You can click one of the quick prompts below or type your inquiry.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Prompt chips -->
+                            <div class="chat-prompts">
+                                <button class="prompt-chip" data-prompt="Check crew medical expiries">Medical Expiries?</button>
+                                <button class="prompt-chip" data-prompt="Audit fleet airworthiness">Fleet Airworthiness?</button>
+                                <button class="prompt-chip" data-prompt="Show DGCA compliance score explanation">Compliance Score?</button>
+                            </div>
+
+                            <!-- Chat Input -->
+                            <form id="copilot-form" class="copilot-input-row">
+                                <input type="text" id="copilot-input" placeholder="Inquire about crew, aircraft, or DGCA CAR rules..." autocomplete="off">
+                                <button type="submit" class="btn btn-icon" aria-label="Send Inquiry">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ================= TAB CONTENT: AIRCRAFT & FLEET ================= -->
+                <section id="fleet-manager" class="tab-pane">
+                    <div class="section-header">
+                        <h2>Fleet Airworthiness Hub</h2>
+                        <p>Complete telemetry overview of tenant aircraft</p>
+                    </div>
+
+                    <!-- Fleet stats and controls -->
+                    <div class="glass-panel">
+                        <div class="panel-toolbar">
+                            <span class="toolbar-title">Active Aircraft Ledger</span>
+                            <button class="btn btn-sm btn-primary" id="btn-add-aircraft-modal">Register Aircraft</button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Registration</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th>Next Insp. Hours</th>
+                                        <th>Last Maintenance</th>
+                                        <th>Telemetry Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fleet-table-body">
+                                    <!-- Dynamic rows loaded from JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ================= TAB CONTENT: PERSONNEL & CREW ================= -->
+                <section id="crew-compliance" class="tab-pane">
+                    <div class="section-header">
+                        <h2>Personnel & Credentials</h2>
+                        <p>License tracking, medical records, and qualification verification</p>
+                    </div>
+
+                    <div class="glass-panel">
+                        <div class="panel-toolbar">
+                            <span class="toolbar-title">Active Flight Crew Register</span>
+                            <button class="btn btn-sm btn-primary" id="btn-add-crew-modal">Add Crew Member</button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Role / Rank</th>
+                                        <th>Licence Type</th>
+                                        <th>Medical Validity</th>
+                                        <th>CAR Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="crew-table-body">
+                                    <!-- Dynamic rows loaded from JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ================= TAB CONTENT: AI CO-PILOT FULL ================= -->
+                <section id="ai-assistant-tab" class="tab-pane">
+                    <div class="section-header">
+                        <h2>AI-Powered Decision Support</h2>
+                        <p>Real-time automated audit reports, crew availability checking, and regulatory guidance.</p>
+                    </div>
+
+                    <div class="assistant-full-layout">
+                        <div class="assistant-explanation glass-panel">
+                            <h3>Co-Pilot Context Data</h3>
+                            <p>The Co-Pilot operates directly over your private aviation database, combining live operations telemetry with the DGCA CAR (Civil Aviation Requirements) database.</p>
+                            
+                            <h4 class="mt-4">Recognized Commands</h4>
+                            <ul class="cmd-list">
+                                <li><code>Check crew medical expiries</code> - Queries the crew records for expiring Class 1/2 medicals.</li>
+                                <li><code>Audit fleet airworthiness</code> - Performs checks on aircraft hours and scheduled servicing.</li>
+                                <li><code>Check active pilot license</code> - Reviews pilots with active/expired ALTP or CPL status.</li>
+                                <li><code>Explain compliance score</code> - Analyzes reasons for the current DGCA CAR status rating.</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="assistant-chat-panel glass-panel">
+                            <div class="chat-header-simple">
+                                <span class="ai-dot active"></span>
+                                <span>Co-Pilot Active Feed</span>
+                            </div>
+                            <div class="copilot-chat-area" id="copilot-chat-full">
+                                <!-- Mirrors main sidebar widget chat, synced via JS -->
+                            </div>
+                            <form id="copilot-form-full" class="copilot-input-row">
+                                <input type="text" id="copilot-input-full" placeholder="Ask Co-Pilot anything..." autocomplete="off">
+                                <button type="submit" class="btn btn-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+    </div>
+
+    <!-- ================= MODAL: ADD AIRCRAFT ================= -->
+    <div id="add-aircraft-modal" class="modal-overlay">
+        <div class="modal-card glass-card">
+            <h3>Register New Fleet Aircraft</h3>
+            <form id="add-aircraft-form">
+                <div class="input-group">
+                    <label for="ac-reg">Registration Mark (e.g. VT-VAM)</label>
+                    <input type="text" id="ac-reg" required placeholder="VT-XXX" pattern="VT-[A-Z]{3}">
+                </div>
+                <div class="input-group">
+                    <label for="ac-type">Aircraft Type Model</label>
+                    <input type="text" id="ac-type" required placeholder="e.g., Cessna 172R, King Air B200">
+                </div>
+                <div class="input-group">
+                    <label for="ac-status">Operational Status</label>
+                    <select id="ac-status" required>
+                        <option value="Operational">Operational</option>
+                        <option value="Maintenance">Maintenance Check</option>
+                        <option value="Grounded">Grounded</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="ac-next-insp">Next 100-Hr Inspection (Hrs remaining)</label>
+                    <input type="number" id="ac-next-insp" required min="1" max="100" value="85">
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="btn-ac-modal-close">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Aircraft</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: ADD CREW ================= -->
+    <div id="add-crew-modal" class="modal-overlay">
+        <div class="modal-card glass-card">
+            <h3>Add Aviation Personnel</h3>
+            <form id="add-crew-form">
+                <div class="input-group">
+                    <label for="crew-name">Full Name</label>
+                    <input type="text" id="crew-name" required placeholder="e.g., Capt. Aditya Roy">
+                </div>
+                <div class="input-group">
+                    <label for="crew-rank">Role / Rank</label>
+                    <select id="crew-rank" required>
+                        <option value="PIC (Captain)">PIC (Captain)</option>
+                        <option value="Co-Pilot">Co-Pilot (First Officer)</option>
+                        <option value="Flight Instructor">Flight Instructor</option>
+                        <option value="AME (Engineer)">AME (Engineer)</option>
+                        <option value="Cabin Crew">Cabin Crew</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="crew-license">License Category</label>
+                    <input type="text" id="crew-license" required placeholder="e.g., ALTP-7429, CPL-9021">
+                </div>
+                <div class="input-group">
+                    <label for="crew-medical">Class 1 Medical Expiration</label>
+                    <input type="date" id="crew-medical" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="btn-crew-modal-close">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Log Personnel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JS Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
