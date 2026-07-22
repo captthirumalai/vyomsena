@@ -3,40 +3,30 @@
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
-    
-    // --- Mock Database Initializer ---
-    const defaultUsers = [
-        { email: 'admin@airvyom.com', password: 'password123', orgName: 'AirVyom Charters', orgType: 'NSOP' }
-    ];
 
-    const defaultAircraft = [
-        { reg: 'VT-VAA', type: 'Cessna 172R', status: 'Operational', nextInsp: 45, lastMaint: '12-Jul-2026' },
-        { reg: 'VT-VAB', type: 'Beechcraft King Air B200', status: 'Operational', nextInsp: 82, lastMaint: '10-Jul-2026' },
-        { reg: 'VT-VAC', type: 'Piper PA-34 Seneca', status: 'Maintenance', nextInsp: 8, lastMaint: '01-Jul-2026' },
-        { reg: 'VT-VAD', type: 'Cessna Caravan 208B', status: 'Operational', nextInsp: 91, lastMaint: '14-Jul-2026' }
-    ];
-
-    const defaultCrew = [
-        { name: 'Capt. Rahul Sharma', rank: 'PIC (Captain)', license: 'ALTP-6542', medical: getFutureDate(90), status: 'Valid' },
-        { name: 'Capt. Priya Verma', rank: 'Co-Pilot', license: 'CPL-8021', medical: getFutureDate(12), status: 'Expiring Soon' },
-        { name: 'Amit Sengupta', rank: 'AME (Engineer)', license: 'AME-3049', medical: getFutureDate(240), status: 'Valid' },
-        { name: 'Capt. Jessica Dsouza', rank: 'Flight Instructor', license: 'ALTP-7822', medical: getFutureDate(-5), status: 'Expired' }
-    ];
-
-    // Seed local storage if empty
-    if (!localStorage.getItem('vams_users')) {
-        localStorage.setItem('vams_users', JSON.stringify(defaultUsers));
-    }
-    if (!localStorage.getItem('vams_aircraft')) {
-        localStorage.setItem('vams_aircraft', JSON.stringify(defaultAircraft));
-    }
-    if (!localStorage.getItem('vams_crew')) {
-        localStorage.setItem('vams_crew', JSON.stringify(defaultCrew));
+    // --- Firebase Initialization Check ---
+    if (typeof firebase === 'undefined') {
+        console.error("Firebase SDK was not loaded. Check internet connection or CDN URLs.");
+        alert("Failed to connect to Firebase. Please check your internet connection.");
+        return;
     }
 
-    // --- State Variables ---
+    // Initialize Firebase using the config from firebase-config.js
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // --- Active Database Listeners & Subscriptions ---
+    let activePilotsListener = null;
+    let activeAircraftListener = null;
+    const pilotDocumentListeners = {}; // pilotUid -> unsubscribeFunction
+
+    // --- Local Memory Cache for State Management ---
     let currentSession = null;
     let activeTab = 'ops-overview';
+    let linkedPilots = [];
+    let pilotDocumentsMap = {}; // pilotUid -> Array of UserDocument
+    let aircraftFleet = [];
 
     // --- UI Element Selectors ---
     
@@ -171,10 +161,52 @@ document.addEventListener('DOMContentLoaded', () => {
         loginCard.classList.add('active');
     });
 
-    // --- Authentication Handlers ---
+    // --- Firebase Auth & State Listeners ---
+
+    // Persistent Session Auth Listener
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            console.log("Authenticated User detected Uid:", user.uid);
+            try {
+                // Fetch User Profile from /users/{uid}
+                const profileDoc = await db.collection("users").document(user.uid).get();
+                
+                if (profileDoc.exists) {
+                    const profileData = profileDoc.data();
+                    currentSession = { uid: user.uid, ...profileData };
+                    initializeDashboard(currentSession);
+                } else {
+                    // Initialize document if user doesn't have a profile yet (fallback)
+                    const tempProfile = {
+                        uid: user.uid,
+                        name: user.displayName || user.email.split('@')[0],
+                        email: user.email,
+                        role: "OPERATIONS",
+                        linkedOperator: null,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    await db.collection("users").document(user.uid).set(tempProfile);
+                    currentSession = tempProfile;
+                    initializeDashboard(currentSession);
+                }
+            } catch (err) {
+                console.error("Error loading user profile:", err);
+                alert("Failed to load user profile. Check Firestore permission rules.");
+                auth.signOut();
+            }
+        } else {
+            console.log("No authenticated session. Displaying login panel.");
+            currentSession = null;
+            cleanupDashboardListeners();
+            dashboardView.classList.remove('active');
+            authView.classList.add('active');
+        }
+    });
+
+    // Login Submission Handler
     loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const email = document.getElementById('login-email').value;
+        const email = document.getElementById('login-email').value.trim();
         const pass = document.getElementById('login-password').value;
         const btnSubmit = document.getElementById('btn-login-submit');
         const errBanner = document.getElementById('login-error');
@@ -183,101 +215,114 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSubmit.querySelector('.btn-spinner').classList.remove('hidden');
         errBanner.classList.add('hidden');
 
-        // Simulate network latency (1.2s)
-        setTimeout(() => {
-            const users = JSON.parse(localStorage.getItem('vams_users')) || [];
-            const user = users.find(u => u.email === email && u.password === pass);
-
-            btnSubmit.querySelector('.btn-text').classList.remove('hidden');
-            btnSubmit.querySelector('.btn-spinner').classList.add('hidden');
-
-            if (user) {
-                currentSession = user;
-                initializeDashboard(user);
-            } else {
-                // Shake effect on error
+        // Authenticate with Firebase Auth
+        auth.signInWithEmailAndPassword(email, pass)
+            .then((userCredential) => {
+                btnSubmit.querySelector('.btn-text').classList.remove('hidden');
+                btnSubmit.querySelector('.btn-spinner').classList.add('hidden');
+                loginForm.reset();
+            })
+            .catch((error) => {
+                console.error("Sign-in failure:", error);
+                btnSubmit.querySelector('.btn-text').classList.remove('hidden');
+                btnSubmit.querySelector('.btn-spinner').classList.add('hidden');
+                
                 loginCard.classList.add('shake');
+                errBanner.querySelector('.error-msg').textContent = error.message;
                 errBanner.classList.remove('hidden');
                 setTimeout(() => loginCard.classList.remove('shake'), 400);
-            }
-        }, 1200);
+            });
     });
 
+    // Registration Submission Handler
     registerForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const name = document.getElementById('reg-org-name').value;
+        const name = document.getElementById('reg-org-name').value.trim();
         const type = document.getElementById('reg-org-type').value;
-        const email = document.getElementById('reg-email').value;
+        const email = document.getElementById('reg-email').value.trim();
         const pass = document.getElementById('reg-password').value;
         const btnSubmit = document.getElementById('btn-register-submit');
 
         btnSubmit.querySelector('.btn-text').classList.add('hidden');
         btnSubmit.querySelector('.btn-spinner').classList.remove('hidden');
 
-        setTimeout(() => {
-            const users = JSON.parse(localStorage.getItem('vams_users')) || [];
-            
-            // Check duplicate
-            if (users.find(u => u.email === email)) {
-                alert('Administrator email is already registered.');
+        // Create Firebase Auth user
+        auth.createUserWithEmailAndPassword(email, pass)
+            .then(async (userCredential) => {
+                const uid = userCredential.user.uid;
+                
+                // Write profile to /users/{uid} matching Android structure
+                const userProfile = {
+                    uid: uid,
+                    name: name,
+                    email: email,
+                    role: "OPERATIONS", // Web portal is for Operations management
+                    linkedOperator: null, // Operators do not have a linked operator
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                await db.collection("users").document(uid).set(userProfile);
+                
                 btnSubmit.querySelector('.btn-text').classList.remove('hidden');
                 btnSubmit.querySelector('.btn-spinner').classList.add('hidden');
-                return;
-            }
-
-            const newUser = { email, password: pass, orgName: name, orgType: type };
-            users.push(newUser);
-            localStorage.setItem('vams_users', JSON.stringify(users));
-
-            btnSubmit.querySelector('.btn-text').classList.remove('hidden');
-            btnSubmit.querySelector('.btn-spinner').classList.add('hidden');
-
-            alert('VyomSena VAMS Organization Tenant deployed! Proceeding to Sign In.');
-            registerCard.classList.remove('active');
-            loginCard.classList.add('active');
-            loginForm.reset();
-        }, 1000);
+                
+                alert(`VAMS Organization ${name} deployed successfully!`);
+                registerForm.reset();
+            })
+            .catch((error) => {
+                console.error("Registration failed:", error);
+                btnSubmit.querySelector('.btn-text').classList.remove('hidden');
+                btnSubmit.querySelector('.btn-spinner').classList.add('hidden');
+                alert("Registration Error: " + error.message);
+            });
     });
 
+    // Password Recovery Handler
     recoverForm.addEventListener('submit', (e) => {
         e.preventDefault();
+        const email = document.getElementById('recover-email').value.trim();
         const btnSubmit = document.getElementById('btn-recover-submit');
         const successBanner = document.getElementById('recover-success');
 
         btnSubmit.querySelector('.btn-text').classList.add('hidden');
         btnSubmit.querySelector('.btn-spinner').classList.remove('hidden');
 
-        setTimeout(() => {
-            btnSubmit.querySelector('.btn-text').classList.remove('hidden');
-            btnSubmit.querySelector('.btn-spinner').classList.add('hidden');
-            successBanner.classList.remove('hidden');
-        }, 1000);
+        // Trigger Firebase password reset email
+        auth.sendPasswordResetEmail(email)
+            .then(() => {
+                btnSubmit.querySelector('.btn-text').classList.remove('hidden');
+                btnSubmit.querySelector('.btn-spinner').classList.add('hidden');
+                successBanner.classList.remove('hidden');
+                recoverForm.reset();
+            })
+            .catch((error) => {
+                console.error("Recovery failed:", error);
+                btnSubmit.querySelector('.btn-text').classList.remove('hidden');
+                btnSubmit.querySelector('.btn-spinner').classList.add('hidden');
+                alert("Reset Request Error: " + error.message);
+            });
     });
 
     // --- Dashboard Initializer ---
-    function initializeDashboard(user) {
+    function initializeDashboard(userProfile) {
         authView.classList.remove('active');
         dashboardView.classList.add('active');
 
-        // Set labels
-        document.getElementById('display-org-name').textContent = user.orgName;
-        document.getElementById('display-org-type').textContent = `${user.orgType} Platform Tenant`;
-        document.querySelector('.avatar-letter').textContent = user.orgName.charAt(0).toUpperCase();
+        // Set Labels
+        document.getElementById('display-org-name').textContent = userProfile.name;
+        document.getElementById('display-org-type').textContent = `${userProfile.role} Account Workspace`;
+        document.querySelector('.avatar-letter').textContent = userProfile.name.charAt(0).toUpperCase();
 
-        // Update stats
-        refreshTelemetryStats();
-        
-        // Start UTC Clock
+        // Start Live Clock
         startLiveClock();
 
-        // Load Tables
-        renderFleetTable();
-        renderCrewTable();
+        // Attach Real-time Firestore Listeners
+        setupDashboardListeners(userProfile.uid);
 
-        logActivityStream('VAMS Operations center activated successfully.');
+        logActivityStream(`Connected to Firebase project: ${firebaseConfig.projectId}.`);
     }
 
-    // --- Live Time Clock ---
+    // Live Time Clock (UTC)
     function startLiveClock() {
         const clockEl = document.getElementById('live-clock');
         function updateClock() {
@@ -289,71 +334,168 @@ document.addEventListener('DOMContentLoaded', () => {
         setInterval(updateClock, 1000);
     }
 
-    // --- Telemetry Calculation & Renders ---
-    function refreshTelemetryStats() {
-        const fleet = JSON.parse(localStorage.getItem('vams_aircraft')) || [];
-        const crew = JSON.parse(localStorage.getItem('vams_crew')) || [];
+    // Setup Real-time Firestore Listeners
+    function setupDashboardListeners(operatorUid) {
+        // Cleanup first just in case
+        cleanupDashboardListeners();
 
-        // Fleet stats
-        const totalFleet = fleet.length;
-        const readyFleet = fleet.filter(a => a.status === 'Operational').length;
-        const maintFleet = fleet.filter(a => a.status === 'Maintenance').length;
+        // 1. Listen to Aircraft Fleet
+        activeAircraftListener = db.collection("aircraft")
+            .onSnapshot((snapshot) => {
+                aircraftFleet = [];
+                snapshot.forEach(doc => {
+                    aircraftFleet.push({ reg: doc.id, ...doc.data() });
+                });
+                renderFleetTable();
+                refreshTelemetryStats();
+            }, (error) => {
+                console.error("Aircraft listener error:", error);
+            });
+
+        // 2. Listen to Linked Pilots (users where linkedOperator == operatorUid)
+        activePilotsListener = db.collection("users")
+            .where("linkedOperator", "==", operatorUid)
+            .onSnapshot((snapshot) => {
+                linkedPilots = [];
+                snapshot.forEach(doc => {
+                    linkedPilots.push({ uid: doc.id, ...doc.data() });
+                });
+                
+                // Sync user document listeners for each active pilot
+                syncPilotDocumentSubscriptions(linkedPilots);
+                
+                renderCrewTable();
+                refreshTelemetryStats();
+            }, (error) => {
+                console.error("Pilots listener error:", error);
+            });
+    }
+
+    // Sync individual document listeners per pilot to maintain real-time license updates
+    function syncPilotDocumentSubscriptions(pilotsList) {
+        // Remove document listeners for any pilots who were unlinked
+        Object.keys(pilotDocumentListeners).forEach(uid => {
+            if (!pilotsList.find(p => p.uid === uid)) {
+                pilotDocumentListeners[uid](); // Unsubscribe
+                delete pilotDocumentListeners[uid];
+                delete pilotDocumentsMap[uid];
+            }
+        });
+
+        // Attach listeners for new pilots
+        pilotsList.forEach(pilot => {
+            const pilotUid = pilot.uid;
+            if (!pilotDocumentListeners[pilotUid]) {
+                pilotDocumentListeners[pilotUid] = db.collection("user_documents")
+                    .where("userId", "==", pilotUid)
+                    .onSnapshot((snapshot) => {
+                        const docs = [];
+                        snapshot.forEach(doc => {
+                            docs.push({ firestoreId: doc.id, ...doc.data() });
+                        });
+                        pilotDocumentsMap[pilotUid] = docs;
+                        
+                        // Update tables & metrics since license validities changed
+                        renderCrewTable();
+                        refreshTelemetryStats();
+                    }, (error) => {
+                        console.error(`Document listener error for pilot ${pilotUid}:`, error);
+                    });
+            }
+        });
+    }
+
+    // Cleanup all Firestore subscriptions
+    function cleanupDashboardListeners() {
+        if (activeAircraftListener) {
+            activeAircraftListener();
+            activeAircraftListener = null;
+        }
+        if (activePilotsListener) {
+            activePilotsListener();
+            activePilotsListener = null;
+        }
+        Object.keys(pilotDocumentListeners).forEach(uid => {
+            pilotDocumentListeners[uid](); // Unsubscribe
+            delete pilotDocumentListeners[uid];
+        });
+        pilotDocumentsMap = {};
+        linkedPilots = [];
+        aircraftFleet = [];
+    }
+
+    // --- Telemetry Calculations (Metrics Dashboard) ---
+    function refreshTelemetryStats() {
+        // 1. Fleet Stats
+        const totalFleet = aircraftFleet.length;
+        const readyFleet = aircraftFleet.filter(a => a.status === 'Operational').length;
+        const maintFleet = aircraftFleet.filter(a => a.status === 'Maintenance').length;
 
         document.getElementById('count-fleet-total').textContent = totalFleet;
         document.getElementById('count-fleet-ready').textContent = readyFleet;
         document.getElementById('count-fleet-maint').textContent = maintFleet;
 
-        // Crew stats
-        const totalCrew = crew.length;
+        // 2. Crew Stats
+        const totalCrew = linkedPilots.length;
         let expiringCrew = 0;
         let expiredCrew = 0;
 
         const today = new Date();
-        crew.forEach(c => {
-            const expiry = new Date(c.medical);
-            const diffTime = expiry - today;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays < 0) {
-                expiredCrew++;
-                c.status = 'Expired';
-            } else if (diffDays <= 30) {
-                expiringCrew++;
-                c.status = 'Expiring Soon';
-            } else {
-                c.status = 'Valid';
-            }
+
+        // Audit expired & expiring licenses from Firestore Documents
+        Object.keys(pilotDocumentsMap).forEach(uid => {
+            const docs = pilotDocumentsMap[uid];
+            let pilotExpired = false;
+            let pilotExpiring = false;
+
+            docs.forEach(doc => {
+                if (doc.expiryDate) {
+                    // ExpiryDate can be a Timestamp or Date
+                    const expiry = doc.expiryDate.toDate ? doc.expiryDate.toDate() : new Date(doc.expiryDate);
+                    const diffTime = expiry - today;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    if (diffDays < 0) {
+                        pilotExpired = true;
+                    } else if (diffDays <= 30) {
+                        pilotExpiring = true;
+                    }
+                }
+            });
+
+            if (pilotExpired) expiredCrew++;
+            else if (pilotExpiring) expiringCrew++;
         });
-        localStorage.setItem('vams_crew', JSON.stringify(crew));
 
         document.getElementById('count-crew-total').textContent = totalCrew;
         document.getElementById('count-crew-expiring').textContent = expiringCrew;
 
-        // Compliance Rating Score
-        // Base score 100%. Deduct 5% for maintenance aircraft, 8% for expired medicals, 3% for expiring medicals.
+        // 3. Compliance Rating Score (Base 100%)
         let score = 100;
         score -= (maintFleet * 2.5);
         score -= (expiredCrew * 10);
         score -= (expiringCrew * 3);
-        score = Math.max(score, 45); // Floor it at 45%
+        score = Math.max(score, 45); // Floor at 45%
 
         const complianceEl = document.getElementById('compliance-rating');
         const fillEl = document.querySelector('.progress-fill');
         
-        complianceEl.textContent = `${score.toFixed(1)}%`;
+        if (complianceEl) complianceEl.textContent = `${score.toFixed(1)}%`;
         if (fillEl) fillEl.style.width = `${score}%`;
 
-        // Style the rating text
-        if (score >= 90) {
-            complianceEl.className = 'metric-value text-success';
-        } else if (score >= 75) {
-            complianceEl.className = 'metric-value text-warning';
-        } else {
-            complianceEl.className = 'metric-value text-danger';
+        // Style the compliance rating text dynamically
+        if (complianceEl) {
+            if (score >= 90) {
+                complianceEl.className = 'metric-value text-success';
+            } else if (score >= 75) {
+                complianceEl.className = 'metric-value text-warning';
+            } else {
+                complianceEl.className = 'metric-value text-danger';
+            }
         }
     }
 
-    // --- Activity stream logs ---
+    // Stream logs locally
     function logActivityStream(text) {
         const stream = document.getElementById('activity-stream');
         if (!stream) return;
@@ -366,13 +508,12 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         stream.prepend(li);
 
-        // Keep list to 6 items
         if (stream.children.length > 6) {
             stream.removeChild(stream.lastChild);
         }
     }
 
-    // --- Tab Switching ---
+    // --- Tab Navigation Handlers ---
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             const targetTab = item.getAttribute('data-tab');
@@ -385,24 +526,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const pane = document.getElementById(targetTab);
             if (pane) pane.classList.add('active');
             
-            // Sync Co-Pilot chat when entering assistant tab
             if (targetTab === 'ai-assistant-tab') {
                 syncCopilotChats();
             }
         });
     });
 
-    // Logout
+    // Exit Console (Sign Out)
     btnLogout.addEventListener('click', () => {
-        if (confirm('Are you sure you want to lock and exit the VAMS console?')) {
-            currentSession = null;
-            dashboardView.classList.remove('active');
-            authView.classList.add('active');
-            loginForm.reset();
+        if (confirm('Lock and sign out of the VAMS session?')) {
+            auth.signOut().then(() => {
+                loginForm.reset();
+            }).catch(err => {
+                console.error("Signout error:", err);
+            });
         }
     });
 
-    // --- Theme Switcher ---
+    // Theme Switcher
     themeToggleBtn.addEventListener('click', () => {
         const body = document.body;
         if (body.classList.contains('light-theme')) {
@@ -418,14 +559,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Fleet Tables Render ---
+    // --- Fleet Operations (Aircraft Collection Actions) ---
     function renderFleetTable() {
-        const fleet = JSON.parse(localStorage.getItem('vams_aircraft')) || [];
         const tableBody = document.getElementById('fleet-table-body');
         if (!tableBody) return;
 
         tableBody.innerHTML = '';
-        fleet.forEach((ac, idx) => {
+        aircraftFleet.forEach((ac) => {
             let badgeClass = 'text-success';
             if (ac.status === 'Maintenance') badgeClass = 'text-warning';
             if (ac.status === 'Grounded') badgeClass = 'text-danger';
@@ -436,256 +576,390 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${ac.type}</td>
                 <td><span class="sub-stat ${badgeClass}"><span class="bullet ${ac.status === 'Operational' ? 'success' : ac.status === 'Maintenance' ? 'warning' : 'danger'}"></span>${ac.status}</span></td>
                 <td>${ac.nextInsp} hrs</td>
-                <td>${ac.lastMaint}</td>
+                <td>${ac.lastMaint || 'N/A'}</td>
                 <td>
                     <div class="btn-group">
                         <button class="btn btn-sm btn-secondary toggle-ac-status" data-reg="${ac.reg}">${ac.status === 'Operational' ? 'Hold CAMO' : 'Release'}</button>
-                        <button class="btn btn-sm btn-secondary delete-ac text-danger" data-idx="${idx}">Delete</button>
+                        <button class="btn btn-sm btn-secondary delete-ac text-danger" data-reg="${ac.reg}">Delete</button>
                     </div>
                 </td>
             `;
             tableBody.appendChild(tr);
         });
 
-        // Attach event listeners to dynamic buttons
+        // Event listener hooks
         document.querySelectorAll('.toggle-ac-status').forEach(btn => {
             btn.addEventListener('click', () => {
                 const reg = btn.getAttribute('data-reg');
-                toggleAircraftStatus(reg);
+                toggleAircraftStatusInFirestore(reg);
             });
         });
 
         document.querySelectorAll('.delete-ac').forEach(btn => {
             btn.addEventListener('click', () => {
-                const idx = parseInt(btn.getAttribute('data-idx'));
-                deleteAircraft(idx);
+                const reg = btn.getAttribute('data-reg');
+                deleteAircraftFromFirestore(reg);
             });
         });
     }
 
-    function toggleAircraftStatus(reg) {
-        const fleet = JSON.parse(localStorage.getItem('vams_aircraft')) || [];
-        const ac = fleet.find(a => a.reg === reg);
+    async function toggleAircraftStatusInFirestore(reg) {
+        const ac = aircraftFleet.find(a => a.reg === reg);
         if (ac) {
-            ac.status = ac.status === 'Operational' ? 'Maintenance' : 'Operational';
-            ac.lastMaint = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
-            localStorage.setItem('vams_aircraft', JSON.stringify(fleet));
-            renderFleetTable();
-            refreshTelemetryStats();
-            logActivityStream(`Aircraft ${reg} status set to ${ac.status}.`);
+            const nextStatus = ac.status === 'Operational' ? 'Maintenance' : 'Operational';
+            const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+            try {
+                await db.collection("aircraft").document(reg).update({
+                    status: nextStatus,
+                    lastMaint: todayStr
+                });
+                logActivityStream(`Aircraft ${reg} updated to ${nextStatus}.`);
+            } catch (err) {
+                console.error("Failed to update aircraft status:", err);
+            }
         }
     }
 
-    function deleteAircraft(idx) {
-        const fleet = JSON.parse(localStorage.getItem('vams_aircraft')) || [];
-        const reg = fleet[idx].reg;
+    async function deleteAircraftFromFirestore(reg) {
         if (confirm(`Remove aircraft ${reg} from organizational records?`)) {
-            fleet.splice(idx, 1);
-            localStorage.setItem('vams_aircraft', JSON.stringify(fleet));
-            renderFleetTable();
-            refreshTelemetryStats();
-            logActivityStream(`Aircraft ${reg} removed from fleet register.`);
+            try {
+                await db.collection("aircraft").document(reg).delete();
+                logActivityStream(`Aircraft ${reg} deleted from fleet.`);
+            } catch (err) {
+                console.error("Failed to delete aircraft:", err);
+            }
         }
     }
 
-    // Modal Control: Aircraft
+    // Modal Operations: Aircraft
     btnOpenAircraftModal.addEventListener('click', () => addAircraftModal.classList.add('active'));
     btnCloseAircraftModal.addEventListener('click', () => addAircraftModal.classList.remove('active'));
     
-    formAddAircraft.addEventListener('submit', (e) => {
+    formAddAircraft.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const reg = document.getElementById('ac-reg').value.toUpperCase();
-        const type = document.getElementById('ac-type').value;
+        const reg = document.getElementById('ac-reg').value.trim().toUpperCase();
+        const type = document.getElementById('ac-type').value.trim();
         const status = document.getElementById('ac-status').value;
         const nextInsp = parseInt(document.getElementById('ac-next-insp').value);
         
-        const fleet = JSON.parse(localStorage.getItem('vams_aircraft')) || [];
-        
-        if (fleet.find(a => a.reg === reg)) {
-            alert('Aircraft registration mark already registered.');
-            return;
+        try {
+            const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+            
+            await db.collection("aircraft").document(reg).set({
+                reg: reg,
+                type: type,
+                status: status,
+                nextInsp: nextInsp,
+                lastMaint: todayStr
+            });
+
+            addAircraftModal.classList.remove('active');
+            formAddAircraft.reset();
+            logActivityStream(`Registered new fleet aircraft: ${reg}.`);
+        } catch (err) {
+            console.error("Failed to add aircraft:", err);
+            alert("Error writing to Firestore: " + err.message);
         }
-
-        const newAc = {
-            reg,
-            type,
-            status,
-            nextInsp,
-            lastMaint: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-')
-        };
-
-        fleet.push(newAc);
-        localStorage.setItem('vams_aircraft', JSON.stringify(fleet));
-        
-        addAircraftModal.classList.remove('active');
-        formAddAircraft.reset();
-        
-        renderFleetTable();
-        refreshTelemetryStats();
-        logActivityStream(`New aircraft ${reg} registered into system.`);
     });
 
-
-    // --- Crew Tables Render ---
+    // --- Crew Operations (Users & User_Documents Collections) ---
     function renderCrewTable() {
-        const crew = JSON.parse(localStorage.getItem('vams_crew')) || [];
         const tableBody = document.getElementById('crew-table-body');
         if (!tableBody) return;
 
         tableBody.innerHTML = '';
-        crew.forEach((cr, idx) => {
-            let badgeClass = 'text-success';
-            let dot = 'success';
-            if (cr.status === 'Expiring Soon') { badgeClass = 'text-warning'; dot = 'warning'; }
-            if (cr.status === 'Expired') { badgeClass = 'text-danger'; dot = 'danger'; }
+        
+        linkedPilots.forEach((pilot) => {
+            const docs = pilotDocumentsMap[pilot.uid] || [];
+            
+            // Extract core licensing files
+            const medicalDoc = docs.find(d => d.documentName && d.documentName.toLowerCase().includes('medical'));
+            const cplDoc = docs.find(d => d.documentName && (d.documentName.toLowerCase().includes('cpl') || d.documentName.toLowerCase().includes('altp') || d.documentName.toLowerCase().includes('license')));
+
+            const licenseNum = cplDoc ? cplDoc.licenseOrCertificateNumber : 'No CPL/ALTP Logged';
+            
+            let medicalVal = 'N/A';
+            let status = 'No Licenses';
+            let badgeClass = 'text-muted';
+            let dot = 'danger';
+
+            if (medicalDoc && medicalDoc.expiryDate) {
+                const expiry = medicalDoc.expiryDate.toDate ? medicalDoc.expiryDate.toDate() : new Date(medicalDoc.expiryDate);
+                medicalVal = expiry.toISOString().split('T')[0];
+                
+                const today = new Date();
+                const diffTime = expiry - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays < 0) {
+                    status = 'Expired';
+                    badgeClass = 'text-danger';
+                    dot = 'danger';
+                } else if (diffDays <= 30) {
+                    status = 'Expiring Soon';
+                    badgeClass = 'text-warning';
+                    dot = 'warning';
+                } else {
+                    status = 'Valid';
+                    badgeClass = 'text-success';
+                    dot = 'success';
+                }
+            }
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${cr.name}</strong></td>
-                <td>${cr.rank}</td>
-                <td>${cr.license}</td>
-                <td>${cr.medical}</td>
-                <td><span class="sub-stat ${badgeClass}"><span class="bullet ${dot}"></span>${cr.status}</span></td>
+                <td><strong>${pilot.name}</strong><br><small style="color: var(--text-muted);">${pilot.email}</small></td>
+                <td>Pilot (PIC)</td>
+                <td>${licenseNum}</td>
+                <td>${medicalVal}</td>
+                <td><span class="sub-stat ${badgeClass}"><span class="bullet ${dot}"></span>${status}</span></td>
                 <td>
-                    <button class="btn btn-sm btn-secondary delete-crew text-danger" data-idx="${idx}">Remove</button>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-secondary delink-crew" data-uid="${pilot.uid}">Delink</button>
+                        <button class="btn btn-sm btn-secondary delete-crew-all text-danger" data-uid="${pilot.uid}">Deregister</button>
+                    </div>
                 </td>
             `;
             tableBody.appendChild(tr);
         });
 
-        document.querySelectorAll('.delete-crew').forEach(btn => {
+        // Delink Pilot (Set linkedOperator to null)
+        document.querySelectorAll('.delink-crew').forEach(btn => {
             btn.addEventListener('click', () => {
-                const idx = parseInt(btn.getAttribute('data-idx'));
-                deleteCrew(idx);
+                const uid = btn.getAttribute('data-uid');
+                delinkPilotFromOperator(uid);
+            });
+        });
+
+        // Deregister Pilot completely
+        document.querySelectorAll('.delete-crew-all').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const uid = btn.getAttribute('data-uid');
+                deregisterPilotCompletely(uid);
             });
         });
     }
 
-    function deleteCrew(idx) {
-        const crew = JSON.parse(localStorage.getItem('vams_crew')) || [];
-        const name = crew[idx].name;
-        if (confirm(`Remove personnel ${name} from organizational records?`)) {
-            crew.splice(idx, 1);
-            localStorage.setItem('vams_crew', JSON.stringify(crew));
-            renderCrewTable();
-            refreshTelemetryStats();
-            logActivityStream(`Personnel ${name} deregistered.`);
+    async function delinkPilotFromOperator(pilotUid) {
+        if (confirm("Delink this pilot from your organization? They can link with another manager later.")) {
+            try {
+                await db.collection("users").document(pilotUid).update({
+                    linkedOperator: null
+                });
+                logActivityStream(`Delinked pilot profile: ${pilotUid}.`);
+            } catch (err) {
+                console.error("Delinking failure:", err);
+            }
         }
     }
 
-    // Modal Control: Crew
+    async function deregisterPilotCompletely(pilotUid) {
+        if (confirm("Completely remove this pilot and all their license records from the database?")) {
+            try {
+                // Delete all license documents for this pilot
+                const docsSnapshot = await db.collection("user_documents").where("userId", "==", pilotUid).get();
+                const batch = db.batch();
+                docsSnapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+
+                // Delete pilot profile
+                await db.collection("users").document(pilotUid).delete();
+                logActivityStream(`Deregistered pilot and deleted license records.`);
+            } catch (err) {
+                console.error("Deregistration error:", err);
+            }
+        }
+    }
+
+    // Modal Control: Crew (Direct Profile creation for testing/offline sync)
     btnOpenCrewModal.addEventListener('click', () => addCrewModal.classList.add('active'));
     btnCloseCrewModal.addEventListener('click', () => addCrewModal.classList.remove('active'));
 
-    formAddCrew.addEventListener('submit', (e) => {
+    formAddCrew.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = document.getElementById('crew-name').value;
-        const rank = document.getElementById('crew-rank').value;
-        const license = document.getElementById('crew-license').value.toUpperCase();
-        const medical = document.getElementById('crew-medical').value;
+        const name = document.getElementById('crew-name').value.trim();
+        const licenseNum = document.getElementById('crew-license').value.trim().toUpperCase();
+        const medicalExpiryStr = document.getElementById('crew-medical').value;
 
-        const crew = JSON.parse(localStorage.getItem('vams_crew')) || [];
-        const newMember = { name, rank, license, medical, status: 'Valid' };
+        if (!currentSession) return;
 
-        crew.push(newMember);
-        localStorage.setItem('vams_crew', JSON.stringify(crew));
+        try {
+            // Generate a random ID for this Pilot's user document
+            const pilotUid = db.collection("users").document().id;
+            
+            // Create user profile in /users/{pilotUid}
+            const pilotProfile = {
+                uid: pilotUid,
+                name: name,
+                email: `${name.toLowerCase().replace(/ /g, '_')}@airvyom.com`,
+                role: "PILOT",
+                linkedOperator: currentSession.uid, // Instantly link to this operator
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
 
-        addCrewModal.classList.remove('active');
-        formAddCrew.reset();
+            await db.collection("users").document(pilotUid).set(pilotProfile);
 
-        renderCrewTable();
-        refreshTelemetryStats();
-        logActivityStream(`Aviation personnel ${name} added.`);
+            // Create Class 1 Medical document in /user_documents
+            const medicalDocId = db.collection("user_documents").document().id;
+            const medicalDoc = {
+                firestoreId: medicalDocId,
+                userId: pilotUid,
+                userName: name,
+                documentName: "Class 1 Medical",
+                documentCategory: "MEDICAL",
+                licenseOrCertificateNumber: "MED-" + licenseNum,
+                issueDate: firebase.firestore.Timestamp.fromDate(new Date()),
+                expiryDate: firebase.firestore.Timestamp.fromDate(new Date(medicalExpiryStr)),
+                reminderLeadTimeDays: 30,
+                operatorId: currentSession.uid,
+                readers: [pilotUid, currentSession.uid]
+            };
+
+            await db.collection("user_documents").document(medicalDocId).set(medicalDoc);
+
+            // Create License document (CPL/ALTP) in /user_documents
+            const licenseDocId = db.collection("user_documents").document().id;
+            const licenseDoc = {
+                firestoreId: licenseDocId,
+                userId: pilotUid,
+                userName: name,
+                documentName: "Commercial Pilot License (CPL)",
+                documentCategory: "LICENCE",
+                licenseOrCertificateNumber: licenseNum,
+                issueDate: firebase.firestore.Timestamp.fromDate(new Date()),
+                expiryDate: firebase.firestore.Timestamp.fromDate(new Date(getFutureDate(365))), // default 1 year
+                reminderLeadTimeDays: 30,
+                operatorId: currentSession.uid,
+                readers: [pilotUid, currentSession.uid]
+            };
+
+            await db.collection("user_documents").document(licenseDocId).set(licenseDoc);
+
+            addCrewModal.classList.remove('active');
+            formAddCrew.reset();
+
+            logActivityStream(`Created pilot profile and licenses for: ${name}.`);
+        } catch (err) {
+            console.error("Direct pilot addition failure:", err);
+            alert("Error writing to Firestore: " + err.message);
+        }
     });
 
-
-    // --- Quick Action Hub Simulator Buttons ---
+    // --- Quick Action Hub Actions ---
     
-    // Simulate DGCA Audit
+    // Simulate DGCA Audit (real-time data audit)
     document.getElementById('btn-trigger-audit').addEventListener('click', () => {
-        const crew = JSON.parse(localStorage.getItem('vams_crew')) || [];
-        const fleet = JSON.parse(localStorage.getItem('vams_aircraft')) || [];
+        let report = `[DGCA AUDIT SIMULATION - LIVE DB]\n`;
         
-        let report = `[DGCA AUDIT SIMULATION]\n`;
-        const expired = crew.filter(c => c.status === 'Expired');
-        const maint = fleet.filter(a => a.status === 'Maintenance');
-        
-        if (expired.length > 0) {
-            report += `⚠️ COMPLIANCE VIOLATION: ${expired.length} crew members have expired medical ratings.\n`;
-        }
-        if (maint.length > 0) {
-            report += `ℹ️ MAINTENANCE HOLD: ${maint.length} aircraft locked in CAMO inspections.\n`;
-        }
-        if (expired.length === 0 && maint.length === 0) {
-            report += `✅ compliance check complete. 100% CAR compliance maintained. No findings.`;
-        } else {
-            report += `⚠️ Recommended: Clear expired personnel licenses immediately.`;
+        let expiredCount = 0;
+        let expiringCount = 0;
+        const today = new Date();
+
+        Object.keys(pilotDocumentsMap).forEach(uid => {
+            const docs = pilotDocumentsMap[uid];
+            const pilot = linkedPilots.find(p => p.uid === uid);
+            const pilotName = pilot ? pilot.name : "Unknown Pilot";
+
+            docs.forEach(doc => {
+                if (doc.expiryDate) {
+                    const expiry = doc.expiryDate.toDate ? doc.expiryDate.toDate() : new Date(doc.expiryDate);
+                    const diffTime = expiry - today;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    if (diffDays < 0) {
+                        report += `🚨 EXPIRED LICENSE: ${pilotName} - ${doc.documentName} expired on ${expiry.toISOString().split('T')[0]}.\n`;
+                        expiredCount++;
+                    } else if (diffDays <= 30) {
+                        report += `⚠️ EXPIRING SOON: ${pilotName} - ${doc.documentName} expires in ${diffDays} days.\n`;
+                        expiringCount++;
+                    }
+                }
+            });
+        });
+
+        const maintFleet = aircraftFleet.filter(a => a.status === 'Maintenance');
+        if (maintFleet.length > 0) {
+            report += `🔧 MAINTENANCE LOCKS: ${maintFleet.length} fleet aircraft are in CAMO checks.\n`;
         }
 
-        // Add to co-pilot chat automatically
+        if (expiredCount === 0 && expiringCount === 0 && maintFleet.length === 0) {
+            report += `✅ LIVE AUDIT PASSED: 100% CAR compliance maintained across all linked pilots & aircraft.`;
+        } else {
+            report += `🚨 Action Required: Resolve the above items to maintain DGCA CAR compliance.`;
+        }
+
         postCopilotMessage('System Alert', report, true);
-        logActivityStream('DGCA CAR Audit simulation triggered.');
+        logActivityStream('DGCA Live CAR Audit completed.');
     });
 
     // Log Training Flight
-    document.getElementById('btn-trigger-flight').addEventListener('click', () => {
-        const fleet = JSON.parse(localStorage.getItem('vams_aircraft')) || [];
-        const ops = fleet.filter(a => a.status === 'Operational');
-        if (ops.length === 0) {
+    document.getElementById('btn-trigger-flight').addEventListener('click', async () => {
+        const opsAircraft = aircraftFleet.filter(a => a.status === 'Operational');
+        if (opsAircraft.length === 0) {
             alert('Cannot schedule flights. All fleet aircraft are grounded/under inspection.');
             return;
         }
 
-        const ac = ops[Math.floor(Math.random() * ops.length)];
-        ac.nextInsp = Math.max(1, ac.nextInsp - 5); // reduce next maintenance time
-        localStorage.setItem('vams_aircraft', JSON.stringify(fleet));
-
-        renderFleetTable();
-        refreshTelemetryStats();
-        logActivityStream(`Flight logged for ${ac.reg} (C172). 5 hours block logged.`);
-        postCopilotMessage('System Message', `FlightVT logged successfully on ${ac.reg}. Next inspection is in ${ac.nextInsp} flight hours.`, true);
+        const targetAc = opsAircraft[Math.floor(Math.random() * opsAircraft.length)];
+        const nextInspRemaining = Math.max(1, targetAc.nextInsp - 5);
+        
+        try {
+            await db.collection("aircraft").document(targetAc.reg).update({
+                nextInsp: nextInspRemaining
+            });
+            logActivityStream(`Logged 5 flight hours on ${targetAc.reg}.`);
+            postCopilotMessage('System Message', `Flight block logged on ${targetAc.reg}. Maintenance inspection due in ${nextInspRemaining} flight hours.`, true);
+        } catch (err) {
+            console.error("Flight logging failed:", err);
+        }
     });
 
     // Release Aircraft
-    document.getElementById('btn-trigger-maint').addEventListener('click', () => {
-        const fleet = JSON.parse(localStorage.getItem('vams_aircraft')) || [];
-        const maint = fleet.filter(a => a.status === 'Maintenance');
-        if (maint.length === 0) {
+    document.getElementById('btn-trigger-maint').addEventListener('click', async () => {
+        const maintAircraft = aircraftFleet.filter(a => a.status === 'Maintenance');
+        if (maintAircraft.length === 0) {
             alert('No fleet aircraft currently locked in maintenance.');
             return;
         }
 
-        const ac = maint[0];
-        ac.status = 'Operational';
-        ac.nextInsp = 100; // Reset inspection hours
-        ac.lastMaint = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
-        localStorage.setItem('vams_aircraft', JSON.stringify(fleet));
-
-        renderFleetTable();
-        refreshTelemetryStats();
-        logActivityStream(`Aircraft ${ac.reg} released from CAMO checks.`);
-        postCopilotMessage('System Message', `Aircraft ${ac.reg} released and signed off for operations after recurring checks.`, true);
+        const targetAc = maintAircraft[0];
+        const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+        
+        try {
+            await db.collection("aircraft").document(targetAc.reg).update({
+                status: 'Operational',
+                nextInsp: 100, // Reset
+                lastMaint: todayStr
+            });
+            logActivityStream(`Released ${targetAc.reg} from CAMO maintenance.`);
+            postCopilotMessage('System Message', `Aircraft ${targetAc.reg} released and signed off for operations after recurring checks.`, true);
+        } catch (err) {
+            console.error("Aircraft release failed:", err);
+        }
     });
 
     // Ground Aircraft
-    document.getElementById('btn-trigger-ground').addEventListener('click', () => {
-        const fleet = JSON.parse(localStorage.getItem('vams_aircraft')) || [];
-        const ops = fleet.filter(a => a.status === 'Operational');
-        if (ops.length === 0) {
+    document.getElementById('btn-trigger-ground').addEventListener('click', async () => {
+        const opsAircraft = aircraftFleet.filter(a => a.status === 'Operational');
+        if (opsAircraft.length === 0) {
             alert('All aircraft already grounded or in maintenance.');
             return;
         }
 
-        const ac = ops[0];
-        ac.status = 'Maintenance';
-        localStorage.setItem('vams_aircraft', JSON.stringify(fleet));
-
-        renderFleetTable();
-        refreshTelemetryStats();
-        logActivityStream(`Aircraft ${ac.reg} grounded for maintenance check.`);
-        postCopilotMessage('System Message', `Alert: Aircraft ${ac.reg} has been flagged Grounded/Maintenance. DGCA airworthiness score updated.`, true);
+        const targetAc = opsAircraft[0];
+        
+        try {
+            await db.collection("aircraft").document(targetAc.reg).update({
+                status: 'Maintenance'
+            });
+            logActivityStream(`Aircraft ${targetAc.reg} grounded for repairs.`);
+            postCopilotMessage('System Message', `Alert: Aircraft ${targetAc.reg} has been flagged Grounded/Maintenance. DGCA airworthiness score updated.`, true);
+        } catch (err) {
+            console.error("Grounding failed:", err);
+        }
     });
-
 
     // --- VAMS Co-Pilot AI Chat Logic ---
     const copilotChatMini = document.getElementById('copilot-chat');
@@ -695,7 +969,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const copilotFormMini = document.getElementById('copilot-form');
     const copilotFormFull = document.getElementById('copilot-form-full');
 
-    // Handle submissions
+    // Submit handler
     copilotFormMini.addEventListener('submit', (e) => {
         e.preventDefault();
         const text = copilotInputMini.value.trim();
@@ -723,10 +997,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function handleCopilotUserQuery(query) {
-        // Post user message
         postCopilotMessage('You', query, false);
 
-        // Calculate Answer
         setTimeout(() => {
             const answer = generateCopilotResponse(query);
             postCopilotMessage('VAMS Co-Pilot', answer, true);
@@ -765,41 +1037,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function generateCopilotResponse(query) {
         const q = query.toLowerCase();
-        const fleet = JSON.parse(localStorage.getItem('vams_aircraft')) || [];
-        const crew = JSON.parse(localStorage.getItem('vams_crew')) || [];
-
+        
         if (q.includes('medical') || q.includes('expiry') || q.includes('personnel')) {
-            const expiring = crew.filter(c => c.status === 'Expiring Soon');
-            const expired = crew.filter(c => c.status === 'Expired');
-            
-            let res = `📋 **Crew Health Audit Report:**\n`;
-            if (expired.length === 0 && expiring.length === 0) {
-                return res + `✅ All registered personnel have fully active Class 1/2 medical certifications.`;
-            }
-            
-            if (expired.length > 0) {
-                res += `🛑 **Expired License Holders (Suspended):**\n`;
-                expired.forEach(c => res += `- ${c.name} (${c.rank}): Expired on ${c.medical}\n`);
-            }
-            if (expiring.length > 0) {
-                res += `⚠️ **Expiring in 30 Days:**\n`;
-                expiring.forEach(c => res += `- ${c.name} (${c.rank}): Expires on ${c.medical}\n`);
+            let res = `📋 **Crew Health Audit Report (Live Firestore):**\n`;
+            let foundAny = false;
+            const today = new Date();
+
+            Object.keys(pilotDocumentsMap).forEach(uid => {
+                const docs = pilotDocumentsMap[uid];
+                const pilot = linkedPilots.find(p => p.uid === uid);
+                const pilotName = pilot ? pilot.name : "Unknown Pilot";
+
+                docs.forEach(doc => {
+                    if (doc.documentName && doc.documentName.toLowerCase().includes('medical')) {
+                        const expiry = doc.expiryDate.toDate ? doc.expiryDate.toDate() : new Date(doc.expiryDate);
+                        const diffTime = expiry - today;
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                        if (diffDays < 0) {
+                            res += `- 🛑 **${pilotName}**: Medical expired on ${expiry.toISOString().split('T')[0]}\n`;
+                            foundAny = true;
+                        } else if (diffDays <= 30) {
+                            res += `- ⚠️ **${pilotName}**: Medical expires on ${expiry.toISOString().split('T')[0]} (in ${diffDays} days)\n`;
+                            foundAny = true;
+                        }
+                    }
+                });
+            });
+
+            if (!foundAny) {
+                res += `✅ All linked pilot medical certifications are fully active.`;
             }
             return res;
         }
 
         if (q.includes('airworthiness') || q.includes('fleet') || q.includes('aircraft')) {
-            const operational = fleet.filter(a => a.status === 'Operational');
-            const maint = fleet.filter(a => a.status === 'Maintenance');
+            const operational = aircraftFleet.filter(a => a.status === 'Operational');
+            const maint = aircraftFleet.filter(a => a.status === 'Maintenance');
             
-            let res = `✈️ **Fleet Airworthiness Status:**\n`;
-            res += `- Total Fleet size: ${fleet.length} registered aircraft\n`;
+            let res = `✈️ **Fleet Airworthiness Status (Live Firestore):**\n`;
+            res += `- Total Fleet size: ${aircraftFleet.length} registered aircraft\n`;
             res += `- Active/Operational: ${operational.length}\n`;
             res += `- Under CAMO inspection lock: ${maint.length}\n\n`;
 
             if (maint.length > 0) {
                 res += `🔧 **Awaiting Sign-off:**\n`;
-                maint.forEach(a => res += `- ${a.reg} (${a.type}): ${a.nextInsp} inspection hours remaining.\n`);
+                maint.forEach(a => res += `- ${a.reg} (${a.type}): Next inspection in ${a.nextInsp} flight hours.\n`);
             } else {
                 res += `✅ All planes are fully operational.`;
             }
@@ -808,17 +1091,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (q.includes('compliance') || q.includes('score')) {
             const scoreEl = document.getElementById('compliance-rating');
-            const score = scoreEl ? scoreEl.textContent : '96.8%';
+            const score = scoreEl ? scoreEl.textContent : '100.0%';
             
             let res = `🛡️ **Compliance Audit Log (VAMS Score: ${score})**\n`;
-            res += `This score is automatically calculated using DGCA CAR regulatory compliance checklists:\n`;
-            res += `1. **Personnel:** Any expired crew medical drops score by 10% (Immediate safety hold).\n`;
+            res += `This score is synced dynamically with your Cloud Firestore collections:\n`;
+            res += `1. **Personnel:** Any expired pilot medical drops score by 10%.\n`;
             res += `2. **Fleet:** Grounded aircraft under inspection drops score by 2.5%.\n\n`;
-            res += `*VAMS monitors this feed dynamically to assure complete compliance status.*`;
+            res += `*Connect new pilots on their mobile app using your operator ID to update.*`;
             return res;
         }
 
-        return `Inquiry received. Over VAMS DB: I found ${fleet.length} aircraft and ${crew.length} active pilots. Let me know if you would like me to audit credentials or check airworthiness.`;
+        return `Inquiry received. Checked Firestore: I found ${aircraftFleet.length} aircraft and ${linkedPilots.length} active pilots. Let me know if you would like me to audit credentials or check airworthiness.`;
     }
 
 });
