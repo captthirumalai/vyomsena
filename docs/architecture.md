@@ -32,6 +32,9 @@ This project follows a layered structure:
 - Added shell styling for `.vs-shell`, `.vs-sidebar`, and `.vs-app-view` in `css/main.css`.
 - Verified auth flow toggles between login UI and app shell using `showLanding()` / `showAppShell()`.
 - Added active route display in the topbar and dynamic browser title updates during navigation.
+- Introduced module manifest files for `dashboard`, `crew`, and `aircraft` so routes are defined per module and easily plugged into the router.
+- Added a router lifecycle cleanup step to call `destroy()` on the previously active module before loading a new route.
+- Standardized module `init(view)` to return an optional lifecycle object with `destroy()`.
 
 ## Decisions & Guidelines
 

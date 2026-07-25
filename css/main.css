@@ -361,7 +361,7 @@ img {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.15rem;
+  gap: 0.35rem;
 }
 
 .route-label {
@@ -375,6 +375,35 @@ img {
 #app-route {
   margin: 0;
   font-size: 1rem;
+  color: var(--secondary-color);
+}
+
+.route-breadcrumbs {
+  display: block;
+}
+
+.breadcrumb-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.breadcrumb-item {
+  position: relative;
+  color: var(--muted-color);
+  font-size: 0.85rem;
+}
+
+.breadcrumb-item:not(.active)::after {
+  content: '\00b7';
+  margin-left: 0.5rem;
+  color: var(--border-color);
+}
+
+.breadcrumb-item.active {
   color: var(--secondary-color);
 }
 

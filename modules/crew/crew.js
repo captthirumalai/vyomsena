@@ -11,4 +11,10 @@ export function init(view) {
   });
 
   console.log('Crew module initialized');
+
+  return {
+    destroy() {
+      console.log('Crew module destroyed');
+    }
+  };
 }

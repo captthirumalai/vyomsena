@@ -11,4 +11,10 @@ export function init(view) {
   });
 
   console.log('Aircraft module initialized');
+
+  return {
+    destroy() {
+      console.log('Aircraft module destroyed');
+    }
+  };
 }

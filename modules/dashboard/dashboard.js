@@ -11,4 +11,10 @@ export function init(view) {
   });
 
   console.log('Dashboard module initialized');
+
+  return {
+    destroy() {
+      console.log('Dashboard module destroyed');
+    }
+  };
 }

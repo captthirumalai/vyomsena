@@ -38,6 +38,15 @@ async function importModuleJs(route) {
   }
 }
 
+let activeModule = null;
+
+function cleanupActiveModule() {
+  if (activeModule && typeof activeModule.destroy === 'function') {
+    activeModule.destroy();
+  }
+  activeModule = null;
+}
+
 function getRouteFromHash() {
   const hash = window.location.hash.replace('#', '') || defaultRoute;
   return appRoutes.find((route) => route.path === hash) || appRoutes.find((route) => route.path === defaultRoute);
@@ -56,6 +65,8 @@ export async function initRouter() {
     view.innerHTML = html;
 
     const module = await importModuleJs(route);
+    cleanupActiveModule();
+
     if (module) {
       const routeInitName = `init${route.name.replace(/\s+/g, '')}`;
       const initFn =
@@ -65,7 +76,10 @@ export async function initRouter() {
         module[routeInitName];
 
       if (typeof initFn === 'function') {
-        initFn(view);
+        const moduleInstance = initFn(view);
+        if (moduleInstance && typeof moduleInstance.destroy === 'function') {
+          activeModule = moduleInstance;
+        }
       } else {
         console.warn(`Route module for ${route.name} has no init function`);
       }
@@ -73,10 +87,21 @@ export async function initRouter() {
 
     const appRouteLabel = document.getElementById('app-route');
     if (appRouteLabel) {
-      appRouteLabel.textContent = route.name;
+      appRouteLabel.textContent = route.title || route.name;
     }
 
-    document.title = `${route.name} — VAMS Portal`;
+    const breadcrumbContainer = document.getElementById('app-breadcrumbs');
+    if (breadcrumbContainer) {
+      const crumbs = route.breadcrumbs || ['Home', route.name];
+      breadcrumbContainer.innerHTML = crumbs
+        .map((crumb, index) => {
+          const isLast = index === crumbs.length - 1;
+          return `<li class="breadcrumb-item${isLast ? ' active' : ''}" aria-current="${isLast ? 'page' : 'false'}">${crumb}</li>`;
+        })
+        .join('');
+    }
+
+    document.title = `${route.title || route.name} — VAMS Portal`;
 
     document.querySelectorAll('.vs-sidebar-link').forEach((link) => {
       link.classList.toggle('active', link.getAttribute('href') === `#${route.path}`);

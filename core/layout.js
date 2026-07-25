@@ -34,6 +34,9 @@ export function initLayout() {
             <div class="route-copy">
               <p class="route-label">Current section</p>
               <h2 id="app-route">Dashboard</h2>
+              <nav class="route-breadcrumbs" aria-label="Breadcrumb">
+                <ol id="app-breadcrumbs" class="breadcrumb-list"></ol>
+              </nav>
             </div>
           </div>
           <div class="vs-topbar-actions">
