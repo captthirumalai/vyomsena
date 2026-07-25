@@ -81,3 +81,4 @@ This project follows a layered structure:
 ### Supporting docs
 - Permissions model and route authorization rules: `docs/permissions.md`
 - Standard module creation scaffold: `docs/module-template.md`
+- Shared Firestore schema contract: `docs/database.md`

@@ -2,6 +2,8 @@
 
 This document defines how roles and route permissions work in the V2 web app.
 
+The same stability principle applies here as in the data layer contract: avoid breaking role or permission field names used by Android and Web.
+
 ## Source of truth
 
 - Role is read from the authenticated profile in `users/{uid}` (field: `role`).

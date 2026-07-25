@@ -7,7 +7,8 @@ import {
   sendPasswordResetEmail,
   signOut
 } from './firebaseService.js';
-import { doc, getDoc, setDoc, serverTimestamp } from './firestoreService.js';
+import { serverTimestamp } from './firestoreService.js';
+import { getUserByUid, createUserProfile as createUserProfileRecord } from './userService.js';
 
 export function initializeFirebaseAuth() {
   initFirebase();
@@ -35,7 +36,7 @@ export async function registerWorkspace({ name, type, email, password }) {
     createdAt: serverTimestamp()
   };
 
-  await setDoc(doc('users', uid), profile);
+  await createUserProfileRecord(profile);
   return profile;
 }
 
@@ -48,11 +49,9 @@ export async function signOutUser() {
 }
 
 export async function loadUserProfile(uid) {
-  const profileRef = doc('users', uid);
-  const profileSnapshot = await getDoc(profileRef);
-  return profileSnapshot.exists() ? profileSnapshot.data() : null;
+  return await getUserByUid(uid);
 }
 
 export async function createUserProfile(uid, profileData) {
-  return await setDoc(doc('users', uid), profileData);
+  return await createUserProfileRecord({ uid, ...profileData });
 }
