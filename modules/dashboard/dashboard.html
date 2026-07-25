@@ -1,10 +1,37 @@
 <section class="card">
-  <h2>Dashboard</h2>
-  <p>Welcome to the dashboard module.</p>
+  <div class="card-heading">
+    <h2>Dashboard Overview</h2>
+    <p>Live operational metrics for your organization.</p>
+  </div>
+  <div class="dashboard-summary" id="dashboard-summary">
+    <div class="summary-card">
+      <strong id="fleet-total">0</strong>
+      <span>Total Fleet</span>
+    </div>
+    <div class="summary-card">
+      <strong id="fleet-operational">0</strong>
+      <span>Operational</span>
+    </div>
+    <div class="summary-card">
+      <strong id="fleet-maintenance">0</strong>
+      <span>Under Maintenance</span>
+    </div>
+    <div class="summary-card">
+      <strong id="crew-total">0</strong>
+      <span>Total Crew</span>
+    </div>
+    <div class="summary-card">
+      <strong id="crew-expiring">0</strong>
+      <span>Licenses Expiring</span>
+    </div>
+    <div class="summary-card">
+      <strong id="crew-expired">0</strong>
+      <span>Licenses Expired</span>
+    </div>
+  </div>
 </section>
 
 <section class="card">
-  <h3>Operations Summary</h3>
-  <p>Active flights: 12</p>
-  <p>Pending maintenance: 3</p>
+  <h3>Recent Activity</h3>
+  <p id="dashboard-activity">Monitoring live data from Firestore and reflecting the same dataset as Android.</p>
 </section>

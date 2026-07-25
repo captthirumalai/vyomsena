@@ -1,3 +1,62 @@
+import { getMenuRoutesForUser } from '../shared/routes.js';
+import { authStore } from '../stores/authStore.js';
+import { themeStore } from '../stores/themeStore.js';
+
+function query(selector) {
+  return document.querySelector(selector);
+}
+
+function getUserLabel(user) {
+  if (!user) return 'Secure operations dashboard';
+  return `Signed in as ${user.name || user.email || user.uid}`;
+}
+
+function renderSidebar(user) {
+  const nav = query('#app-sidebar-nav');
+  if (!nav) return;
+
+  const routes = getMenuRoutesForUser(user);
+  if (!routes.length) {
+    nav.innerHTML = '<p class="vs-sidebar-empty">No modules available for your role.</p>';
+    return;
+  }
+
+  nav.innerHTML = routes
+    .map(
+      (route) => `
+        <a href="#${route.path}" class="vs-sidebar-link" data-route="${route.path}" aria-label="${route.title || route.name}">
+          <span class="vs-nav-icon">${route.icon || '•'}</span>
+          <span>${route.title || route.name}</span>
+        </a>
+      `
+    )
+    .join('');
+}
+
+function updateUserPanel(user) {
+  const label = query('#app-user');
+  if (label) label.textContent = getUserLabel(user);
+  renderSidebar(user);
+}
+
+function updateThemeButton(theme) {
+  const button = query('#btn-theme-toggle');
+  if (!button) return;
+  button.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+function setActiveSidebarLink(path) {
+  document.querySelectorAll('.vs-sidebar-link').forEach((link) => {
+    link.classList.toggle('active', link.getAttribute('href') === `#${path}`);
+  });
+}
+
+function initShellActions() {
+  query('#btn-theme-toggle')?.addEventListener('click', () => {
+    themeStore.toggleTheme();
+  });
+}
+
 export function initLayout() {
   const app = document.getElementById('app');
   if (!app) return;
@@ -13,11 +72,7 @@ export function initLayout() {
           </div>
         </div>
 
-        <nav class="vs-sidebar-nav">
-          <a href="#/dashboard" class="vs-sidebar-link">Dashboard</a>
-          <a href="#/crew" class="vs-sidebar-link">Crew</a>
-          <a href="#/aircraft" class="vs-sidebar-link">Aircraft</a>
-        </nav>
+        <nav class="vs-sidebar-nav" id="app-sidebar-nav"></nav>
 
         <div class="vs-sidebar-footer">
           <button id="btn-signout-mobile" class="vs-button vs-button--secondary vs-button--sm">Sign out</button>
@@ -40,9 +95,12 @@ export function initLayout() {
             </div>
           </div>
           <div class="vs-topbar-actions">
+            <button id="btn-theme-toggle" class="vs-button vs-button--secondary vs-button--sm" type="button">🌙</button>
             <button id="btn-logout" class="vs-button vs-button--secondary vs-button--sm">Sign Out</button>
           </div>
         </header>
+
+        <div id="app-notification" class="vs-notification hidden"></div>
 
         <main class="vs-content">
           <section id="auth-view" class="vs-auth-shell">
@@ -194,9 +252,23 @@ export function initLayout() {
             <div id="view"></div>
           </section>
         </main>
+
+        <footer class="vs-footer hidden" id="app-footer">
+          <p>VyomSena — Aviation Management System</p>
+        </footer>
       </div>
     </div>
   `;
 
   app.innerHTML = shell;
+  initShellActions();
+  authStore.subscribe((state) => {
+    updateUserPanel(state.user);
+    setActiveSidebarLink(window.location.hash.replace('#', '') || '/dashboard');
+  });
+  themeStore.subscribe((state) => updateThemeButton(state.theme));
+
+  window.addEventListener('hashchange', () => {
+    setActiveSidebarLink(window.location.hash.replace('#', '') || '/dashboard');
+  });
 }

@@ -3,6 +3,8 @@ export const manifest = {
   name: 'Aircraft',
   title: 'Aircraft Fleet',
   icon: 'aircraft',
+  order: 30,
+  showInMenu: true,
   permissions: ['operations'],
   breadcrumbs: ['Home', 'Aircraft'],
   html: 'modules/aircraft/aircraft.html',

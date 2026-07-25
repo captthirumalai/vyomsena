@@ -3,6 +3,8 @@ export const manifest = {
   name: 'Dashboard',
   title: 'Dashboard Overview',
   icon: 'dashboard',
+  order: 10,
+  showInMenu: true,
   permissions: ['operations'],
   breadcrumbs: ['Home', 'Dashboard'],
   html: 'modules/dashboard/dashboard.html',

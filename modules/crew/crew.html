@@ -1,10 +1,19 @@
 <section class="card">
-  <h2>Crew</h2>
-  <p>Manage crew records here.</p>
-</section>
-
-<section class="card">
-  <h3>Crew Status</h3>
-  <p>On duty: 18</p>
-  <p>Resting: 7</p>
+  <div class="card-heading">
+    <h2>Crew Management</h2>
+    <p>Live pilot roster and license status from Firestore.</p>
+  </div>
+  <div class="crew-list" id="crew-list">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Status</th>
+          <th>Documents</th>
+        </tr>
+      </thead>
+      <tbody id="crew-table-body"></tbody>
+    </table>
+  </div>
 </section>

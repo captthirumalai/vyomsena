@@ -1,4 +1,6 @@
-import { appRoutes, defaultRoute } from '../shared/routes.js';
+import { appRoutes, defaultRoute, canAccessRoute } from '../shared/routes.js';
+import { authStore, themeStore } from '../stores/index.js';
+import { emit as emitEvent } from '../services/eventBus.js';
 
 async function loadModuleHtml(route) {
   try {
@@ -60,12 +62,35 @@ export async function initRouter() {
     const route = getRouteFromHash();
     if (!route) return;
 
+    const user = authStore.user;
+    if (!canAccessRoute(route, user)) {
+      view.innerHTML = `<section class="card"><h2>Access denied</h2><p>You do not have permission to access ${route.title || route.name}.</p></section>`;
+      emitEvent('navigation:after', { route, user, authorized: false });
+      return;
+    }
+
+    emitEvent('navigation:before', { route, user });
     await loadModuleCss(route);
     const html = await loadModuleHtml(route);
     view.innerHTML = html;
 
     const module = await importModuleJs(route);
     cleanupActiveModule();
+
+    const context = {
+      currentUser: authStore.user,
+      stores: {
+        authStore,
+        themeStore
+      },
+      route,
+      router: {
+        navigate(path) {
+          window.location.hash = `#${path}`;
+        },
+        currentPath: route.path
+      }
+    };
 
     if (module) {
       const routeInitName = `init${route.name.replace(/\s+/g, '')}`;
@@ -76,7 +101,7 @@ export async function initRouter() {
         module[routeInitName];
 
       if (typeof initFn === 'function') {
-        const moduleInstance = initFn(view);
+        const moduleInstance = await initFn(view, context);
         if (moduleInstance && typeof moduleInstance.destroy === 'function') {
           activeModule = moduleInstance;
         }
@@ -84,6 +109,8 @@ export async function initRouter() {
         console.warn(`Route module for ${route.name} has no init function`);
       }
     }
+
+    emitEvent('navigation:after', { route, user, authorized: true });
 
     const appRouteLabel = document.getElementById('app-route');
     if (appRouteLabel) {

@@ -1,5 +1,16 @@
-import { initFirebase, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, doc, getDoc, setDoc, serverTimestamp } from './firebase.js';
+import { authStore } from '../stores/authStore.js';
+import {
+  initializeFirebaseAuth,
+  authStateObserver,
+  signIn,
+  registerWorkspace,
+  sendResetEmail,
+  signOutUser,
+  loadUserProfile,
+  createUserProfile
+} from '../services/authService.js';
 import { initRouter } from './router.js';
+import { emit as emitEvent } from '../services/eventBus.js';
 
 let routerStarted = false;
 
@@ -37,13 +48,19 @@ function setActiveCard(cardName) {
 }
 
 function showLanding() {
-  query('#auth-view')?.classList.add('active');
-  query('#app-shell')?.classList.add('hidden');
+  query('#auth-view')?.classList.remove('hidden');
+  query('#app-view')?.classList.add('hidden');
+  query('#app-topbar')?.classList.add('hidden');
+  query('#app-sidebar')?.classList.add('hidden');
+  query('#app-footer')?.classList.add('hidden');
 }
 
 function showAppShell() {
-  query('#auth-view')?.classList.remove('active');
-  query('#app-shell')?.classList.remove('hidden');
+  query('#auth-view')?.classList.add('hidden');
+  query('#app-view')?.classList.remove('hidden');
+  query('#app-topbar')?.classList.remove('hidden');
+  query('#app-sidebar')?.classList.remove('hidden');
+  query('#app-footer')?.classList.remove('hidden');
 }
 
 function showError(element, message) {
@@ -59,11 +76,7 @@ function clearError(element) {
 }
 
 export function initAuth() {
-  const { auth, db } = initFirebase();
-  if (!auth || !db) {
-    console.error('Firebase did not initialize correctly.');
-    return;
-  }
+  initializeFirebaseAuth();
 
   const loginForm = query('#login-form');
   const registerForm = query('#register-form');
@@ -73,6 +86,7 @@ export function initAuth() {
   const goRecover = query('#go-recover');
   const goLoginFromRecover = query('#go-login-from-recover');
   const logoutButton = query('#btn-logout');
+  const logoutMobileButton = query('#btn-signout-mobile');
   const appUserLabel = query('#app-user');
   const loginError = query('#login-error');
   const registerError = query('#register-error');
@@ -124,7 +138,7 @@ export function initAuth() {
     setButtonState(button, true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signIn(email, password);
     } catch (err) {
       showError(loginError, err.message || 'Unable to sign in.');
     } finally {
@@ -150,18 +164,7 @@ export function initAuth() {
     setButtonState(button, true);
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const uid = userCredential.user.uid;
-      const profile = {
-        uid,
-        name: orgName,
-        email,
-        role: 'OPERATIONS',
-        operatorType: orgType,
-        createdAt: serverTimestamp()
-      };
-
-      await setDoc(doc(db, 'users', uid), profile);
+      await registerWorkspace({ name: orgName, type: orgType, email, password });
     } catch (err) {
       showError(registerError, err.message || 'Unable to create an account.');
     } finally {
@@ -186,7 +189,7 @@ export function initAuth() {
     setButtonState(button, true);
 
     try {
-      await sendPasswordResetEmail(auth, email);
+      await sendResetEmail(email);
       showElement(recoverSuccess);
       query('#recover-email').value = '';
     } catch (err) {
@@ -197,30 +200,33 @@ export function initAuth() {
   });
 
   logoutButton?.addEventListener('click', async () => {
-    await signOut(auth);
+    await signOutUser();
     setActiveCard('login');
   });
 
-  onAuthStateChanged(auth, async (user) => {
+  logoutMobileButton?.addEventListener('click', async () => {
+    await signOutUser();
+    setActiveCard('login');
+  });
+
+  authStateObserver(async (user) => {
     if (user) {
       try {
-        const userRef = doc(db, 'users', user.uid);
-        const profileSnapshot = await getDoc(userRef);
-        let profileData;
+        let profileData = await loadUserProfile(user.uid);
 
-        if (profileSnapshot.exists()) {
-          profileData = profileSnapshot.data();
-        } else {
+        if (!profileData) {
           profileData = {
             uid: user.uid,
             name: user.displayName || user.email?.split('@')[0] || 'User',
             email: user.email,
             role: 'OPERATIONS',
-            createdAt: serverTimestamp()
+            createdAt: new Date().toISOString()
           };
-          await setDoc(userRef, profileData);
+          await createUserProfile(user.uid, profileData);
         }
 
+        authStore.setUser(profileData);
+        emitEvent('auth:login', profileData);
         appUserLabel.textContent = `Signed in as ${profileData.name || user.email}`;
         showAppShell();
 
@@ -231,9 +237,11 @@ export function initAuth() {
       } catch (err) {
         console.error('Auth profile load failed:', err);
         showError(loginError, 'Unable to load profile. Please try again later.');
-        await signOut(auth);
+        await signOutUser();
       }
     } else {
+      authStore.clearUser();
+      emitEvent('auth:logout', null);
       appUserLabel.textContent = 'Secure operations dashboard';
       showLanding();
     }

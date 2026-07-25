@@ -20,12 +20,35 @@ export class BaseModule {
     });
   }
 
-  async load() {
+  async init(context) {
+    await this.load(context);
+    this.render(context);
+    this.bindEvents(context);
+    return this;
+  }
+
+  async load(context) {
     return Promise.resolve();
   }
 
-  async refresh() {
+  render(context) {
+    return null;
+  }
+
+  bindEvents(context) {
+    // Override in modules to attach event listeners.
+  }
+
+  async refresh(context) {
     return Promise.resolve();
+  }
+
+  onEnter(context) {
+    // Called when the module becomes active.
+  }
+
+  onLeave() {
+    // Called when the module is deactivated.
   }
 
   destroy() {

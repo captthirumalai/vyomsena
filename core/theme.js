@@ -1,3 +1,5 @@
+import { themeStore } from '../stores/themeStore.js';
+
 export function initTheme() {
-  document.body.classList.add('theme-ready');
+  themeStore.init();
 }
