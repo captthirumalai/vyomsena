@@ -35,13 +35,19 @@ This project follows a layered structure:
 - Introduced module manifest files for `dashboard`, `crew`, and `aircraft` so routes are defined per module and easily plugged into the router.
 - Added a router lifecycle cleanup step to call `destroy()` on the previously active module before loading a new route.
 - Standardized module `init(view)` to return an optional lifecycle object with `destroy()`.
+- Added Firestore-backed module services and updated crew/aircraft/dashboard modules to read the same dataset structure used by the Android app.
+- Added manifest-driven route metadata for `title`, `path`, `icon`, `order`, `showInMenu`, `permissions`, `breadcrumbs`, `html`, `js`, and `css`.
+- Implemented role-based route authorization and sidebar menu filtering through manifest permissions.
+- Introduced a lightweight event bus for cross-module events such as auth and navigation.
 
 ## Decisions & Guidelines
 
 ### App architecture
 - The app is a modular single-page application using a shared shell and dynamic module loader.
 - `core/` owns common behavior: layout, theme, notifications, and global UI shell.
-- `shared/routes.js` defines the route manifest; modules register there with HTML, JS, CSS, and fallback content.
+- `shared/routes.js` defines the route manifest; modules register there with HTML, JS, CSS, permissions, and metadata.
+- `layout.js` now generates the sidebar from manifests and applies permission filtering for the current user.
+- `js/router.js` creates a richer module context object for `init(view, context)` and enforces `canAccessRoute()` before loading protected routes.
 - Modules remain isolated and only update the content area (`#view`).
 - A consistent `components/` library will provide reusable UI primitives.
 
@@ -68,3 +74,10 @@ This project follows a layered structure:
 - Keep modules small: HTML + module-specific JS + optional CSS.
 - Add shared helpers to `shared/` for constants, routes, permissions, and events.
 - Prefer reusable components over ad-hoc UI in module files.
+- Keep route metadata in manifests so new modules automatically appear in the sidebar when `showInMenu` is true.
+- Keep permissions in manifests and avoid hardcoding access rules in layouts or pages.
+- Use `context.currentUser` and `context.stores` inside modules rather than global window variables.
+
+### Supporting docs
+- Permissions model and route authorization rules: `docs/permissions.md`
+- Standard module creation scaffold: `docs/module-template.md`
