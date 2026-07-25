@@ -102,6 +102,16 @@ Use services:
 - `services/trainingService.js`
 - `services/firestoreService.js`
 
+## Runtime schema validation
+
+Warning-first schema checks are enabled in service-layer reads and writes.
+
+- Validator module: `services/schemaContract.js`
+- Behavior: logs contract drift to console, does not block writes yet
+- Purpose: detect Android/Web field mismatches early without breaking production flow
+
+When drift is detected, fix service mapping or update this contract document before adding new UI logic.
+
 ## Compatibility checklist
 
 Before merging schema-impacting changes:

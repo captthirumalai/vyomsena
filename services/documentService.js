@@ -10,6 +10,7 @@ import {
   onSnapshot,
   serverTimestamp
 } from './firestoreService.js';
+import { validateContract, validateReadersField } from './schemaContract.js';
 
 function toDateValue(value) {
   const raw = value?.toDate ? value.toDate() : value;
@@ -40,7 +41,12 @@ export async function listDocumentsByUser(userId) {
   const docsRef = collection('user_documents');
   const docsQuery = query(docsRef, where('userId', '==', userId));
   const snapshot = await getDocs(docsQuery);
-  return snapshot.docs.map((item) => ({ firestoreId: item.id, ...item.data() }));
+  return snapshot.docs.map((item) => {
+    const data = { firestoreId: item.id, ...item.data() };
+    validateContract('user_documents', data, 'listDocumentsByUser', 'read');
+    validateReadersField(data, 'listDocumentsByUser', 'read');
+    return data;
+  });
 }
 
 export async function listDocumentsByUserIds(userIds) {
@@ -51,14 +57,26 @@ export async function listDocumentsByUserIds(userIds) {
   const docsRef = collection('user_documents');
   const chunks = chunk(userIds, 10);
   const snapshots = await Promise.all(chunks.map((group) => getDocs(query(docsRef, where('userId', 'in', group)))));
-  return snapshots.flatMap((snapshot) => snapshot.docs.map((item) => ({ firestoreId: item.id, ...item.data() })));
+  return snapshots.flatMap((snapshot) =>
+    snapshot.docs.map((item) => {
+      const data = { firestoreId: item.id, ...item.data() };
+      validateContract('user_documents', data, 'listDocumentsByUserIds', 'read');
+      validateReadersField(data, 'listDocumentsByUserIds', 'read');
+      return data;
+    })
+  );
 }
 
 export async function listReadableDocuments(readerUid) {
   const docsRef = collection('user_documents');
   const docsQuery = query(docsRef, where('readers', 'array-contains', readerUid));
   const snapshot = await getDocs(docsQuery);
-  return snapshot.docs.map((item) => ({ firestoreId: item.id, ...item.data() }));
+  return snapshot.docs.map((item) => {
+    const data = { firestoreId: item.id, ...item.data() };
+    validateContract('user_documents', data, 'listReadableDocuments', 'read');
+    validateReadersField(data, 'listReadableDocuments', 'read');
+    return data;
+  });
 }
 
 export function groupDocumentsByUser(documents) {
@@ -109,17 +127,21 @@ export async function createUserDocument(payload) {
     lastModified: serverTimestamp()
   };
 
+  validateContract('user_documents', nextPayload, 'createUserDocument', 'write');
+  validateReadersField(nextPayload, 'createUserDocument', 'write');
   const createdRef = await addDoc(documentsRef, nextPayload);
   await updateDoc(createdRef, { firestoreId: createdRef.id });
   return { firestoreId: createdRef.id, ...nextPayload };
 }
 
 export async function updateUserDocument(documentId, updates, editedBy = null) {
-  await updateDoc(doc('user_documents', documentId), {
+  const payload = {
     ...updates,
     lastEditedBy: editedBy,
     lastModified: serverTimestamp()
-  });
+  };
+  validateReadersField(payload, 'updateUserDocument', 'write');
+  await updateDoc(doc('user_documents', documentId), payload);
 }
 
 export async function deleteUserDocument(documentId) {

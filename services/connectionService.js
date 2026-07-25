@@ -10,6 +10,7 @@ import {
   onSnapshot,
   serverTimestamp
 } from './firestoreService.js';
+import { validateContract } from './schemaContract.js';
 
 const COLLECTION = 'connection_requests';
 
@@ -26,6 +27,7 @@ export async function sendConnectionRequest(payload) {
     lastModified: serverTimestamp()
   };
 
+  validateContract('connection_requests', requestData, 'sendConnectionRequest', 'write');
   const requestRef = await addDoc(requestsRef, requestData);
   await updateDoc(requestRef, { requestId: requestRef.id });
   return { requestId: requestRef.id, ...requestData };
@@ -35,14 +37,22 @@ export async function listIncomingRequests(recipientId) {
   const requestsRef = collection(COLLECTION);
   const incomingQuery = query(requestsRef, where('recipientId', '==', recipientId));
   const snapshot = await getDocs(incomingQuery);
-  return snapshot.docs.map((item) => ({ requestId: item.id, ...item.data() }));
+  return snapshot.docs.map((item) => {
+    const data = { requestId: item.id, ...item.data() };
+    validateContract('connection_requests', data, 'listIncomingRequests', 'read');
+    return data;
+  });
 }
 
 export async function listOutgoingRequests(requesterId) {
   const requestsRef = collection(COLLECTION);
   const outgoingQuery = query(requestsRef, where('requesterId', '==', requesterId));
   const snapshot = await getDocs(outgoingQuery);
-  return snapshot.docs.map((item) => ({ requestId: item.id, ...item.data() }));
+  return snapshot.docs.map((item) => {
+    const data = { requestId: item.id, ...item.data() };
+    validateContract('connection_requests', data, 'listOutgoingRequests', 'read');
+    return data;
+  });
 }
 
 export async function acceptConnectionRequest(requestId) {

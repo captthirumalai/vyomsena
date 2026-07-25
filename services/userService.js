@@ -11,13 +11,17 @@ import {
   onSnapshot,
   serverTimestamp
 } from './firestoreService.js';
+import { validateContract } from './schemaContract.js';
 
 const ROLE_PILOT = 'PILOT';
 
 export async function getUserByUid(uid) {
   const userRef = doc('users', uid);
   const snapshot = await getDoc(userRef);
-  return snapshot.exists() ? { uid: snapshot.id, ...snapshot.data() } : null;
+  if (!snapshot.exists()) return null;
+  const data = { uid: snapshot.id, ...snapshot.data() };
+  validateContract('users', data, 'getUserByUid', 'read');
+  return data;
 }
 
 export async function createUserProfile(profile) {
@@ -31,6 +35,7 @@ export async function createUserProfile(profile) {
     createdAt: profile.createdAt || serverTimestamp()
   };
 
+  validateContract('users', payload, 'createUserProfile', 'write');
   await setDoc(doc('users', uid), payload);
   return payload;
 }
@@ -45,6 +50,7 @@ export async function createPilotProfile(profile) {
     createdAt: profile.createdAt || serverTimestamp()
   };
 
+  validateContract('users', { uid: '(pending)', ...payload }, 'createPilotProfile', 'write');
   const createdRef = await addDoc(usersRef, payload);
   await updateDoc(createdRef, { uid: createdRef.id });
   return {
@@ -64,7 +70,11 @@ export async function listPilotsForOperator(operatorUid) {
   const usersRef = collection('users');
   const crewQuery = query(usersRef, where('linkedOperator', '==', operatorUid), where('role', '==', ROLE_PILOT));
   const snapshot = await getDocs(crewQuery);
-  return snapshot.docs.map((item) => ({ uid: item.id, ...item.data() }));
+  return snapshot.docs.map((item) => {
+    const data = { uid: item.id, ...item.data() };
+    validateContract('users', data, 'listPilotsForOperator', 'read');
+    return data;
+  });
 }
 
 export function watchPilotsForOperator(operatorUid, onNext, onError) {
@@ -91,5 +101,9 @@ export async function findUsersByRole(role) {
   const usersRef = collection('users');
   const roleQuery = query(usersRef, where('role', '==', role));
   const snapshot = await getDocs(roleQuery);
-  return snapshot.docs.map((item) => ({ uid: item.id, ...item.data() }));
+  return snapshot.docs.map((item) => {
+    const data = { uid: item.id, ...item.data() };
+    validateContract('users', data, 'findUsersByRole', 'read');
+    return data;
+  });
 }
