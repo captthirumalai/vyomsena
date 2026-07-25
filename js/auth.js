@@ -1,3 +1,241 @@
-export function login() {
-  console.log('Login placeholder');
+import { initFirebase, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, doc, getDoc, setDoc, serverTimestamp } from './firebase.js';
+import { initRouter } from './router.js';
+
+let routerStarted = false;
+
+function query(selector) {
+  return document.querySelector(selector);
+}
+
+function setButtonState(button, loading) {
+  if (!button) return;
+  button.disabled = loading;
+  button.querySelector('.btn-spinner')?.classList.toggle('hidden', !loading);
+  button.querySelector('.btn-text')?.classList.toggle('hidden', loading);
+}
+
+function showElement(element) {
+  element?.classList.remove('hidden');
+}
+
+function hideElement(element) {
+  element?.classList.add('hidden');
+}
+
+function setActiveCard(cardName) {
+  const login = query('#login-card');
+  const register = query('#register-card');
+  const recover = query('#recover-card');
+
+  login?.classList.remove('active');
+  register?.classList.remove('active');
+  recover?.classList.remove('active');
+
+  if (cardName === 'login') login?.classList.add('active');
+  if (cardName === 'register') register?.classList.add('active');
+  if (cardName === 'recover') recover?.classList.add('active');
+}
+
+function showLanding() {
+  query('#auth-view')?.classList.add('active');
+  query('#app-shell')?.classList.add('hidden');
+}
+
+function showAppShell() {
+  query('#auth-view')?.classList.remove('active');
+  query('#app-shell')?.classList.remove('hidden');
+}
+
+function showError(element, message) {
+  if (!element) return;
+  element.textContent = message;
+  showElement(element);
+}
+
+function clearError(element) {
+  if (!element) return;
+  hideElement(element);
+  element.textContent = '';
+}
+
+export function initAuth() {
+  const { auth, db } = initFirebase();
+  if (!auth || !db) {
+    console.error('Firebase did not initialize correctly.');
+    return;
+  }
+
+  const loginForm = query('#login-form');
+  const registerForm = query('#register-form');
+  const recoverForm = query('#recover-form');
+  const goRegister = query('#go-register');
+  const goLogin = query('#go-login');
+  const goRecover = query('#go-recover');
+  const goLoginFromRecover = query('#go-login-from-recover');
+  const logoutButton = query('#btn-logout');
+  const appUserLabel = query('#app-user');
+  const loginError = query('#login-error');
+  const registerError = query('#register-error');
+  const recoverSuccess = query('#recover-success');
+
+  function resetCards() {
+    clearError(loginError);
+    clearError(registerError);
+    hideElement(recoverSuccess);
+  }
+
+  goRegister?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setActiveCard('register');
+    resetCards();
+  });
+
+  goLogin?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setActiveCard('login');
+    resetCards();
+  });
+
+  goRecover?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setActiveCard('recover');
+    resetCards();
+  });
+
+  goLoginFromRecover?.addEventListener('click', (event) => {
+    event.preventDefault();
+    setActiveCard('login');
+    resetCards();
+  });
+
+  loginForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    clearError(loginError);
+
+    const email = query('#login-email')?.value.trim();
+    const password = query('#login-password')?.value || '';
+    const button = query('#btn-login-submit');
+
+    if (!email || !password) {
+      showError(loginError, 'Please enter both email and password.');
+      return;
+    }
+
+    setButtonState(button, true);
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      showError(loginError, err.message || 'Unable to sign in.');
+    } finally {
+      setButtonState(button, false);
+    }
+  });
+
+  registerForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    clearError(registerError);
+
+    const orgName = query('#reg-org-name')?.value.trim();
+    const orgType = query('#reg-org-type')?.value;
+    const email = query('#reg-email')?.value.trim();
+    const password = query('#reg-password')?.value || '';
+    const button = query('#btn-register-submit');
+
+    if (!orgName || !orgType || !email || !password) {
+      showError(registerError, 'All fields are required to create an organization.');
+      return;
+    }
+
+    setButtonState(button, true);
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+      const profile = {
+        uid,
+        name: orgName,
+        email,
+        role: 'OPERATIONS',
+        operatorType: orgType,
+        createdAt: serverTimestamp()
+      };
+
+      await setDoc(doc(db, 'users', uid), profile);
+    } catch (err) {
+      showError(registerError, err.message || 'Unable to create an account.');
+    } finally {
+      setButtonState(button, false);
+    }
+  });
+
+  recoverForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    clearError(loginError);
+    clearError(registerError);
+    hideElement(recoverSuccess);
+
+    const email = query('#recover-email')?.value.trim();
+    const button = query('#btn-recover-submit');
+
+    if (!email) {
+      showError(loginError, 'Enter your email to receive a reset link.');
+      return;
+    }
+
+    setButtonState(button, true);
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      showElement(recoverSuccess);
+      query('#recover-email').value = '';
+    } catch (err) {
+      showError(loginError, err.message || 'Unable to send reset email.');
+    } finally {
+      setButtonState(button, false);
+    }
+  });
+
+  logoutButton?.addEventListener('click', async () => {
+    await signOut(auth);
+    setActiveCard('login');
+  });
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        const profileSnapshot = await getDoc(userRef);
+        let profileData;
+
+        if (profileSnapshot.exists()) {
+          profileData = profileSnapshot.data();
+        } else {
+          profileData = {
+            uid: user.uid,
+            name: user.displayName || user.email?.split('@')[0] || 'User',
+            email: user.email,
+            role: 'OPERATIONS',
+            createdAt: serverTimestamp()
+          };
+          await setDoc(userRef, profileData);
+        }
+
+        appUserLabel.textContent = `Signed in as ${profileData.name || user.email}`;
+        showAppShell();
+
+        if (!routerStarted) {
+          await initRouter();
+          routerStarted = true;
+        }
+      } catch (err) {
+        console.error('Auth profile load failed:', err);
+        showError(loginError, 'Unable to load profile. Please try again later.');
+        await signOut(auth);
+      }
+    } else {
+      appUserLabel.textContent = 'Secure operations dashboard';
+      showLanding();
+    }
+  });
 }

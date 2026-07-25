@@ -1,7 +1,7 @@
 import { initLayout } from '../core/layout.js';
 import { initTheme } from '../core/theme.js';
-import { initRouter } from './router.js';
+import { initAuth } from './auth.js';
 
 initLayout();
 initTheme();
-initRouter();
+initAuth();
