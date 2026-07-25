@@ -1,4 +1,4 @@
-export function initCrew(view) {
+export function init(view) {
   const heading = view.querySelector('h2');
   if (heading) {
     heading.textContent = 'Crew Management';

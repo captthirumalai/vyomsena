@@ -1,49 +1,87 @@
-import { appConfig } from '../config/app.config.js';
-import { initDashboard } from '../modules/dashboard/dashboard.js';
-import { initCrew } from '../modules/crew/crew.js';
-import { initAircraft } from '../modules/aircraft/aircraft.js';
-
-const routes = {
-  '/dashboard': {
-    file: 'modules/dashboard/dashboard.html',
-    init: initDashboard,
-    fallback: `<section class="card"><h2>Dashboard</h2><p>Welcome to the dashboard module.</p></section><section class="card"><h3>Operations Summary</h3><p>Active flights: 12</p><p>Pending maintenance: 3</p></section>`
-  },
-  '/crew': {
-    file: 'modules/crew/crew.html',
-    init: initCrew,
-    fallback: `<section class="card"><h2>Crew</h2><p>Manage crew records here.</p></section><section class="card"><h3>Crew Status</h3><p>On duty: 18</p><p>Resting: 7</p></section>`
-  },
-  '/aircraft': {
-    file: 'modules/aircraft/aircraft.html',
-    init: initAircraft,
-    fallback: `<section class="card"><h2>Aircraft</h2><p>Manage fleet and aircraft data here.</p></section><section class="card"><h3>Fleet Snapshot</h3><p>Aircraft in service: 24</p><p>Maintenance due: 2</p></section>`
-  }
-};
+import { appRoutes, defaultRoute } from '../shared/routes.js';
 
 async function loadModuleHtml(route) {
   try {
-    const response = await fetch(route.file, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Module not found');
+    const response = await fetch(route.html, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Module HTML not found');
     return await response.text();
   } catch (error) {
-    console.warn('Falling back to embedded module content:', error);
-    return route.fallback;
+    console.warn('Module HTML load failed:', error);
+    return `<section class="card"><h2>Module load failed</h2><p>Unable to load ${route.name}. Please refresh or try again later.</p></section>`;
   }
+}
+
+async function loadModuleCss(route) {
+  if (!route.css) return;
+
+  const existingLink = document.querySelector('link[data-module-css]');
+  if (existingLink) {
+    existingLink.remove();
+  }
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = route.css;
+  link.dataset.moduleCss = route.path;
+  document.head.appendChild(link);
+}
+
+async function importModuleJs(route) {
+  if (!route.js) return;
+
+  try {
+    const module = await import(`../${route.js}`);
+    return module;
+  } catch (error) {
+    console.warn('Failed to import module JS:', error);
+    return null;
+  }
+}
+
+function getRouteFromHash() {
+  const hash = window.location.hash.replace('#', '') || defaultRoute;
+  return appRoutes.find((route) => route.path === hash) || appRoutes.find((route) => route.path === defaultRoute);
 }
 
 export async function initRouter() {
   const view = document.getElementById('view');
   if (!view) return;
 
-  const render = async () => {
-    const hash = window.location.hash.replace('#', '') || appConfig.defaultRoute;
-    const route = routes[hash] || routes[appConfig.defaultRoute];
+  async function render() {
+    const route = getRouteFromHash();
+    if (!route) return;
 
+    await loadModuleCss(route);
     const html = await loadModuleHtml(route);
     view.innerHTML = html;
-    route.init(view);
-  };
+
+    const module = await importModuleJs(route);
+    if (module) {
+      const routeInitName = `init${route.name.replace(/\s+/g, '')}`;
+      const initFn =
+        module.init ||
+        module.default?.init ||
+        (typeof module.default === 'function' ? module.default : null) ||
+        module[routeInitName];
+
+      if (typeof initFn === 'function') {
+        initFn(view);
+      } else {
+        console.warn(`Route module for ${route.name} has no init function`);
+      }
+    }
+
+    const appRouteLabel = document.getElementById('app-route');
+    if (appRouteLabel) {
+      appRouteLabel.textContent = route.name;
+    }
+
+    document.title = `${route.name} — VAMS Portal`;
+
+    document.querySelectorAll('.vs-sidebar-link').forEach((link) => {
+      link.classList.toggle('active', link.getAttribute('href') === `#${route.path}`);
+    });
+  }
 
   window.addEventListener('hashchange', render);
   await render();

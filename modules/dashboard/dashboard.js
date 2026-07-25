@@ -1,4 +1,4 @@
-export function initDashboard(view) {
+export function init(view) {
   const heading = view.querySelector('h2');
   if (heading) {
     heading.textContent = 'Dashboard Overview';
