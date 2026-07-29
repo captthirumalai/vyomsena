@@ -1,19 +1,225 @@
-<section class="card">
+<section class="card" id="crew-roster-card">
   <div class="card-heading">
     <h2>Crew Management</h2>
     <p>Live pilot roster and license status from Firestore.</p>
   </div>
+
+  <div class="crew-summary" id="crew-summary">
+    <div class="crew-stat">
+      <strong id="crew-total">0</strong>
+      <span>Total Pilots</span>
+    </div>
+    <div class="crew-stat">
+      <strong id="crew-valid">0</strong>
+      <span>Valid</span>
+    </div>
+    <div class="crew-stat">
+      <strong id="crew-expiring">0</strong>
+      <span>Expiring</span>
+    </div>
+    <div class="crew-stat">
+      <strong id="crew-expired">0</strong>
+      <span>Expired</span>
+    </div>
+  </div>
+
+  <div class="crew-toolbar">
+    <button type="button" id="crew-refresh" class="crew-btn crew-btn-secondary">Refresh</button>
+    <span id="crew-status" class="muted">Loading crew data...</span>
+  </div>
+
   <div class="crew-list" id="crew-list">
-    <table>
+    <table class="crew-table">
       <thead>
         <tr>
           <th>Name</th>
-          <th>Email</th>
-          <th>Status</th>
+          <th>Role</th>
+          <th>Compliance</th>
           <th>Documents</th>
+          <th>License #</th>
+          <th>Medical Expiry</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody id="crew-table-body"></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card" id="crew-add-card">
+  <div class="card-heading">
+    <h3>Add Pilot</h3>
+    <p>Create a pilot profile with initial medical and license records.</p>
+  </div>
+
+  <form id="crew-add-form" class="crew-form">
+    <div class="crew-grid">
+      <label>
+        Pilot Name
+        <input id="crew-add-name" name="name" type="text" required placeholder="Captain Name" />
+      </label>
+      <label>
+        Pilot Email
+        <input id="crew-add-email" name="email" type="email" required placeholder="pilot@operator.com" />
+      </label>
+      <label>
+        License Number
+        <input id="crew-add-license" name="license" type="text" required placeholder="CPL-XXXXX" />
+      </label>
+      <label>
+        Medical Expiry
+        <input id="crew-add-medical-expiry" name="medicalExpiry" type="date" />
+      </label>
+      <label>
+        License Expiry
+        <input id="crew-add-license-expiry" name="licenseExpiry" type="date" />
+      </label>
+    </div>
+
+    <div class="crew-form-actions">
+      <button id="crew-add-submit" type="submit" class="crew-btn crew-btn-primary">Add Pilot</button>
+      <span id="crew-add-status" class="muted"></span>
+    </div>
+  </form>
+</section>
+
+<section class="card" id="crew-link-card">
+  <div class="card-heading">
+    <h3>Pilot Linking Requests</h3>
+    <p>Send connection requests to pilot accounts by email and track real-time status.</p>
+  </div>
+
+  <form id="crew-link-form" class="crew-form">
+    <div class="crew-grid">
+      <label>
+        Pilot Email
+        <input id="crew-link-email" name="pilotEmail" type="email" required placeholder="pilot@operator.com" />
+      </label>
+    </div>
+
+    <div class="crew-form-actions">
+      <button id="crew-link-submit" type="submit" class="crew-btn crew-btn-primary">Send Request</button>
+      <span id="crew-link-status" class="muted"></span>
+    </div>
+  </form>
+
+  <div class="crew-link-list">
+    <table class="crew-table">
+      <thead>
+        <tr>
+          <th>Pilot Email</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="crew-link-table-body">
+        <tr>
+          <td colspan="4">No outgoing requests.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card" id="crew-incoming-card">
+  <div class="card-heading">
+    <h3>Incoming Connection Requests</h3>
+    <p>Accept or decline requests from operators in real time.</p>
+  </div>
+
+  <div class="crew-link-list">
+    <table class="crew-table">
+      <thead>
+        <tr>
+          <th>Operator</th>
+          <th>Email</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="crew-incoming-table-body">
+        <tr>
+          <td colspan="5">No incoming requests.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card" id="crew-doc-card">
+  <div class="card-heading">
+    <h3>Pilot Documents</h3>
+    <p id="crew-doc-caption" class="muted">Select a pilot row to inspect Firestore document fields.</p>
+  </div>
+
+  <form id="crew-doc-upload-form" class="crew-form">
+    <div class="crew-grid">
+      <label>
+        Document Name
+        <input id="crew-doc-name" name="documentName" type="text" required placeholder="Class 1 Medical" />
+      </label>
+      <label>
+        Category
+        <input id="crew-doc-category" name="documentCategory" type="text" placeholder="MEDICAL / LICENCE / CERTIFICATE" />
+      </label>
+      <label>
+        Certificate/License Number
+        <input id="crew-doc-number" name="licenseNumber" type="text" placeholder="Optional reference number" />
+      </label>
+      <label>
+        Issue Date
+        <input id="crew-doc-issue" name="issueDate" type="date" />
+      </label>
+      <label>
+        Expiry Date
+        <input id="crew-doc-expiry" name="expiryDate" type="date" />
+      </label>
+      <label>
+        Issuing Authority
+        <input id="crew-doc-authority" name="authority" type="text" placeholder="DGCA / Organization" />
+      </label>
+      <label>
+        Reminder Lead Time (days)
+        <input id="crew-doc-reminder" name="reminderDays" type="number" min="0" value="30" />
+      </label>
+      <label>
+        File
+        <input id="crew-doc-file" name="documentFile" type="file" required />
+      </label>
+    </div>
+
+    <div class="crew-form-actions">
+      <button id="crew-doc-upload-submit" type="submit" class="crew-btn crew-btn-primary">Upload Document</button>
+      <span id="crew-doc-upload-status" class="muted"></span>
+    </div>
+  </form>
+
+  <div class="crew-doc-list">
+    <table class="crew-table">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Document Name</th>
+          <th>Number</th>
+          <th>Issue Date</th>
+          <th>Expiry Date</th>
+          <th>Authority</th>
+          <th>Reminder</th>
+          <th>Reader Count</th>
+          <th>Storage Path</th>
+          <th>Document URI</th>
+          <th>Last Edited By</th>
+          <th>Last Modified</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="crew-doc-table-body">
+        <tr>
+          <td colspan="13">No pilot selected.</td>
+        </tr>
+      </tbody>
     </table>
   </div>
 </section>

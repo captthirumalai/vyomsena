@@ -22,15 +22,17 @@ export async function signIn(email, password) {
   return await signInWithEmailAndPassword(getAuthInstance(), email, password);
 }
 
-export async function registerWorkspace({ name, type, email, password }) {
+export async function registerWorkspace({ fullName, role, type, email, password }) {
   const userCredential = await createUserWithEmailAndPassword(getAuthInstance(), email, password);
   const uid = userCredential.user.uid;
+  const normalizedRole = `${role || 'OPERATIONS'}`.trim().toUpperCase();
 
   const profile = {
     uid,
-    name,
+    name: fullName,
+    fullName,
     email,
-    role: 'OPERATIONS',
+    role: normalizedRole,
     operatorType: type,
     linkedOperator: null,
     createdAt: serverTimestamp()

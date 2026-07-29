@@ -5,7 +5,7 @@ export const manifest = {
   icon: 'crew',
   order: 20,
   showInMenu: true,
-  permissions: ['operations'],
+  permissions: ['operations', 'pilot'],
   breadcrumbs: ['Home', 'Crew'],
   html: 'modules/crew/crew.html',
   js: 'modules/crew/crew.js',

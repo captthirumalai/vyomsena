@@ -22,6 +22,9 @@ const CONTRACTS = {
   connection_requests: {
     required: ['requesterId', 'recipientId', 'requesterName', 'requesterEmail', 'recipientEmail', 'status', 'createdAt']
   },
+  access_codes: {
+    required: ['code', 'expiresAt', 'pilotId']
+  },
   training_centers: {
     required: []
   },

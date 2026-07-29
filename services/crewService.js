@@ -4,6 +4,7 @@ import {
   serverTimestamp
 } from './firestoreService.js';
 import { listPilotsForOperator, watchPilotsForOperator, unlinkPilotFromOperator, createPilotProfile } from './userService.js';
+import { findUserByEmail, linkPilotToOperator } from './userService.js';
 import {
   listDocumentsByUser,
   createUserDocument,
@@ -12,6 +13,16 @@ import {
   groupDocumentsByUser,
   summarizeCompliance
 } from './documentService.js';
+import {
+  sendConnectionRequest,
+  listIncomingRequests,
+  listOutgoingRequests,
+  watchIncomingRequests,
+  watchOutgoingRequests,
+  acceptConnectionRequest,
+  rejectConnectionRequest,
+  cancelConnectionRequest
+} from './connectionService.js';
 
 export async function getCrew(operatorUid) {
   return await listPilotsForOperator(operatorUid);
@@ -19,6 +30,14 @@ export async function getCrew(operatorUid) {
 
 export async function getPilotDocuments(pilotUid) {
   return await listDocumentsByUser(pilotUid);
+}
+
+export async function createPilotDocument(payload) {
+  return await createUserDocument(payload);
+}
+
+export async function removePilotDocument(documentId) {
+  await deleteUserDocument(documentId);
 }
 
 export async function getCrewDocumentsByPilots(pilotUids) {
@@ -84,4 +103,58 @@ export async function deletePilot(pilotUid) {
   const documents = await listDocumentsByUser(pilotUid);
   await Promise.all(documents.map((item) => deleteUserDocument(item.firestoreId)));
   await deleteDoc(doc('users', pilotUid));
+}
+
+export async function requestPilotLinkByEmail({ requesterId, requesterName, requesterEmail, pilotEmail }) {
+  const target = await findUserByEmail(pilotEmail);
+  if (!target) {
+    throw new Error('Pilot profile with this email was not found.');
+  }
+
+  const targetRole = `${target.role || ''}`.trim().toUpperCase();
+  if (targetRole !== 'PILOT') {
+    throw new Error('Target user is not registered as PILOT.');
+  }
+
+  return await sendConnectionRequest({
+    requesterId,
+    requesterName,
+    requesterEmail,
+    recipientId: target.uid,
+    recipientEmail: target.email || pilotEmail
+  });
+}
+
+export async function getOutgoingLinkRequests(operatorUid) {
+  return await listOutgoingRequests(operatorUid);
+}
+
+export async function getIncomingLinkRequests(pilotUid) {
+  return await listIncomingRequests(pilotUid);
+}
+
+export function onOutgoingLinkRequests(operatorUid, onNext, onError) {
+  return watchOutgoingRequests(operatorUid, onNext, onError);
+}
+
+export function onIncomingLinkRequests(pilotUid, onNext, onError) {
+  return watchIncomingRequests(pilotUid, onNext, onError);
+}
+
+export async function approveConnectionAndLink({ requestId, pilotUid, operatorUid }) {
+  await acceptConnectionRequest(requestId);
+  await linkPilotToOperator(pilotUid, operatorUid);
+}
+
+export async function acceptIncomingLinkRequest({ requestId, pilotUid, operatorUid }) {
+  await acceptConnectionRequest(requestId);
+  await linkPilotToOperator(pilotUid, operatorUid);
+}
+
+export async function declineConnectionRequest(requestId) {
+  await rejectConnectionRequest(requestId);
+}
+
+export async function withdrawConnectionRequest(requestId) {
+  await cancelConnectionRequest(requestId);
 }

@@ -64,7 +64,7 @@ export async function acceptConnectionRequest(requestId) {
 
 export async function rejectConnectionRequest(requestId) {
   await updateDoc(doc(COLLECTION, requestId), {
-    status: 'REJECTED',
+    status: 'DECLINED',
     lastModified: serverTimestamp()
   });
 }
@@ -77,4 +77,10 @@ export function watchIncomingRequests(recipientId, onNext, onError) {
   const requestsRef = collection(COLLECTION);
   const incomingQuery = query(requestsRef, where('recipientId', '==', recipientId));
   return onSnapshot(incomingQuery, onNext, onError);
+}
+
+export function watchOutgoingRequests(requesterId, onNext, onError) {
+  const requestsRef = collection(COLLECTION);
+  const outgoingQuery = query(requestsRef, where('requesterId', '==', requesterId));
+  return onSnapshot(outgoingQuery, onNext, onError);
 }

@@ -55,6 +55,15 @@ Recommended role keys:
 - `ame`
 - `training`
 
+Android parity role keys also in active use:
+
+- `OPERATIONS`
+- `PILOT`
+- `TRAINING_CENTER`
+
+Because route checks normalize case, manifests should include aliases where needed
+(for example: `training` and `training_center`) until all clients converge.
+
 ## Planned expansion
 
 As more modules are added:

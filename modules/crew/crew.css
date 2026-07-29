@@ -1,3 +1,123 @@
-.crew-card {
-  background: white;
+.crew-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.crew-stat {
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.crew-stat strong {
+  display: block;
+  font-size: 1.2rem;
+  margin-bottom: 0.2rem;
+}
+
+.crew-stat span {
+  color: #334155;
+  font-size: 0.82rem;
+}
+
+.crew-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.8rem;
+}
+
+.crew-list,
+.crew-doc-list,
+.crew-link-list {
+  overflow-x: auto;
+}
+
+.crew-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.crew-table th,
+.crew-table td {
+  text-align: left;
+  padding: 0.6rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.crew-table tr.selected {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.crew-action-row {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.crew-btn {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.crew-btn-primary {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+.crew-btn-secondary {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.2);
+}
+
+.crew-btn-danger {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.crew-form {
+  margin-top: 0.75rem;
+}
+
+#crew-doc-upload-form {
+  margin-bottom: 0.9rem;
+}
+
+.crew-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.crew-grid label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #1e293b;
+}
+
+.crew-grid input {
+  min-height: 40px;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 8px;
+}
+
+.crew-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
 }

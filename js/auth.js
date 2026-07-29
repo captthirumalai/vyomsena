@@ -150,21 +150,22 @@ export function initAuth() {
     event.preventDefault();
     clearError(registerError);
 
-    const orgName = query('#reg-org-name')?.value.trim();
+    const fullName = query('#reg-full-name')?.value.trim();
+    const role = query('#reg-role')?.value;
     const orgType = query('#reg-org-type')?.value;
     const email = query('#reg-email')?.value.trim();
     const password = query('#reg-password')?.value || '';
     const button = query('#btn-register-submit');
 
-    if (!orgName || !orgType || !email || !password) {
-      showError(registerError, 'All fields are required to create an organization.');
+    if (!fullName || !role || !email || !password) {
+      showError(registerError, 'Full name, role, email, and password are required.');
       return;
     }
 
     setButtonState(button, true);
 
     try {
-      await registerWorkspace({ name: orgName, type: orgType, email, password });
+      await registerWorkspace({ fullName, role, type: orgType, email, password });
     } catch (err) {
       showError(registerError, err.message || 'Unable to create an account.');
     } finally {
@@ -215,9 +216,11 @@ export function initAuth() {
         let profileData = await loadUserProfile(user.uid);
 
         if (!profileData) {
+          const fallbackName = user.displayName || user.email?.split('@')[0] || 'User';
           profileData = {
             uid: user.uid,
-            name: user.displayName || user.email?.split('@')[0] || 'User',
+            name: fallbackName,
+            fullName: fallbackName,
             email: user.email,
             role: 'OPERATIONS',
             createdAt: new Date().toISOString()

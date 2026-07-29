@@ -182,18 +182,26 @@ export function initLayout() {
 
                   <div class="vs-auth-card" id="register-card">
                     <div class="card-heading">
-                      <h2>Create Workspace</h2>
-                      <p>Register your organization and admin account.</p>
+                      <h2>Create Account</h2>
+                      <p>Register your profile for role-based VAMS access.</p>
                     </div>
                     <form id="register-form" class="auth-form">
                       <div class="input-group">
-                        <label for="reg-org-name">Organization Name</label>
-                        <input type="text" id="reg-org-name" required placeholder="e.g. AeroLink Charter Services" />
+                        <label for="reg-full-name">Full Name</label>
+                        <input type="text" id="reg-full-name" required placeholder="e.g. Captain Aryan Mehta" />
+                      </div>
+                      <div class="input-group">
+                        <label for="reg-role">Role</label>
+                        <select id="reg-role" required>
+                          <option value="OPERATIONS" selected>OPERATIONS</option>
+                          <option value="PILOT">PILOT</option>
+                          <option value="TRAINING_CENTER">TRAINING_CENTER</option>
+                        </select>
                       </div>
                       <div class="input-group">
                         <label for="reg-org-type">Operator Category</label>
-                        <select id="reg-org-type" required>
-                          <option value="" disabled selected>Select type</option>
+                        <select id="reg-org-type">
+                          <option value="" selected>Optional</option>
                           <option value="NSOP">NSOP</option>
                           <option value="Charter">Charter</option>
                           <option value="FTO">FTO</option>

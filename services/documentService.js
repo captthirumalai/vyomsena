@@ -4,6 +4,7 @@ import {
   where,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   doc,
@@ -109,6 +110,7 @@ export function summarizeCompliance(documents, warningDays = 30) {
 
 export async function createUserDocument(payload) {
   const documentsRef = collection('user_documents');
+  const explicitId = payload.firestoreId || payload.documentId || null;
   const nextPayload = {
     userId: payload.userId,
     userName: payload.userName || '',
@@ -129,6 +131,14 @@ export async function createUserDocument(payload) {
 
   validateContract('user_documents', nextPayload, 'createUserDocument', 'write');
   validateReadersField(nextPayload, 'createUserDocument', 'write');
+
+  if (explicitId) {
+    const targetDocRef = doc('user_documents', explicitId);
+    await setDoc(targetDocRef, nextPayload);
+    await updateDoc(targetDocRef, { firestoreId: explicitId });
+    return { firestoreId: explicitId, ...nextPayload };
+  }
+
   const createdRef = await addDoc(documentsRef, nextPayload);
   await updateDoc(createdRef, { firestoreId: createdRef.id });
   return { firestoreId: createdRef.id, ...nextPayload };

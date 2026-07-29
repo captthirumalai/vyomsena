@@ -15,21 +15,33 @@ import { validateContract } from './schemaContract.js';
 
 const ROLE_PILOT = 'PILOT';
 
+function normalizeProfileShape(data) {
+  if (!data) return data;
+  const fullName = data.fullName || data.name || '';
+  return {
+    ...data,
+    name: data.name || fullName,
+    fullName
+  };
+}
+
 export async function getUserByUid(uid) {
   const userRef = doc('users', uid);
   const snapshot = await getDoc(userRef);
   if (!snapshot.exists()) return null;
-  const data = { uid: snapshot.id, ...snapshot.data() };
+  const data = normalizeProfileShape({ uid: snapshot.id, ...snapshot.data() });
   validateContract('users', data, 'getUserByUid', 'read');
   return data;
 }
 
 export async function createUserProfile(profile) {
   const uid = profile.uid;
+  const fullName = profile.fullName || profile.name || '';
   const payload = {
     uid,
-    name: profile.name || '',
-    email: profile.email || '',
+    name: profile.name || fullName,
+    fullName,
+    email: `${profile.email || ''}`.trim().toLowerCase(),
     role: profile.role || 'OPERATIONS',
     linkedOperator: profile.linkedOperator ?? null,
     createdAt: profile.createdAt || serverTimestamp()
@@ -42,9 +54,11 @@ export async function createUserProfile(profile) {
 
 export async function createPilotProfile(profile) {
   const usersRef = collection('users');
+  const fullName = profile.fullName || profile.name || '';
   const payload = {
-    name: profile.name || '',
-    email: profile.email || '',
+    name: profile.name || fullName,
+    fullName,
+    email: `${profile.email || ''}`.trim().toLowerCase(),
     role: ROLE_PILOT,
     linkedOperator: profile.linkedOperator ?? null,
     createdAt: profile.createdAt || serverTimestamp()
@@ -53,10 +67,10 @@ export async function createPilotProfile(profile) {
   validateContract('users', { uid: '(pending)', ...payload }, 'createPilotProfile', 'write');
   const createdRef = await addDoc(usersRef, payload);
   await updateDoc(createdRef, { uid: createdRef.id });
-  return {
+  return normalizeProfileShape({
     uid: createdRef.id,
     ...payload
-  };
+  });
 }
 
 export async function updateUserProfile(uid, updates) {
@@ -71,10 +85,25 @@ export async function listPilotsForOperator(operatorUid) {
   const crewQuery = query(usersRef, where('linkedOperator', '==', operatorUid), where('role', '==', ROLE_PILOT));
   const snapshot = await getDocs(crewQuery);
   return snapshot.docs.map((item) => {
-    const data = { uid: item.id, ...item.data() };
+    const data = normalizeProfileShape({ uid: item.id, ...item.data() });
     validateContract('users', data, 'listPilotsForOperator', 'read');
     return data;
   });
+}
+
+export async function findUserByEmail(email) {
+  const targetEmail = `${email || ''}`.trim().toLowerCase();
+  if (!targetEmail) return null;
+
+  const usersRef = collection('users');
+  const emailQuery = query(usersRef, where('email', '==', targetEmail));
+  const snapshot = await getDocs(emailQuery);
+  if (snapshot.empty) return null;
+
+  const first = snapshot.docs[0];
+  const data = normalizeProfileShape({ uid: first.id, ...first.data() });
+  validateContract('users', data, 'findUserByEmail', 'read');
+  return data;
 }
 
 export function watchPilotsForOperator(operatorUid, onNext, onError) {
@@ -102,7 +131,7 @@ export async function findUsersByRole(role) {
   const roleQuery = query(usersRef, where('role', '==', role));
   const snapshot = await getDocs(roleQuery);
   return snapshot.docs.map((item) => {
-    const data = { uid: item.id, ...item.data() };
+    const data = normalizeProfileShape({ uid: item.id, ...item.data() });
     validateContract('users', data, 'findUsersByRole', 'read');
     return data;
   });
