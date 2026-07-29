@@ -173,6 +173,11 @@ export function initLayout() {
                         <span class="btn-text">Sign In</span>
                         <span class="btn-spinner hidden"></span>
                       </button>
+                      <div class="auth-divider" aria-hidden="true"><span>or</span></div>
+                      <button type="button" class="vs-button vs-button--secondary vs-button--md" id="btn-login-google">
+                        <span class="btn-text">Continue with Google</span>
+                        <span class="btn-spinner hidden"></span>
+                      </button>
                     </form>
                     <div class="card-footer">
                       <span>New to VAMS?</span>

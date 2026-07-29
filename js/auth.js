@@ -3,6 +3,7 @@ import {
   initializeFirebaseAuth,
   authStateObserver,
   signIn,
+  signInWithGoogle,
   registerWorkspace,
   sendResetEmail,
   signOutUser,
@@ -81,6 +82,7 @@ export function initAuth() {
   const loginForm = query('#login-form');
   const registerForm = query('#register-form');
   const recoverForm = query('#recover-form');
+  const loginGoogleButton = query('#btn-login-google');
   const goRegister = query('#go-register');
   const goLogin = query('#go-login');
   const goRecover = query('#go-recover');
@@ -143,6 +145,19 @@ export function initAuth() {
       showError(loginError, err.message || 'Unable to sign in.');
     } finally {
       setButtonState(button, false);
+    }
+  });
+
+  loginGoogleButton?.addEventListener('click', async () => {
+    clearError(loginError);
+    setButtonState(loginGoogleButton, true);
+
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      showError(loginError, err.message || 'Unable to sign in with Google.');
+    } finally {
+      setButtonState(loginGoogleButton, false);
     }
   });
 
