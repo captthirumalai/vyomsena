@@ -2,6 +2,7 @@ import {
   collection,
   query,
   where,
+  getDoc,
   getDocs,
   addDoc,
   setDoc,
@@ -12,6 +13,14 @@ import {
   serverTimestamp
 } from './firestoreService.js';
 import { validateContract, validateReadersField } from './schemaContract.js';
+
+const EDIT_LOG_FIELDS = [
+  'licenseOrCertificateNumber',
+  'issueDate',
+  'expiryDate',
+  'issuingAuthorityOrBody',
+  'notesOrDetails'
+];
 
 function toDateValue(value) {
   const raw = value?.toDate ? value.toDate() : value;
@@ -25,6 +34,74 @@ function chunk(values, size) {
     chunks.push(values.slice(index, index + size));
   }
   return chunks;
+}
+
+function normalizeComparableValue(value) {
+  if (value === undefined) return null;
+  if (value?.toDate) {
+    const date = value.toDate();
+    return Number.isNaN(date.getTime()) ? null : date.getTime();
+  }
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.getTime();
+  }
+  if (typeof value === 'string' || typeof value === 'number' || value === null) {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
+function pickLatestTemporalValue(leftValue, rightValue) {
+  if (!leftValue) return rightValue || null;
+  if (!rightValue) return leftValue;
+
+  const leftDate = toDateValue(leftValue);
+  const rightDate = toDateValue(rightValue);
+
+  if (!leftDate) return rightValue;
+  if (!rightDate) return leftValue;
+  return leftDate.getTime() >= rightDate.getTime() ? leftValue : rightValue;
+}
+
+function preferLocalEditableValue(localValue, remoteValue) {
+  if (localValue === undefined || localValue === null) {
+    return remoteValue ?? null;
+  }
+
+  if (typeof localValue === 'string') {
+    return localValue.trim().length ? localValue : remoteValue ?? localValue;
+  }
+
+  return localValue;
+}
+
+function dedupeByFirestoreId(documents) {
+  const map = new Map();
+  documents.forEach((item) => {
+    if (!item?.firestoreId) return;
+    map.set(item.firestoreId, item);
+  });
+  return Array.from(map.values());
+}
+
+export function mergeConflictingDocuments(localDoc, remoteDoc) {
+  if (!localDoc) return remoteDoc;
+  if (!remoteDoc) return localDoc;
+
+  return {
+    ...remoteDoc,
+    issueDate: pickLatestTemporalValue(localDoc.issueDate, remoteDoc.issueDate),
+    expiryDate: pickLatestTemporalValue(localDoc.expiryDate, remoteDoc.expiryDate),
+    licenseOrCertificateNumber: preferLocalEditableValue(
+      localDoc.licenseOrCertificateNumber,
+      remoteDoc.licenseOrCertificateNumber
+    ),
+    issuingAuthorityOrBody: preferLocalEditableValue(localDoc.issuingAuthorityOrBody, remoteDoc.issuingAuthorityOrBody),
+    notesOrDetails: preferLocalEditableValue(localDoc.notesOrDetails, remoteDoc.notesOrDetails),
+    documentUri: preferLocalEditableValue(localDoc.documentUri, remoteDoc.documentUri),
+    lastEditedBy: localDoc.lastEditedBy || remoteDoc.lastEditedBy || null,
+    isDirty: false
+  };
 }
 
 export function getDocumentComplianceState(document, warningDays = 30) {
@@ -48,6 +125,16 @@ export async function listDocumentsByUser(userId) {
     validateReadersField(data, 'listDocumentsByUser', 'read');
     return data;
   });
+}
+
+export async function getUserDocumentById(documentId) {
+  const snapshot = await getDoc(doc('user_documents', documentId));
+  if (!snapshot.exists()) return null;
+
+  const data = { firestoreId: snapshot.id, ...snapshot.data() };
+  validateContract('user_documents', data, 'getUserDocumentById', 'read');
+  validateReadersField(data, 'getUserDocumentById', 'read');
+  return data;
 }
 
 export async function listDocumentsByUserIds(userIds) {
@@ -78,6 +165,27 @@ export async function listReadableDocuments(readerUid) {
     validateReadersField(data, 'listReadableDocuments', 'read');
     return data;
   });
+}
+
+export async function listManagedDocuments(operatorUid) {
+  const docsRef = collection('user_documents');
+  const docsQuery = query(docsRef, where('operatorId', '==', operatorUid));
+  const snapshot = await getDocs(docsQuery);
+  return snapshot.docs.map((item) => {
+    const data = { firestoreId: item.id, ...item.data() };
+    validateContract('user_documents', data, 'listManagedDocuments', 'read');
+    validateReadersField(data, 'listManagedDocuments', 'read');
+    return data;
+  });
+}
+
+export async function listAccessibleDocuments(userUid) {
+  const [owned, readable, managed] = await Promise.all([
+    listDocumentsByUser(userUid),
+    listReadableDocuments(userUid),
+    listManagedDocuments(userUid)
+  ]);
+  return dedupeByFirestoreId([...owned, ...readable, ...managed]);
 }
 
 export function groupDocumentsByUser(documents) {
@@ -125,6 +233,7 @@ export async function createUserDocument(payload) {
     reminderLeadTimeDays: payload.reminderLeadTimeDays ?? 30,
     documentUri: payload.documentUri || null,
     storagePath: payload.storagePath || null,
+    isDirty: payload.isDirty ?? false,
     lastEditedBy: payload.lastEditedBy || null,
     lastModified: serverTimestamp()
   };
@@ -154,6 +263,38 @@ export async function updateUserDocument(documentId, updates, editedBy = null) {
   await updateDoc(doc('user_documents', documentId), payload);
 }
 
+export async function updateUserDocumentWithAudit(documentId, updates, editedBy = null) {
+  const docRef = doc('user_documents', documentId);
+  const snapshot = await getDoc(docRef);
+  if (!snapshot.exists()) {
+    throw new Error(`Document ${documentId} not found.`);
+  }
+
+  const before = { firestoreId: snapshot.id, ...snapshot.data() };
+  const normalizedUpdates = { ...updates, isDirty: updates.isDirty ?? false };
+
+  await updateUserDocument(documentId, normalizedUpdates, editedBy);
+
+  const changedFields = EDIT_LOG_FIELDS.filter((fieldName) => {
+    if (!(fieldName in normalizedUpdates)) return false;
+    const oldValue = normalizeComparableValue(before[fieldName]);
+    const newValue = normalizeComparableValue(normalizedUpdates[fieldName]);
+    return oldValue !== newValue;
+  });
+
+  await Promise.all(
+    changedFields.map((fieldName) =>
+      appendDocumentEditLog(documentId, {
+        field: fieldName,
+        oldValue: before[fieldName] ?? null,
+        newValue: normalizedUpdates[fieldName] ?? null,
+        editedBy: editedBy || null,
+        source: 'web'
+      })
+    )
+  );
+}
+
 export async function deleteUserDocument(documentId) {
   await deleteDoc(doc('user_documents', documentId));
 }
@@ -171,4 +312,50 @@ export function watchDocumentsByUser(userId, onNext, onError) {
   const docsRef = collection('user_documents');
   const docsQuery = query(docsRef, where('userId', '==', userId));
   return onSnapshot(docsQuery, onNext, onError);
+}
+
+export function watchAccessibleDocuments(userUid, onNext, onError) {
+  const docsRef = collection('user_documents');
+  const state = {
+    owned: [],
+    readable: [],
+    managed: []
+  };
+
+  const emit = () => {
+    onNext(dedupeByFirestoreId([...state.owned, ...state.readable, ...state.managed]));
+  };
+
+  const unsubOwned = onSnapshot(
+    query(docsRef, where('userId', '==', userUid)),
+    (snapshot) => {
+      state.owned = snapshot.docs.map((item) => ({ firestoreId: item.id, ...item.data() }));
+      emit();
+    },
+    onError
+  );
+
+  const unsubReadable = onSnapshot(
+    query(docsRef, where('readers', 'array-contains', userUid)),
+    (snapshot) => {
+      state.readable = snapshot.docs.map((item) => ({ firestoreId: item.id, ...item.data() }));
+      emit();
+    },
+    onError
+  );
+
+  const unsubManaged = onSnapshot(
+    query(docsRef, where('operatorId', '==', userUid)),
+    (snapshot) => {
+      state.managed = snapshot.docs.map((item) => ({ firestoreId: item.id, ...item.data() }));
+      emit();
+    },
+    onError
+  );
+
+  return () => {
+    unsubOwned?.();
+    unsubReadable?.();
+    unsubManaged?.();
+  };
 }

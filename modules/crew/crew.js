@@ -11,12 +11,22 @@ import {
   declineConnectionRequest,
   getPilotDocuments,
   createPilotDocument,
+  updatePilotDocumentWithAudit,
   removePilotDocument,
   getCrewDocumentsByPilots,
   summarizeCrewDocumentCompliance
 } from '../../services/crewService.js';
 import { watchDocumentsByUser } from '../../services/documentService.js';
 import { uploadUserDocumentFile, deleteUserDocumentFile } from '../../services/storageService.js';
+import {
+  getCrewDocumentSyncQueue,
+  enqueueCrewDocumentCreate,
+  enqueueCrewDocumentUpdate,
+  enqueueCrewDocumentDelete,
+  processCrewDocumentSyncQueue,
+  startCrewDocumentSyncWorker,
+  shouldQueueError
+} from '../../services/crewDocumentSyncService.js';
 
 let crewUnsubscribe = null;
 let pilotDocUnsubscribe = null;
@@ -31,6 +41,11 @@ let docsByPilotCache = new Map();
 let selectedPilotUid = null;
 let outgoingRequestsCache = [];
 let incomingRequestsCache = [];
+let queueMonitorTimer = null;
+let queueSyncBusy = false;
+let queueSyncLastAttemptAt = null;
+let queueSyncLastError = null;
+let queueSyncFlashTimer = null;
 
 function toDateValue(value) {
   const raw = value?.toDate ? value.toDate() : value;
@@ -41,6 +56,11 @@ function toDateValue(value) {
 function formatDate(value) {
   const date = toDateValue(value);
   return date ? date.toLocaleDateString() : 'N/A';
+}
+
+function formatDateTime(value) {
+  const date = toDateValue(value);
+  return date ? date.toLocaleString() : 'N/A';
 }
 
 function toTimestampCandidate(value) {
@@ -71,6 +91,144 @@ function isOperationsRole() {
 function setStatus(message) {
   const status = activeView?.querySelector('#crew-status');
   if (status) status.textContent = message;
+}
+
+function getRoleLabel() {
+  return isPilotRole() ? 'pilot' : 'operations';
+}
+
+function showQueueSyncFlash(message, tone = 'success') {
+  if (!activeView) return;
+  const flash = activeView.querySelector('#crew-sync-flash');
+  if (!flash) return;
+
+  if (queueSyncFlashTimer) {
+    clearTimeout(queueSyncFlashTimer);
+  }
+
+  flash.textContent = message;
+  flash.classList.remove('hidden', 'is-success', 'is-warning', 'is-error');
+  if (tone === 'error') {
+    flash.classList.add('is-error');
+  } else if (tone === 'warning') {
+    flash.classList.add('is-warning');
+  } else {
+    flash.classList.add('is-success');
+  }
+
+  queueSyncFlashTimer = setTimeout(() => {
+    flash.classList.add('hidden');
+  }, 3000);
+}
+
+function buildManualSyncStatusMessage(result) {
+  const role = getRoleLabel();
+  if (result.remaining === 0 && result.processed > 0) {
+    return `Sync complete for ${role} workspace. Synced ${result.processed} queued operation(s).`;
+  }
+  if (result.remaining === 0) {
+    return `No queued updates for ${role} workspace. Everything is already synced.`;
+  }
+  return `Sync partially complete for ${role} workspace. Processed ${result.processed}; ${result.remaining} still pending.`;
+}
+
+function getLastQueueError(queue) {
+  const withErrors = queue
+    .filter((item) => item?.lastError)
+    .sort((left, right) => {
+      const leftTs = toDateValue(left.lastTriedAt || left.createdAt)?.getTime() || 0;
+      const rightTs = toDateValue(right.lastTriedAt || right.createdAt)?.getTime() || 0;
+      return rightTs - leftTs;
+    });
+
+  if (!withErrors.length) return null;
+  return withErrors[0].lastError;
+}
+
+function renderQueueSyncState() {
+  if (!activeView) return;
+
+  const queue = getCrewDocumentSyncQueue();
+  const pendingCount = queue.length;
+
+  const countLabel = activeView.querySelector('#crew-sync-count');
+  const retryButton = activeView.querySelector('#crew-sync-retry');
+  const errorLabel = activeView.querySelector('#crew-sync-error');
+
+  if (countLabel) {
+    countLabel.textContent = `Pending Sync: ${pendingCount}`;
+    countLabel.classList.toggle('has-pending', pendingCount > 0);
+  }
+
+  if (retryButton) {
+    retryButton.disabled = queueSyncBusy || pendingCount === 0;
+    retryButton.textContent = queueSyncBusy ? 'Retrying...' : 'Retry Sync';
+  }
+
+  if (errorLabel) {
+    const message = queueSyncLastError || getLastQueueError(queue);
+    if (!message) {
+      if (queueSyncLastAttemptAt) {
+        errorLabel.textContent = `No retry errors. Last sync: ${formatDateTime(queueSyncLastAttemptAt)}.`;
+      } else {
+        errorLabel.textContent = 'No retry errors yet.';
+      }
+      errorLabel.classList.remove('has-error');
+    } else {
+      const lastTriedAt = queue
+        .filter((item) => item?.lastError)
+        .map((item) => toDateValue(item.lastTriedAt || item.createdAt))
+        .filter(Boolean)
+        .sort((left, right) => right.getTime() - left.getTime())[0];
+
+      const when = lastTriedAt ? formatDateTime(lastTriedAt) : 'unknown time';
+      errorLabel.textContent = `Last retry error (${when}): ${message}`;
+      errorLabel.classList.add('has-error');
+    }
+  }
+}
+
+async function runQueueSync({ source = 'background', refreshAfter = false } = {}) {
+  if (queueSyncBusy) return;
+
+  queueSyncBusy = true;
+  queueSyncLastError = null;
+  renderQueueSyncState();
+
+  try {
+    const result = await processCrewDocumentSyncQueue();
+    queueSyncLastAttemptAt = new Date();
+
+    if (result.remaining === 0 && result.processed > 0) {
+      showQueueSyncFlash('Synced just now.', 'success');
+    }
+
+    if (result.remaining > 0 && source === 'manual') {
+      showQueueSyncFlash('Some queued updates still need network retry.', 'warning');
+    }
+
+    if (refreshAfter) {
+      await refreshCrew();
+    }
+
+    if (source === 'manual') {
+      const statusMessage = buildManualSyncStatusMessage(result);
+      setStatus(statusMessage);
+      if (result.remaining === 0) {
+        showQueueSyncFlash('Synced just now.', 'success');
+      }
+    }
+  } catch (error) {
+    queueSyncLastAttemptAt = new Date();
+    queueSyncLastError = error?.message || 'Unknown queue sync error';
+    showQueueSyncFlash('Sync failed. Review last retry error.', 'error');
+    if (source === 'manual') {
+      setStatus(`Queue sync failed for ${getRoleLabel()} workspace: ${queueSyncLastError}`);
+    }
+  } finally {
+    queueSyncBusy = false;
+    renderQueueSyncState();
+  }
 }
 
 function escapeHtml(value) {
@@ -218,8 +376,9 @@ function renderPilotDocuments(documents, pilot) {
       <td>${escapeHtml(doc.storagePath || 'N/A')}</td>
       <td>${escapeHtml(doc.documentUri || 'N/A')}</td>
       <td>${escapeHtml(doc.lastEditedBy || 'N/A')}</td>
-      <td>${escapeHtml(formatDate(doc.lastModified))}</td>
+      <td>${escapeHtml(formatDate(doc.lastModified))}${doc.isDirty ? ' (Pending Sync)' : ''}</td>
       <td>
+        <button type="button" class="crew-btn crew-btn-secondary" data-doc-action="edit" data-document-id="${escapeHtml(doc.firestoreId)}">Edit</button>
         <button type="button" class="crew-btn crew-btn-danger" data-doc-action="delete" data-document-id="${escapeHtml(doc.firestoreId)}" data-storage-path="${escapeHtml(doc.storagePath || '')}">Delete</button>
       </td>
     </tr>`)
@@ -363,10 +522,22 @@ function setAddFormBusy(isBusy) {
   submit.textContent = isBusy ? 'Adding...' : 'Add Pilot';
 }
 
+function upsertDocInCache(pilotUid, document) {
+  const current = docsByPilotCache.get(pilotUid) || [];
+  const next = current.filter((item) => item.firestoreId !== document.firestoreId);
+  next.push(document);
+  docsByPilotCache.set(pilotUid, next);
+}
+
 function bindEvents() {
   activeView?.querySelector('#crew-refresh')?.addEventListener('click', async () => {
     setStatus('Refreshing crew data...');
     await refreshCrew();
+    renderQueueSyncState();
+  });
+
+  activeView?.querySelector('#crew-sync-retry')?.addEventListener('click', async () => {
+    await runQueueSync({ source: 'manual', refreshAfter: true });
   });
 
   activeView?.querySelector('#crew-table-body')?.addEventListener('click', async (event) => {
@@ -560,7 +731,56 @@ function bindEvents() {
       await selectPilot(targetPilotUid);
     } catch (error) {
       console.error('Document upload failed:', error);
-      if (status) status.textContent = error.message || 'Unable to upload document.';
+
+      if (shouldQueueError(error)) {
+        enqueueCrewDocumentCreate({
+          firestoreId,
+          userId: targetPilotUid,
+          userName: toProfileName(targetPilot),
+          documentName,
+          documentCategory,
+          issueDate,
+          expiryDate,
+          issuingAuthorityOrBody,
+          licenseOrCertificateNumber,
+          operatorId,
+          readers,
+          reminderLeadTimeDays: Number.isNaN(reminderLeadTimeDays) ? 30 : reminderLeadTimeDays,
+          documentUri: null,
+          storagePath: null,
+          lastEditedBy: activeCurrentUser?.uid || null,
+          isDirty: true
+        });
+
+        upsertDocInCache(targetPilotUid, {
+          firestoreId,
+          userId: targetPilotUid,
+          userName: toProfileName(targetPilot),
+          documentName,
+          documentCategory,
+          issueDate,
+          expiryDate,
+          issuingAuthorityOrBody,
+          licenseOrCertificateNumber,
+          operatorId,
+          readers,
+          reminderLeadTimeDays: Number.isNaN(reminderLeadTimeDays) ? 30 : reminderLeadTimeDays,
+          documentUri: null,
+          storagePath: null,
+          lastEditedBy: activeCurrentUser?.uid || null,
+          lastModified: new Date(),
+          isDirty: true
+        });
+
+        renderCrewTable();
+        renderPilotDocuments(docsByPilotCache.get(targetPilotUid) || [], targetPilot);
+        renderQueueSyncState();
+        if (status) {
+          status.textContent = 'Network unavailable. Document edit queued and marked dirty.';
+        }
+      } else {
+        if (status) status.textContent = error.message || 'Unable to upload document.';
+      }
     } finally {
       if (submit) {
         submit.disabled = false;
@@ -579,7 +799,78 @@ function bindEvents() {
     const action = button.getAttribute('data-doc-action');
     const documentId = button.getAttribute('data-document-id');
     const storagePath = button.getAttribute('data-storage-path');
-    if (action !== 'delete' || !documentId) return;
+    if (!action || !documentId) return;
+
+    if (action === 'edit') {
+      const pilotUid = selectedPilotUid || activeCurrentUser?.uid;
+      const pilotDocs = docsByPilotCache.get(pilotUid) || [];
+      const targetDoc = pilotDocs.find((item) => item.firestoreId === documentId);
+      if (!targetDoc) return;
+
+      const nextIssueDateRaw = window.prompt('Issue Date (YYYY-MM-DD, blank to keep current):', formatDate(targetDoc.issueDate) === 'N/A' ? '' : toDateValue(targetDoc.issueDate)?.toISOString().slice(0, 10) || '');
+      if (nextIssueDateRaw === null) return;
+      const nextExpiryDateRaw = window.prompt('Expiry Date (YYYY-MM-DD, blank to keep current):', formatDate(targetDoc.expiryDate) === 'N/A' ? '' : toDateValue(targetDoc.expiryDate)?.toISOString().slice(0, 10) || '');
+      if (nextExpiryDateRaw === null) return;
+      const nextLicenseRaw = window.prompt('License/Certificate Number (blank to keep current):', targetDoc.licenseOrCertificateNumber || '');
+      if (nextLicenseRaw === null) return;
+
+      const updates = {
+        issueDate: nextIssueDateRaw.trim() ? toTimestampCandidate(nextIssueDateRaw.trim()) : targetDoc.issueDate || null,
+        expiryDate: nextExpiryDateRaw.trim() ? toTimestampCandidate(nextExpiryDateRaw.trim()) : targetDoc.expiryDate || null,
+        licenseOrCertificateNumber: nextLicenseRaw.trim() || null,
+        isDirty: false
+      };
+
+      const status = activeView?.querySelector('#crew-doc-upload-status');
+      try {
+        if (status) status.textContent = 'Saving document updates...';
+        await updatePilotDocumentWithAudit(documentId, updates, activeCurrentUser?.uid || null);
+        if (status) status.textContent = 'Document updated with audit log.';
+        if (pilotUid) {
+          await selectPilot(pilotUid);
+        } else {
+          await refreshCrew();
+        }
+      } catch (error) {
+        console.error('Document edit failed:', error);
+
+        if (shouldQueueError(error)) {
+          enqueueCrewDocumentUpdate({
+            documentId,
+            updates,
+            editedBy: activeCurrentUser?.uid || null
+          });
+
+          const targetPilotUid = pilotUid || activeCurrentUser?.uid;
+          if (targetPilotUid) {
+            const nextDocs = (docsByPilotCache.get(targetPilotUid) || []).map((item) =>
+              item.firestoreId === documentId
+                ? {
+                    ...item,
+                    ...updates,
+                    isDirty: true,
+                    lastEditedBy: activeCurrentUser?.uid || null,
+                    lastModified: new Date()
+                  }
+                : item
+            );
+            docsByPilotCache.set(targetPilotUid, nextDocs);
+            const targetPilot = pilotsCache.find((item) => item.uid === targetPilotUid) || activeCurrentUser;
+            renderCrewTable();
+            renderPilotDocuments(nextDocs, targetPilot);
+          }
+
+          renderQueueSyncState();
+
+          if (status) status.textContent = 'Network unavailable. Update queued for sync.';
+        } else {
+          if (status) status.textContent = error.message || 'Unable to update document.';
+        }
+      }
+      return;
+    }
+
+    if (action !== 'delete') return;
 
     const confirmed = window.confirm('Delete this document and its storage file?');
     if (!confirmed) return;
@@ -605,7 +896,28 @@ function bindEvents() {
       }
     } catch (error) {
       console.error('Document delete failed:', error);
-      if (status) status.textContent = error.message || 'Unable to delete document.';
+
+      if (shouldQueueError(error)) {
+        enqueueCrewDocumentDelete({
+          documentId,
+          storagePath: storagePath || null
+        });
+
+        const targetPilotUid = selectedPilotUid || activeCurrentUser?.uid;
+        if (targetPilotUid) {
+          const nextDocs = (docsByPilotCache.get(targetPilotUid) || []).filter((item) => item.firestoreId !== documentId);
+          docsByPilotCache.set(targetPilotUid, nextDocs);
+          const targetPilot = pilotsCache.find((item) => item.uid === targetPilotUid) || activeCurrentUser;
+          renderCrewTable();
+          renderPilotDocuments(nextDocs, targetPilot);
+        }
+
+        renderQueueSyncState();
+
+        if (status) status.textContent = 'Network unavailable. Delete queued for sync.';
+      } else {
+        if (status) status.textContent = error.message || 'Unable to delete document.';
+      }
     }
   });
 }
@@ -640,6 +952,12 @@ export async function init(view, context) {
   }
 
   bindEvents();
+  startCrewDocumentSyncWorker();
+  await runQueueSync({ source: 'initial' });
+  renderQueueSyncState();
+  queueMonitorTimer = setInterval(() => {
+    renderQueueSyncState();
+  }, 5000);
   await refreshCrew();
 
   if (isPilotRole()) {
@@ -711,6 +1029,17 @@ export async function init(view, context) {
       selectedPilotUid = null;
       outgoingRequestsCache = [];
       incomingRequestsCache = [];
+      if (queueMonitorTimer) {
+        clearInterval(queueMonitorTimer);
+      }
+      queueMonitorTimer = null;
+      queueSyncBusy = false;
+      queueSyncLastAttemptAt = null;
+      queueSyncLastError = null;
+      if (queueSyncFlashTimer) {
+        clearTimeout(queueSyncFlashTimer);
+      }
+      queueSyncFlashTimer = null;
     }
   };
 }

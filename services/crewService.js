@@ -8,6 +8,7 @@ import { findUserByEmail, linkPilotToOperator } from './userService.js';
 import {
   listDocumentsByUser,
   createUserDocument,
+  updateUserDocumentWithAudit,
   deleteUserDocument,
   listDocumentsByUserIds,
   groupDocumentsByUser,
@@ -38,6 +39,10 @@ export async function createPilotDocument(payload) {
 
 export async function removePilotDocument(documentId) {
   await deleteUserDocument(documentId);
+}
+
+export async function updatePilotDocumentWithAudit(documentId, updates, editedBy = null) {
+  await updateUserDocumentWithAudit(documentId, updates, editedBy);
 }
 
 export async function getCrewDocumentsByPilots(pilotUids) {

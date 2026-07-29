@@ -26,6 +26,12 @@
   <div class="crew-toolbar">
     <button type="button" id="crew-refresh" class="crew-btn crew-btn-secondary">Refresh</button>
     <span id="crew-status" class="muted">Loading crew data...</span>
+    <div class="crew-sync-tools">
+      <span id="crew-sync-count" class="crew-sync-pill">Pending Sync: 0</span>
+      <button type="button" id="crew-sync-retry" class="crew-btn crew-btn-secondary" disabled>Retry Sync</button>
+      <span id="crew-sync-flash" class="crew-sync-flash hidden" aria-live="polite"></span>
+      <span id="crew-sync-error" class="muted">No retry errors yet.</span>
+    </div>
   </div>
 
   <div class="crew-list" id="crew-list">
