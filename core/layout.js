@@ -150,7 +150,7 @@ export function initLayout() {
                   <div class="vs-auth-card active" id="login-card">
                     <div class="card-heading">
                       <h2>Sign In</h2>
-                      <p>Use your organization credentials to access VAMS.</p>
+                      <p>Use your company workspace credentials to access VAMS. Pilots should use the Android app.</p>
                     </div>
                     <form id="login-form" class="auth-form">
                       <div class="input-group">
@@ -180,33 +180,29 @@ export function initLayout() {
                       </button>
                     </form>
                     <div class="card-footer">
-                      <span>New to VAMS?</span>
+                      <span>Need a company workspace?</span>
                       <a href="#" id="go-register" class="link-action">Create workspace</a>
                     </div>
                   </div>
 
                   <div class="vs-auth-card" id="register-card">
                     <div class="card-heading">
-                      <h2>Create Account</h2>
-                      <p>Register your profile for role-based VAMS access.</p>
+                      <h2>Create Company Workspace</h2>
+                      <p>Register your company operations workspace. Pilots continue to use the Android app and can be linked later.</p>
                     </div>
                     <form id="register-form" class="auth-form">
                       <div class="input-group">
-                        <label for="reg-full-name">Full Name</label>
+                        <label for="reg-full-name">Primary Operations Contact</label>
                         <input type="text" id="reg-full-name" required placeholder="e.g. Captain Aryan Mehta" />
                       </div>
                       <div class="input-group">
-                        <label for="reg-role">Role</label>
-                        <select id="reg-role" required>
-                          <option value="OPERATIONS" selected>OPERATIONS</option>
-                          <option value="PILOT">PILOT</option>
-                          <option value="TRAINING_CENTER">TRAINING_CENTER</option>
-                        </select>
+                        <label for="reg-company-name">Company / Operator Name</label>
+                        <input type="text" id="reg-company-name" required placeholder="e.g. VyomSena Aviation Pvt Ltd" />
                       </div>
                       <div class="input-group">
                         <label for="reg-org-type">Operator Category</label>
-                        <select id="reg-org-type">
-                          <option value="" selected>Optional</option>
+                        <select id="reg-org-type" required>
+                          <option value="" selected disabled>Select operator category</option>
                           <option value="NSOP">NSOP</option>
                           <option value="Charter">Charter</option>
                           <option value="FTO">FTO</option>
@@ -216,8 +212,20 @@ export function initLayout() {
                         </select>
                       </div>
                       <div class="input-group">
-                        <label for="reg-email">Email</label>
-                        <input type="email" id="reg-email" required placeholder="admin@operator.com" />
+                        <label for="reg-company-code">Company Code</label>
+                        <input type="text" id="reg-company-code" placeholder="Optional short code, e.g. VSA" />
+                      </div>
+                      <div class="input-group">
+                        <label for="reg-base-location">Primary Base / HQ</label>
+                        <input type="text" id="reg-base-location" required placeholder="e.g. Bengaluru / VOBL" />
+                      </div>
+                      <div class="input-group">
+                        <label for="reg-contact-phone">Operations Contact Number</label>
+                        <input type="tel" id="reg-contact-phone" required placeholder="e.g. +91 98765 43210" />
+                      </div>
+                      <div class="input-group">
+                        <label for="reg-email">Company Login Email</label>
+                        <input type="email" id="reg-email" required placeholder="ops@operator.com" />
                       </div>
                       <div class="input-group">
                         <label for="reg-password">Password</label>
@@ -230,7 +238,7 @@ export function initLayout() {
                       </button>
                     </form>
                     <div class="card-footer">
-                      <span>Already registered?</span>
+                      <span>Already have a company workspace?</span>
                       <a href="#" id="go-login" class="link-action">Sign in</a>
                     </div>
                   </div>

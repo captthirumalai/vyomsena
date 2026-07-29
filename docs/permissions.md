@@ -16,6 +16,7 @@ The same stability principle applies here as in the data layer contract: avoid b
 - If a route has no `permissions`, it is treated as public.
 - If a route has `permissions`, user must have one matching role.
 - Unauthorized routes render an Access Denied state.
+- Pilot identities may still exist in shared Firebase auth and data, but pilot users are blocked from entering the web shell and are expected to use the Android app.
 
 ## Manifest contract
 
@@ -60,6 +61,12 @@ Android parity role keys also in active use:
 - `OPERATIONS`
 - `PILOT`
 - `TRAINING_CENTER`
+
+Current product boundary:
+
+- `PILOT` remains a valid shared identity role.
+- `PILOT` should not be granted web route access in module manifests.
+- Web manifests should target company-facing roles only unless a deliberate exception is introduced later.
 
 Because route checks normalize case, manifests should include aliases where needed
 (for example: `training` and `training_center`) until all clients converge.

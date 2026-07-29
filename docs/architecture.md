@@ -55,7 +55,15 @@ This project follows a layered structure:
 - Authentication is handled through Firebase Authentication.
 - User profiles are stored in Firestore under `users/{uid}`.
 - Auth UI must remain separate from the main app shell and only show after successful sign-in.
-- Current auth flow includes sign in, register, and password recovery.
+- Current auth flow includes sign in, company workspace registration, and password recovery.
+
+### Identity and Workspace Direction
+- Use one Firebase identity per real person across Android and web.
+- Android is pilot-focused and supports personal mode plus company-linked mode.
+- Web is company-focused and is the primary surface for operator workflows.
+- Pilot users are blocked from entering the web application shell and must use the Android app.
+- Personal mode vs company mode must be resolved after login from link or membership status, not by creating separate accounts.
+- Current web registration is treated as company workspace bootstrap for operations users and collects organization details needed for future membership-based rollout.
 
 ### Styles and UI
 - Use `css/main.css` for global styles, themes, and shared component styling.
@@ -82,3 +90,9 @@ This project follows a layered structure:
 - Permissions model and route authorization rules: `docs/permissions.md`
 - Standard module creation scaffold: `docs/module-template.md`
 - Shared Firestore schema contract: `docs/database.md`
+- Android/web sync requirements for future pilot app evolution: `docs/android-sync-requirements.md`
+
+### 2026-07-29 00:00:00
+- Confirmed product direction: one login, pilot-focused Android app, company-focused web app, and post-login personal/company mode switching.
+- Updated company workspace registration fields to collect operator bootstrap details required for future organization membership rollout.
+- Restricted web shell access to company-side users and directed pilots to Android-only access.

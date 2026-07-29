@@ -38,7 +38,13 @@ Required fields:
 Optional fields:
 
 - `operatorType`
+- `organizationName`
+- `organizationCode`
+- `organizationBase`
+- `companyPhone`
 - `lastModified`
+
+These workspace bootstrap fields are currently captured during company web registration and can later seed a dedicated `organizations` / `memberships` model without breaking the existing contract.
 
 ## user_documents
 
@@ -116,7 +122,11 @@ Current web crew coverage:
 - Inspect full pilot document metadata from Firestore in module UI.
 - Upload/delete pilot documents using shared storage path conventions.
 - Send outgoing connection requests as operator.
-- Accept/decline incoming connection requests as pilot.
+
+Current pilot action boundary:
+
+- Pilot-side connection request acceptance and personal document workflows belong to the Android app.
+- Pilot users are not expected to enter the web shell.
 
 Rule-constrained behavior in current web UI:
 

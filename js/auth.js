@@ -76,6 +76,10 @@ function clearError(element) {
   element.textContent = '';
 }
 
+function normalizeRole(role) {
+  return `${role || ''}`.trim().toUpperCase();
+}
+
 export function initAuth() {
   initializeFirebaseAuth();
 
@@ -166,21 +170,35 @@ export function initAuth() {
     clearError(registerError);
 
     const fullName = query('#reg-full-name')?.value.trim();
-    const role = query('#reg-role')?.value;
     const orgType = query('#reg-org-type')?.value;
+    const organizationName = query('#reg-company-name')?.value.trim();
+    const organizationCode = query('#reg-company-code')?.value.trim();
+    const organizationBase = query('#reg-base-location')?.value.trim();
+    const companyPhone = query('#reg-contact-phone')?.value.trim();
     const email = query('#reg-email')?.value.trim();
     const password = query('#reg-password')?.value || '';
     const button = query('#btn-register-submit');
+    const role = 'OPERATIONS';
 
-    if (!fullName || !role || !email || !password) {
-      showError(registerError, 'Full name, role, email, and password are required.');
+    if (!fullName || !organizationName || !orgType || !organizationBase || !companyPhone || !email || !password) {
+      showError(registerError, 'Operations contact, company name, category, base, phone, email, and password are required.');
       return;
     }
 
     setButtonState(button, true);
 
     try {
-      await registerWorkspace({ fullName, role, type: orgType, email, password });
+      await registerWorkspace({
+        fullName,
+        role,
+        type: orgType,
+        email,
+        password,
+        organizationName,
+        organizationCode,
+        organizationBase,
+        companyPhone
+      });
     } catch (err) {
       showError(registerError, err.message || 'Unable to create an account.');
     } finally {
@@ -241,6 +259,14 @@ export function initAuth() {
             createdAt: new Date().toISOString()
           };
           await createUserProfile(user.uid, profileData);
+        }
+
+        if (normalizeRole(profileData.role) === 'PILOT') {
+          showLanding();
+          setActiveCard('login');
+          showError(loginError, 'Pilots use the Android app. Web access is reserved for company operations workspaces.');
+          await signOutUser();
+          return;
         }
 
         authStore.setUser(profileData);

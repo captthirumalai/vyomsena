@@ -83,3 +83,18 @@ Android change logging tracks edits to:
 - Offline update queues and retries after reconnect.
 - Edit logs are created only for changed audited fields.
 - No duplicate document rows appear after reconnect/realtime refresh.
+
+## Validation Snapshot (2026-07-29)
+Execution context:
+- Android app and web app were both connected to the same Firebase project (`vyomsena-888`).
+- Web login used Google Sign-In for Android-origin users.
+
+Validated outcomes:
+- Android-origin user can sign in to web successfully.
+- Crew documents created in Android are visible in web for authorized viewers.
+- Editing a document in web updates Android in real time.
+- Editing a document in Android updates web in real time.
+- Cross-platform change propagation is stable for the tested crew document fields.
+
+Known prerequisite captured during validation:
+- Firebase Authentication authorized domains must include the live site domain(s), otherwise Google popup sign-in fails with `auth/unauthorized-domain`.

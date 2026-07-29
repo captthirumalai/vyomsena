@@ -32,6 +32,12 @@ function mapAuthError(error) {
   if (code === 'auth/popup-closed-by-user') {
     return 'Google sign-in was cancelled before completion.';
   }
+  if (code === 'auth/unauthorized-domain') {
+    return 'This domain is not authorized for Google sign-in. Add this site domain in Firebase Authentication -> Settings -> Authorized domains.';
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'Google sign-in is not enabled in Firebase. Enable Google provider in Firebase Authentication -> Sign-in method.';
+  }
   if (code === 'auth/user-not-found') {
     return 'No account found for this email.';
   }
@@ -66,7 +72,17 @@ export async function signInWithGoogle() {
   }
 }
 
-export async function registerWorkspace({ fullName, role, type, email, password }) {
+export async function registerWorkspace({
+  fullName,
+  role,
+  type,
+  email,
+  password,
+  organizationName,
+  organizationCode,
+  organizationBase,
+  companyPhone
+}) {
   const userCredential = await createUserWithEmailAndPassword(getAuthInstance(), email, password);
   const uid = userCredential.user.uid;
   const normalizedRole = `${role || 'OPERATIONS'}`.trim().toUpperCase();
@@ -78,6 +94,10 @@ export async function registerWorkspace({ fullName, role, type, email, password 
     email,
     role: normalizedRole,
     operatorType: type,
+    organizationName: organizationName || '',
+    organizationCode: organizationCode || '',
+    organizationBase: organizationBase || '',
+    companyPhone: companyPhone || '',
     linkedOperator: null,
     createdAt: serverTimestamp()
   };

@@ -44,6 +44,11 @@ export async function createUserProfile(profile) {
     email: `${profile.email || ''}`.trim().toLowerCase(),
     role: profile.role || 'OPERATIONS',
     linkedOperator: profile.linkedOperator ?? null,
+    operatorType: profile.operatorType || null,
+    organizationName: profile.organizationName || null,
+    organizationCode: profile.organizationCode || null,
+    organizationBase: profile.organizationBase || null,
+    companyPhone: profile.companyPhone || null,
     createdAt: profile.createdAt || serverTimestamp()
   };
 
