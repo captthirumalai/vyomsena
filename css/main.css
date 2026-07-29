@@ -577,6 +577,10 @@ img {
   min-height: calc(100vh - 3rem);
 }
 
+.vs-sidebar.hidden + .vs-main {
+  grid-column: 1 / -1;
+}
+
 .vs-sidebar {
   display: flex;
   flex-direction: column;
