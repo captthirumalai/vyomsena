@@ -108,39 +108,73 @@ export function initLayout() {
               <aside class="vs-hero-panel">
                 <div class="vs-hero-overlay"></div>
                 <div class="vs-hero-content">
+                  <div class="hero-kicker-row">
+                    <span class="hero-kicker">Company Workspace</span>
+                    <span class="hero-kicker hero-kicker-muted">Live crew and compliance control</span>
+                  </div>
+
                   <div class="logo-wrapper">
                     <img src="vams_logo.jpg" alt="VyomSena Logo" class="brand-logo" />
-                    <span class="brand-title">VyomSena</span>
+                    <div>
+                      <span class="brand-title">VyomSena</span>
+                      <p class="brand-subtitle">Aviation management for operators, compliance teams, and flight operations.</p>
+                    </div>
                   </div>
-                  <h1 class="brand-tagline">Digital Aviation Operations Platform</h1>
-                  <p class="brand-desc">Integrate operations, crew management, DGCA compliance, and fleet oversight into a single intelligent platform for aviation teams.</p>
+
+                  <div class="hero-headline-block">
+                    <h1 class="brand-tagline">Run company aviation workflows from one operational control surface.</h1>
+                    <p class="brand-desc">Coordinate crew validity, fleet readiness, document sharing, and audit-critical oversight from a single workspace built for operator teams.</p>
+                  </div>
+
+                  <div class="hero-metrics">
+                    <div class="hero-metric-card">
+                      <strong>Real-time</strong>
+                      <span>Document and profile updates sync instantly with the pilot app.</span>
+                    </div>
+                    <div class="hero-metric-card">
+                      <strong>Shared source</strong>
+                      <span>Web and Android use one Firebase-backed contract for crew compliance data.</span>
+                    </div>
+                    <div class="hero-metric-card">
+                      <strong>Audit-ready</strong>
+                      <span>Centralize expiry tracking, operator linkage, and regulated document change history.</span>
+                    </div>
+                  </div>
 
                   <div class="features-list">
                     <div class="feature-item">
-                      <span class="feature-icon">⌛</span>
+                      <span class="feature-icon">01</span>
                       <div>
-                        <h3>Licence & Expiry Tracking</h3>
-                        <p>Monitor pilot certifications, medicals and training currency in real time.</p>
+                        <h3>Crew Compliance Command</h3>
+                        <p>Track licence validity, medicals, and pilot-readiness exceptions without spreadsheet drift.</p>
                       </div>
                     </div>
                     <div class="feature-item">
-                      <span class="feature-icon">✈️</span>
+                      <span class="feature-icon">02</span>
                       <div>
-                        <h3>Fleet Operations</h3>
-                        <p>Track aircraft status, inspections, dispatch readiness and maintenance cycles.</p>
+                        <h3>Company Document Control</h3>
+                        <p>Manage shared crew records, operator visibility, and time-sensitive renewals from one web workspace.</p>
                       </div>
                     </div>
                     <div class="feature-item">
-                      <span class="feature-icon">✅</span>
+                      <span class="feature-icon">03</span>
                       <div>
-                        <h3>Regulatory Compliance</h3>
-                        <p>Stay aligned with DGCA audit readiness and safety oversight requirements.</p>
+                        <h3>Operational Readiness</h3>
+                        <p>Build the foundation for dispatch, flight documents, and operator-side oversight modules in a single system.</p>
                       </div>
                     </div>
                   </div>
 
-                  <div class="positioning-quote">
-                    <p class="quote-text">"VyomSena transforms aviation administration into a modern, operational control center for crew, aircraft, and compliance."</p>
+                  <div class="hero-bottom-grid">
+                    <div class="positioning-quote">
+                      <p class="quote-label">Why this exists</p>
+                      <p class="quote-text">VyomSena turns fragmented aviation administration into a single, operator-grade command layer for crew, documents, and compliance visibility.</p>
+                    </div>
+                    <div class="pilot-callout-card">
+                      <p class="pilot-callout-label">Pilot Access</p>
+                      <h3>Pilots use the Android app</h3>
+                      <p>Individual and company-linked pilots access their workflows on mobile. This web workspace is reserved for company-side operations teams.</p>
+                    </div>
                   </div>
                 </div>
               </aside>
@@ -148,9 +182,10 @@ export function initLayout() {
               <div class="vs-form-panel">
                 <div class="vs-form-inner">
                   <div class="vs-auth-card active" id="login-card">
+                    <div class="auth-panel-badge">Operations Workspace</div>
                     <div class="card-heading">
                       <h2>Sign In</h2>
-                      <p>Use your company workspace credentials to access VAMS. Pilots should use the Android app.</p>
+                      <p>Access your company workspace for crew oversight, compliance tracking, and operational coordination.</p>
                     </div>
                     <form id="login-form" class="auth-form">
                       <div class="input-group">
@@ -179,6 +214,10 @@ export function initLayout() {
                         <span class="btn-spinner hidden"></span>
                       </button>
                     </form>
+                    <div class="auth-side-note">
+                      <strong>Pilot account?</strong>
+                      <span>Use the Android app for personal and company-linked pilot workflows.</span>
+                    </div>
                     <div class="card-footer">
                       <span>Need a company workspace?</span>
                       <a href="#" id="go-register" class="link-action">Create workspace</a>
@@ -186,9 +225,10 @@ export function initLayout() {
                   </div>
 
                   <div class="vs-auth-card" id="register-card">
+                    <div class="auth-panel-badge">Workspace Setup</div>
                     <div class="card-heading">
                       <h2>Create Company Workspace</h2>
-                      <p>Register your company operations workspace. Pilots continue to use the Android app and can be linked later.</p>
+                      <p>Set up your operator workspace with the details your operations team needs from day one. Pilots can be linked later through the mobile-first flow.</p>
                     </div>
                     <form id="register-form" class="auth-form">
                       <div class="input-group">
@@ -244,6 +284,7 @@ export function initLayout() {
                   </div>
 
                   <div class="vs-auth-card" id="recover-card">
+                    <div class="auth-panel-badge">Access Recovery</div>
                     <div class="card-heading">
                       <h2>Recover Access</h2>
                       <p>Send a password reset link to your email.</p>
