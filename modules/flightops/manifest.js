@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/flightops',
   name: 'Flight Operations',
-  title: 'Flight Operations',
+  title: 'Flight Ops',
   icon: 'flight',
   order: 70,
   showInMenu: true,

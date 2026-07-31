@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/sms',
   name: 'Safety Management',
-  title: 'Safety Management',
+  title: 'Safety (SMS)',
   icon: 'sms',
   order: 120,
   showInMenu: true,

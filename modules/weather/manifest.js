@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/weather',
   name: 'Weather Briefing',
-  title: 'Weather Briefing',
+  title: 'Weather Desk',
   icon: 'weather',
   order: 140,
   showInMenu: true,

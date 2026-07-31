@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/notam',
   name: 'NOTAM Center',
-  title: 'NOTAM Center',
+  title: 'NOTAMs',
   icon: 'notam',
   order: 90,
   showInMenu: true,

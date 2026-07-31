@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/reports',
   name: 'Reports',
-  title: 'Reports',
+  title: 'Reports Hub',
   icon: 'reports',
   order: 100,
   showInMenu: true,

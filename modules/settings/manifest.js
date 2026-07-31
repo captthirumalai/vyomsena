@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/settings',
   name: 'Settings',
-  title: 'Settings',
+  title: 'Workspace Settings',
   icon: 'settings',
   order: 110,
   showInMenu: true,

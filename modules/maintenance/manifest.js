@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/maintenance',
   name: 'Maintenance',
-  title: 'Maintenance',
+  title: 'Maintenance Hub',
   icon: 'maintenance',
   order: 80,
   showInMenu: true,

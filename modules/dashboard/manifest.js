@@ -1,7 +1,7 @@
 export const manifest = {
   path: '/dashboard',
   name: 'Dashboard',
-  title: 'Dashboard Overview',
+  title: 'Operations Dashboard',
   icon: 'dashboard',
   order: 10,
   showInMenu: true,

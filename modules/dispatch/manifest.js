@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/dispatch',
   name: 'Dispatch Control',
-  title: 'Dispatch Control',
+  title: 'Dispatch Board',
   icon: 'dispatch',
   order: 50,
   showInMenu: true,

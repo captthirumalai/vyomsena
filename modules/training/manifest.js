@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/training',
   name: 'Training',
-  title: 'Training',
+  title: 'Training Center',
   icon: 'training',
   order: 130,
   showInMenu: true,

@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/ai',
   name: 'AI Operations',
-  title: 'AI Operations',
+  title: 'AI Assistant',
   icon: 'ai',
   order: 40,
   showInMenu: true,

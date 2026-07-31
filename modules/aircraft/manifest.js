@@ -1,7 +1,7 @@
 export const manifest = {
   path: '/aircraft',
   name: 'Aircraft',
-  title: 'Aircraft Fleet',
+  title: 'Fleet',
   icon: 'aircraft',
   order: 30,
   showInMenu: true,

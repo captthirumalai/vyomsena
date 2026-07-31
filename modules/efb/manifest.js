@@ -1,7 +1,7 @@
 ﻿export const manifest = {
   path: '/efb',
   name: 'Electronic Flight Bag',
-  title: 'Electronic Flight Bag',
+  title: 'EFB Docs',
   icon: 'efb',
   order: 60,
   showInMenu: true,
