@@ -1,0 +1,44 @@
+﻿<section class="card">
+  <div class="card-heading">
+    <h2>Training & Currency</h2>
+    <p>Live training center, offering, and booking data from Firestore.</p>
+  </div>
+
+  <div id="training-status" class="muted">Loading training records...</div>
+
+  <div class="training-summary" id="training-summary">
+    <div class="training-stat">
+      <strong id="training-centers-total">0</strong>
+      <span>Centers</span>
+    </div>
+    <div class="training-stat">
+      <strong id="training-offerings-total">0</strong>
+      <span>Offerings</span>
+    </div>
+    <div class="training-stat">
+      <strong id="training-bookings-total">0</strong>
+      <span>Bookings</span>
+    </div>
+    <div class="training-stat">
+      <strong id="training-pending-total">0</strong>
+      <span>Pending Approvals</span>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Recent Bookings</h3>
+  <div class="training-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Offering</th>
+          <th>Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="training-bookings-body"></tbody>
+    </table>
+  </div>
+</section>

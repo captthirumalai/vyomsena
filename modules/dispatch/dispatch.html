@@ -1,0 +1,44 @@
+﻿<section class="card">
+  <div class="card-heading">
+    <h2>Dispatch Control</h2>
+    <p>Live readiness view from fleet and crew data.</p>
+  </div>
+
+  <div id="dispatch-status" class="muted">Loading dispatch readiness...</div>
+
+  <div class="dispatch-summary" id="dispatch-summary">
+    <div class="dispatch-stat">
+      <strong id="dispatch-fleet-total">0</strong>
+      <span>Total Aircraft</span>
+    </div>
+    <div class="dispatch-stat">
+      <strong id="dispatch-fleet-operational">0</strong>
+      <span>Operational Aircraft</span>
+    </div>
+    <div class="dispatch-stat">
+      <strong id="dispatch-crew-ready">0</strong>
+      <span>Ready Crew</span>
+    </div>
+    <div class="dispatch-stat">
+      <strong id="dispatch-constraints">0</strong>
+      <span>Dispatch Constraints</span>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Dispatch Queue</h3>
+  <div class="dispatch-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Reference</th>
+          <th>Issue</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="dispatch-queue-body"></tbody>
+    </table>
+  </div>
+</section>

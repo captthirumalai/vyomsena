@@ -1,0 +1,13 @@
+﻿export const manifest = {
+  path: '/ai',
+  name: 'AI Operations',
+  title: 'AI Operations',
+  icon: 'ai',
+  order: 40,
+  showInMenu: true,
+  permissions: ['admin', 'operations'],
+  breadcrumbs: ['Home', 'AI Operations'],
+  html: 'modules/ai/ai.html',
+  js: 'modules/ai/ai.js',
+  css: 'modules/ai/ai.css'
+};

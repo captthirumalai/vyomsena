@@ -49,6 +49,7 @@ function setActiveCard(cardName) {
 }
 
 function showLanding() {
+  query('#app-shell')?.classList.add('auth-mode');
   query('#auth-view')?.classList.remove('hidden');
   query('#app-view')?.classList.add('hidden');
   query('#app-topbar')?.classList.add('hidden');
@@ -57,6 +58,7 @@ function showLanding() {
 }
 
 function showAppShell() {
+  query('#app-shell')?.classList.remove('auth-mode');
   query('#auth-view')?.classList.add('hidden');
   query('#app-view')?.classList.remove('hidden');
   query('#app-topbar')?.classList.remove('hidden');

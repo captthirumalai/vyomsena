@@ -62,7 +62,7 @@ export function initLayout() {
   if (!app) return;
 
   const shell = `
-    <div class="vs-shell">
+    <div class="vs-shell auth-mode" id="app-shell">
       <aside class="vs-sidebar hidden" id="app-sidebar">
         <div class="vs-brand-panel">
           <div class="vs-brand-logo">V</div>
@@ -122,8 +122,8 @@ export function initLayout() {
                   </div>
 
                   <div class="hero-headline-block">
-                    <h1 class="brand-tagline">Run company aviation workflows from one operational control surface.</h1>
-                    <p class="brand-desc">Coordinate crew validity, fleet readiness, document sharing, and audit-critical oversight from a single workspace built for operator teams.</p>
+                    <h1 class="brand-tagline">Run aviation company workflows from one operational control surface.</h1>
+                    <p class="brand-desc">Coordinate crew validity, fleet readiness, document sharing, and audit-critical oversight from a single workspace built for operator teams with AI-enhanced capability.</p>
                   </div>
 
                   <div class="hero-metrics">
@@ -137,7 +137,7 @@ export function initLayout() {
                     </div>
                     <div class="hero-metric-card">
                       <strong>Audit-ready</strong>
-                      <span>Centralize expiry tracking, operator linkage, and regulated document change history.</span>
+                      <span>Centralize expiry tracking, trainings, operator linkage, and regulated document change history.</span>
                     </div>
                   </div>
 

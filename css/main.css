@@ -577,6 +577,14 @@ img {
   min-height: calc(100vh - 3rem);
 }
 
+.vs-shell.auth-mode {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.vs-shell.auth-mode .vs-main {
+  grid-column: 1 / -1;
+}
+
 .vs-sidebar.hidden + .vs-main {
   grid-column: 1 / -1;
 }

@@ -1,0 +1,44 @@
+﻿<section class="card">
+  <div class="card-heading">
+    <h2>Weather Briefing</h2>
+    <p>Operational weather posture using live dispatch constraints.</p>
+  </div>
+
+  <div class="weather-summary" id="weather-summary">
+    <div class="weather-stat">
+      <strong id="weather-risk-level">GREEN</strong>
+      <span>Operational Risk Level</span>
+    </div>
+    <div class="weather-stat">
+      <strong id="weather-maintenance-impact">0</strong>
+      <span>Aircraft Constraints</span>
+    </div>
+    <div class="weather-stat">
+      <strong id="weather-crew-impact">0</strong>
+      <span>Crew Document Constraints</span>
+    </div>
+    <div class="weather-stat">
+      <strong id="weather-ready-score">0%</strong>
+      <span>Readiness Score</span>
+    </div>
+  </div>
+
+  <p id="weather-status" class="muted">Loading operational inputs...</p>
+</section>
+
+<section class="card">
+  <h3>Constraint Watchlist</h3>
+  <div class="weather-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Reference</th>
+          <th>Impact</th>
+          <th>Level</th>
+        </tr>
+      </thead>
+      <tbody id="weather-watchlist-body"></tbody>
+    </table>
+  </div>
+</section>
