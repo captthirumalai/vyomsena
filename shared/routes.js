@@ -1,5 +1,6 @@
 import { manifest as dashboardManifest } from '../modules/dashboard/manifest.js';
 import { manifest as crewManifest } from '../modules/crew/manifest.js';
+import { manifest as crewProfileManifest } from '../modules/crewprofile/manifest.js';
 import { manifest as aircraftManifest } from '../modules/aircraft/manifest.js';
 import { manifest as aiManifest } from '../modules/ai/manifest.js';
 import { manifest as dispatchManifest } from '../modules/dispatch/manifest.js';
@@ -18,6 +19,7 @@ const normalizeRole = (role) => `${role || ''}`.trim().toLowerCase();
 export const appRoutes = [
   dashboardManifest,
   crewManifest,
+  crewProfileManifest,
   aircraftManifest,
   aiManifest,
   dispatchManifest,

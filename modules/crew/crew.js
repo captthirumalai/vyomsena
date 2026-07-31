@@ -49,6 +49,7 @@ let queueSyncLastAttemptAt = null;
 let queueSyncLastError = null;
 let queueSyncFlashTimer = null;
 let crewPermissions = null;
+const CREW_PROFILE_SESSION_KEY = 'vs-selected-crew-profile';
 
 const crewListState = {
   searchText: '',
@@ -424,11 +425,15 @@ function renderCrewTable() {
       const licenseNumber = getLicenseNumber(docs);
       const medicalExpiry = formatDate(getMedicalExpiry(docs));
       const isSelected = pilot.uid === selectedPilotUid;
-      const rowActions = !canPerformCrewAction(activeCurrentUser, 'edit')
-        ? '<span class="muted">Self</span>'
-        : `<div class="crew-action-row">
-            <button type="button" class="crew-btn crew-btn-secondary" data-action="delink" data-pilot-uid="${escapeHtml(pilot.uid)}">Delink</button>
-          </div>`;
+      const actionItems = [
+        `<button type="button" class="crew-btn crew-btn-secondary" data-action="profile" data-pilot-uid="${escapeHtml(pilot.uid)}">Profile</button>`
+      ];
+
+      if (canPerformCrewAction(activeCurrentUser, 'edit')) {
+        actionItems.push(`<button type="button" class="crew-btn crew-btn-secondary" data-action="delink" data-pilot-uid="${escapeHtml(pilot.uid)}">Delink</button>`);
+      }
+
+      const rowActions = `<div class="crew-action-row">${actionItems.join('')}</div>`;
 
       return `<tr data-pilot-uid="${escapeHtml(pilot.uid)}" class="${isSelected ? 'selected' : ''}">
         <td><strong>${escapeHtml(toProfileName(pilot))}</strong><br /><small>${escapeHtml(pilot.email || 'No email')}</small></td>
@@ -673,8 +678,6 @@ function bindEvents() {
   });
 
   activeView?.querySelector('#crew-table-body')?.addEventListener('click', async (event) => {
-    if (isPilotRole()) return;
-
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
@@ -684,7 +687,14 @@ function bindEvents() {
       const pilotUid = actionButton.getAttribute('data-pilot-uid');
       if (!action || !pilotUid) return;
 
+      if (action === 'profile') {
+        window.sessionStorage.setItem(CREW_PROFILE_SESSION_KEY, pilotUid);
+        window.location.hash = '#/crew-profile';
+        return;
+      }
+
       if (action === 'delink') {
+        if (isPilotRole()) return;
         const confirmed = window.confirm('Delink this pilot from your organization?');
         if (!confirmed) return;
         await delinkPilot(pilotUid);
