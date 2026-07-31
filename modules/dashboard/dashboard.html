@@ -1,37 +1,126 @@
-<section class="card">
-  <div class="card-heading">
-    <h2>Dashboard Overview</h2>
-    <p>Live operational metrics for your organization.</p>
+<section class="card dashboard-hero">
+  <div class="dashboard-hero-head">
+    <div>
+      <p class="dashboard-eyebrow">Operations Control</p>
+      <h2>Live Dashboard</h2>
+      <p id="dashboard-meta" class="dashboard-meta">Monitoring fleet, crew, and compliance from Firestore.</p>
+    </div>
+    <div class="dashboard-hero-side">
+      <span id="dashboard-last-sync" class="dashboard-sync">Syncing...</span>
+      <div class="dashboard-quick-links">
+        <a href="#/crew" class="dash-link">Crew</a>
+        <a href="#/aircraft" class="dash-link">Aircraft</a>
+        <a href="#/reports" class="dash-link">Reports</a>
+      </div>
+    </div>
   </div>
-  <div class="dashboard-summary" id="dashboard-summary">
-    <div class="summary-card">
-      <strong id="fleet-total">0</strong>
-      <span>Total Fleet</span>
-    </div>
-    <div class="summary-card">
-      <strong id="fleet-operational">0</strong>
-      <span>Operational</span>
-    </div>
-    <div class="summary-card">
-      <strong id="fleet-maintenance">0</strong>
-      <span>Under Maintenance</span>
-    </div>
-    <div class="summary-card">
-      <strong id="crew-total">0</strong>
-      <span>Total Crew</span>
-    </div>
-    <div class="summary-card">
-      <strong id="crew-expiring">0</strong>
-      <span>Licenses Expiring</span>
-    </div>
-    <div class="summary-card">
-      <strong id="crew-expired">0</strong>
-      <span>Licenses Expired</span>
-    </div>
+
+  <div class="dashboard-kpi-grid" id="dashboard-kpi-grid">
+    <article class="dashboard-kpi-card">
+      <span class="kpi-label">Fleet Total</span>
+      <strong id="kpi-fleet-total">0</strong>
+    </article>
+    <article class="dashboard-kpi-card">
+      <span class="kpi-label">Operational</span>
+      <strong id="kpi-fleet-ready">0</strong>
+    </article>
+    <article class="dashboard-kpi-card">
+      <span class="kpi-label">Needs Attention</span>
+      <strong id="kpi-fleet-maint">0</strong>
+    </article>
+    <article class="dashboard-kpi-card">
+      <span class="kpi-label">Crew Linked</span>
+      <strong id="kpi-crew-total">0</strong>
+    </article>
+    <article class="dashboard-kpi-card">
+      <span class="kpi-label">Managed Docs</span>
+      <strong id="kpi-doc-total">0</strong>
+    </article>
+    <article class="dashboard-kpi-card warning">
+      <span class="kpi-label">Expiring Soon</span>
+      <strong id="kpi-doc-expiring">0</strong>
+    </article>
+    <article class="dashboard-kpi-card danger">
+      <span class="kpi-label">Expired</span>
+      <strong id="kpi-doc-expired">0</strong>
+    </article>
+    <article class="dashboard-kpi-card success">
+      <span class="kpi-label">Compliance Rate</span>
+      <strong id="kpi-compliance-rate">0%</strong>
+    </article>
   </div>
 </section>
 
-<section class="card">
-  <h3>Recent Activity</h3>
-  <p id="dashboard-activity">Monitoring live data from Firestore and reflecting the same dataset as Android.</p>
+<section class="dashboard-main-grid">
+  <article class="card dashboard-panel">
+    <div class="dashboard-panel-head">
+      <h3>Action Alerts</h3>
+      <div class="health-badges">
+        <span id="health-fleet" class="health-badge neutral">Fleet</span>
+        <span id="health-docs" class="health-badge neutral">Docs</span>
+        <span id="health-overall" class="health-badge neutral">Overall</span>
+      </div>
+    </div>
+    <ul id="dashboard-alert-list" class="alert-list"></ul>
+  </article>
+
+  <article class="card dashboard-panel">
+    <div class="dashboard-panel-head">
+      <h3>Document Watchlist</h3>
+      <span class="panel-hint">Top expiry risks</span>
+    </div>
+    <div class="dash-table-wrap">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Pilot</th>
+            <th>Document</th>
+            <th>Expiry</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="dashboard-watchlist-body"></tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="card dashboard-panel">
+    <div class="dashboard-panel-head">
+      <h3>Fleet Focus</h3>
+      <span class="panel-hint">Non-operational and upcoming checks</span>
+    </div>
+    <div class="dash-table-wrap">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Registration</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Next Inspection</th>
+          </tr>
+        </thead>
+        <tbody id="dashboard-fleet-focus-body"></tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="card dashboard-panel">
+    <div class="dashboard-panel-head">
+      <h3>Crew Risk Matrix</h3>
+      <span class="panel-hint">Pilots with highest compliance risk</span>
+    </div>
+    <div class="dash-table-wrap">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Pilot</th>
+            <th>Expired</th>
+            <th>Expiring</th>
+            <th>Next Critical Date</th>
+          </tr>
+        </thead>
+        <tbody id="dashboard-crew-risk-body"></tbody>
+      </table>
+    </div>
+  </article>
 </section>
