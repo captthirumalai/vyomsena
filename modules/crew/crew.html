@@ -34,6 +34,48 @@
     </div>
   </div>
 
+  <div class="crew-list-controls" aria-label="Crew list controls">
+    <label>
+      Search
+      <input id="crew-search" type="search" placeholder="Name, email, license" />
+    </label>
+    <label>
+      Compliance
+      <select id="crew-filter-compliance">
+        <option value="ALL" selected>All</option>
+        <option value="VALID">Valid</option>
+        <option value="EXPIRING">Expiring</option>
+        <option value="EXPIRED">Expired</option>
+      </select>
+    </label>
+    <label>
+      Role
+      <select id="crew-filter-role">
+        <option value="ALL" selected>All</option>
+        <option value="PILOT">Pilot</option>
+        <option value="AME">AME</option>
+        <option value="OPERATIONS">Operations</option>
+        <option value="TRAINING">Training</option>
+      </select>
+    </label>
+    <label>
+      Sort By
+      <select id="crew-sort-field">
+        <option value="name" selected>Name</option>
+        <option value="compliance">Compliance</option>
+        <option value="documents">Documents</option>
+        <option value="medicalExpiry">Medical Expiry</option>
+      </select>
+    </label>
+    <label>
+      Direction
+      <select id="crew-sort-direction">
+        <option value="asc" selected>Ascending</option>
+        <option value="desc">Descending</option>
+      </select>
+    </label>
+  </div>
+
   <div class="crew-list" id="crew-list">
     <table class="crew-table">
       <thead>

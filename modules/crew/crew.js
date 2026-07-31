@@ -27,6 +27,8 @@ import {
   startCrewDocumentSyncWorker,
   shouldQueueError
 } from '../../services/crewDocumentSyncService.js';
+import { canPerformCrewAction, getCrewPermissionsForUser } from '../../services/permissionService.js';
+import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 
 let crewUnsubscribe = null;
 let pilotDocUnsubscribe = null;
@@ -46,6 +48,15 @@ let queueSyncBusy = false;
 let queueSyncLastAttemptAt = null;
 let queueSyncLastError = null;
 let queueSyncFlashTimer = null;
+let crewPermissions = null;
+
+const crewListState = {
+  searchText: '',
+  compliance: 'ALL',
+  role: 'ALL',
+  sortField: 'name',
+  sortDirection: 'asc'
+};
 
 function toDateValue(value) {
   const raw = value?.toDate ? value.toDate() : value;
@@ -86,6 +97,80 @@ function isPilotRole() {
 
 function isOperationsRole() {
   return !isPilotRole();
+}
+
+function normalizeSearchText(value) {
+  return `${value || ''}`.trim().toLowerCase();
+}
+
+function complianceRank(status) {
+  if (status === 'Expired') return 3;
+  if (status === 'Expiring') return 2;
+  return 1;
+}
+
+function getPilotRoleLabel(pilot) {
+  return normalizeRole(pilot?.role || 'PILOT');
+}
+
+function getPilotSearchText(pilot, docs) {
+  const licenseNumber = getLicenseNumber(docs);
+  return [
+    toProfileName(pilot),
+    pilot?.email || '',
+    licenseNumber,
+    getPilotRoleLabel(pilot)
+  ].join(' ').toLowerCase();
+}
+
+function compareValues(left, right) {
+  if (left === right) return 0;
+  if (left === null || left === undefined) return 1;
+  if (right === null || right === undefined) return -1;
+
+  if (typeof left === 'number' && typeof right === 'number') {
+    return left - right;
+  }
+
+  return `${left}`.localeCompare(`${right}`);
+}
+
+function getSortedAndFilteredPilots() {
+  const normalizedSearch = normalizeSearchText(crewListState.searchText);
+
+  const filtered = pilotsCache.filter((pilot) => {
+    const docs = docsByPilotCache.get(pilot.uid) || [];
+    const compliance = getCompliance(docs);
+    const pilotRole = getPilotRoleLabel(pilot);
+
+    const matchesSearch = !normalizedSearch || getPilotSearchText(pilot, docs).includes(normalizedSearch);
+    const matchesCompliance = crewListState.compliance === 'ALL' || compliance.toUpperCase() === crewListState.compliance;
+    const matchesRole = crewListState.role === 'ALL' || pilotRole === crewListState.role;
+
+    return matchesSearch && matchesCompliance && matchesRole;
+  });
+
+  const sorted = filtered.slice().sort((leftPilot, rightPilot) => {
+    const leftDocs = docsByPilotCache.get(leftPilot.uid) || [];
+    const rightDocs = docsByPilotCache.get(rightPilot.uid) || [];
+
+    let comparison = 0;
+    if (crewListState.sortField === 'compliance') {
+      comparison = complianceRank(getCompliance(leftDocs)) - complianceRank(getCompliance(rightDocs));
+    } else if (crewListState.sortField === 'documents') {
+      comparison = leftDocs.length - rightDocs.length;
+    } else if (crewListState.sortField === 'medicalExpiry') {
+      const leftDate = toDateValue(getMedicalExpiry(leftDocs))?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const rightDate = toDateValue(getMedicalExpiry(rightDocs))?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      comparison = leftDate - rightDate;
+    } else {
+      comparison = compareValues(toProfileName(leftPilot).toLowerCase(), toProfileName(rightPilot).toLowerCase());
+    }
+
+    return crewListState.sortDirection === 'desc' ? comparison * -1 : comparison;
+  });
+
+  return sorted;
 }
 
 function setStatus(message) {
@@ -253,12 +338,14 @@ function setVisible(selector, shouldShow) {
 function applyRoleLayout() {
   const pilotMode = isPilotRole();
   setVisible('#crew-add-card', false);
-  setVisible('#crew-link-card', !pilotMode);
-  setVisible('#crew-incoming-card', pilotMode);
+  setVisible('#crew-link-card', !!crewPermissions?.canManageLinkRequests && !pilotMode);
+  setVisible('#crew-incoming-card', !!crewPermissions?.canRespondIncomingRequest && pilotMode);
 
   const uploadStatus = activeView?.querySelector('#crew-doc-upload-status');
   if (uploadStatus && pilotMode) {
     uploadStatus.textContent = 'You can upload documents to your own profile.';
+  } else if (uploadStatus && !crewPermissions?.canEdit) {
+    uploadStatus.textContent = 'You have view-only access for crew records.';
   }
 }
 
@@ -321,14 +408,23 @@ function renderCrewTable() {
     return;
   }
 
-  body.innerHTML = pilotsCache
+  const visiblePilots = getSortedAndFilteredPilots();
+
+  if (!visiblePilots.length) {
+    body.innerHTML = '<tr><td colspan="7">No crew members match the current filters.</td></tr>';
+    updateSummary();
+    setStatus('No matching crew found. Adjust search, filter, or sort settings.');
+    return;
+  }
+
+  body.innerHTML = visiblePilots
     .map((pilot) => {
       const docs = docsByPilotCache.get(pilot.uid) || [];
       const status = getCompliance(docs);
       const licenseNumber = getLicenseNumber(docs);
       const medicalExpiry = formatDate(getMedicalExpiry(docs));
       const isSelected = pilot.uid === selectedPilotUid;
-      const rowActions = isPilotRole()
+      const rowActions = !canPerformCrewAction(activeCurrentUser, 'edit')
         ? '<span class="muted">Self</span>'
         : `<div class="crew-action-row">
             <button type="button" class="crew-btn crew-btn-secondary" data-action="delink" data-pilot-uid="${escapeHtml(pilot.uid)}">Delink</button>
@@ -347,6 +443,7 @@ function renderCrewTable() {
     .join('');
 
   updateSummary();
+  setStatus(`Showing ${visiblePilots.length} of ${pilotsCache.length} crew profile(s).`);
 }
 
 function renderPilotDocuments(documents, pilot) {
@@ -540,6 +637,41 @@ function bindEvents() {
     await runQueueSync({ source: 'manual', refreshAfter: true });
   });
 
+  activeView?.querySelector('#crew-search')?.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    crewListState.searchText = target.value || '';
+    renderCrewTable();
+  });
+
+  activeView?.querySelector('#crew-filter-compliance')?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    crewListState.compliance = `${target.value || 'ALL'}`.toUpperCase();
+    renderCrewTable();
+  });
+
+  activeView?.querySelector('#crew-filter-role')?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    crewListState.role = `${target.value || 'ALL'}`.toUpperCase();
+    renderCrewTable();
+  });
+
+  activeView?.querySelector('#crew-sort-field')?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    crewListState.sortField = `${target.value || 'name'}`;
+    renderCrewTable();
+  });
+
+  activeView?.querySelector('#crew-sort-direction')?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    crewListState.sortDirection = `${target.value || 'asc'}`;
+    renderCrewTable();
+  });
+
   activeView?.querySelector('#crew-table-body')?.addEventListener('click', async (event) => {
     if (isPilotRole()) return;
 
@@ -571,14 +703,14 @@ function bindEvents() {
   });
 
   activeView?.querySelector('#crew-add-form')?.addEventListener('submit', async (event) => {
-    if (!isOperationsRole()) return;
+    if (!canPerformCrewAction(activeCurrentUser, 'edit')) return;
     event.preventDefault();
     const addStatus = activeView?.querySelector('#crew-add-status');
     if (addStatus) addStatus.textContent = 'Pilot profiles must be self-created by pilots under current Firestore rules.';
   });
 
   activeView?.querySelector('#crew-link-form')?.addEventListener('submit', async (event) => {
-    if (!isOperationsRole()) return;
+    if (!canPerformCrewAction(activeCurrentUser, 'manageLinkRequests')) return;
     event.preventDefault();
     if (!activeOperatorUid) return;
 
@@ -623,7 +755,7 @@ function bindEvents() {
   });
 
   activeView?.querySelector('#crew-incoming-table-body')?.addEventListener('click', async (event) => {
-    if (!isPilotRole()) return;
+    if (!canPerformCrewAction(activeCurrentUser, 'respondIncomingRequest')) return;
 
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -802,6 +934,7 @@ function bindEvents() {
     if (!action || !documentId) return;
 
     if (action === 'edit') {
+      if (!canPerformCrewAction(activeCurrentUser, 'edit')) return;
       const pilotUid = selectedPilotUid || activeCurrentUser?.uid;
       const pilotDocs = docsByPilotCache.get(pilotUid) || [];
       const targetDoc = pilotDocs.find((item) => item.firestoreId === documentId);
@@ -871,6 +1004,7 @@ function bindEvents() {
     }
 
     if (action !== 'delete') return;
+    if (!canPerformCrewAction(activeCurrentUser, 'delete')) return;
 
     const confirmed = window.confirm('Delete this document and its storage file?');
     if (!confirmed) return;
@@ -938,9 +1072,11 @@ export async function init(view, context) {
 
   const operatorUid = context?.currentUser?.uid || null;
   const currentUser = context?.currentUser || null;
-  activeOperatorUid = operatorUid;
+  const orgContext = getCurrentOrganizationContext(currentUser);
+  activeOperatorUid = orgContext.organizationId || operatorUid;
   activeCurrentUser = currentUser;
   activeRole = normalizeRole(currentUser?.role);
+  crewPermissions = getCrewPermissionsForUser(currentUser);
 
   applyRoleLayout();
 
@@ -1024,6 +1160,12 @@ export async function init(view, context) {
       activeOperatorUid = null;
       activeCurrentUser = null;
       activeRole = 'OPERATIONS';
+      crewPermissions = null;
+      crewListState.searchText = '';
+      crewListState.compliance = 'ALL';
+      crewListState.role = 'ALL';
+      crewListState.sortField = 'name';
+      crewListState.sortDirection = 'asc';
       pilotsCache = [];
       docsByPilotCache = new Map();
       selectedPilotUid = null;

@@ -31,6 +31,36 @@
   margin-bottom: 0.8rem;
 }
 
+.crew-list-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.crew-list-controls label {
+  display: grid;
+  gap: 0.28rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #334155;
+}
+
+.crew-list-controls input,
+.crew-list-controls select {
+  min-height: 36px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-transform: none;
+}
+
 .crew-sync-tools {
   display: inline-flex;
   align-items: center;

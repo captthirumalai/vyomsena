@@ -79,6 +79,12 @@ As more modules are added:
 - Add organization-scoped permission overrides.
 - Add feature-level permissions (page actions) beyond route-level access.
 
+## Action-level permissions
+
+- Route permissions remain manifest-driven.
+- Feature actions are centralized in `services/permissionService.js`.
+- Crew module now uses action keys (`view`, `edit`, `delete`, `approve`, `manageLinkRequests`, `respondIncomingRequest`) instead of scattering role checks in UI handlers.
+
 ## Testing checklist
 
 - Login with a user role that has route access and confirm route loads.
