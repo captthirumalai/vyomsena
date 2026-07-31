@@ -15,6 +15,7 @@
     <button type="button" class="crew-tab" data-tab="documents" role="tab" aria-selected="false">Documents</button>
     <button type="button" class="crew-tab" data-tab="training" role="tab" aria-selected="false">Training</button>
     <button type="button" class="crew-tab" data-tab="experience" role="tab" aria-selected="false">Flight Experience</button>
+    <button type="button" class="crew-tab" data-tab="notes" role="tab" aria-selected="false">Notes</button>
     <button type="button" class="crew-tab" data-tab="connections" role="tab" aria-selected="false">Connections</button>
     <button type="button" class="crew-tab" data-tab="history" role="tab" aria-selected="false">History</button>
   </div>
@@ -57,10 +58,16 @@
         <tbody id="crew-profile-training-body"></tbody>
       </table>
     </div>
+    <div class="crew-profile-matrix" id="crew-qualification-matrix"></div>
   </section>
 
   <section class="crew-tab-panel" data-panel="experience" role="tabpanel">
     <div class="crew-profile-grid" id="crew-profile-experience-grid"></div>
+    <div class="crew-profile-matrix" id="crew-recency-matrix"></div>
+  </section>
+
+  <section class="crew-tab-panel" data-panel="notes" role="tabpanel">
+    <div class="crew-profile-notes" id="crew-profile-notes"></div>
   </section>
 
   <section class="crew-tab-panel" data-panel="connections" role="tabpanel">

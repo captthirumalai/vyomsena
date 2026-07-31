@@ -36,6 +36,33 @@ const TRAINING_KEYWORDS = [
   'recurrent'
 ];
 
+const QUALIFICATION_RULES = [
+  { label: 'Licence', categoryTokens: ['licence', 'license'], nameTokens: ['licence', 'license'] },
+  { label: 'Medical', categoryTokens: ['medical'], nameTokens: ['medical'] },
+  { label: 'RTR', categoryTokens: ['rtr', 'radio'], nameTokens: ['rtr', 'radio'] },
+  { label: 'Passport', categoryTokens: ['passport'], nameTokens: ['passport'] },
+  { label: 'Visa', categoryTokens: ['visa'], nameTokens: ['visa'] },
+  { label: 'PPC', categoryTokens: ['training'], nameTokens: ['ppc'] },
+  { label: 'OPC', categoryTokens: ['training'], nameTokens: ['opc'] },
+  { label: 'CRM', categoryTokens: ['training'], nameTokens: ['crm'] },
+  { label: 'DG', categoryTokens: ['training'], nameTokens: ['dangerous goods', 'dg'] },
+  { label: 'IR', categoryTokens: ['training'], nameTokens: ['instrument', 'ir'] }
+];
+
+const CURRENCY_THRESHOLDS = {
+  document: {
+    greenMinDays: 60,
+    amberMinDays: 0
+  },
+  recency: {
+    lastFlightMaxDays: { green: 30, amber: 60 },
+    lastSimulatorMaxDays: { green: 90, amber: 180 },
+    lastLineCheckMaxDays: { green: 180, amber: 365 },
+    hoursLast30Min: { green: 20, amber: 10 },
+    hoursLast90Min: { green: 60, amber: 30 }
+  }
+};
+
 function toDateValue(value) {
   const raw = value?.toDate ? value.toDate() : value;
   const parsed = raw ? new Date(raw) : null;
@@ -89,6 +116,137 @@ function formatHourValue(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return '0';
   return `${parsed}`;
+}
+
+function formatShortValue(value) {
+  if (value === null || typeof value === 'undefined' || value === '') return 'empty';
+  const text = typeof value === 'object' ? JSON.stringify(value) : `${value}`;
+  return text.length > 26 ? `${text.slice(0, 23)}...` : text;
+}
+
+function getDocumentMatchTokens(document) {
+  return {
+    category: toLowerText(document.documentCategory),
+    name: toLowerText(document.documentName)
+  };
+}
+
+function matchDocumentByRule(document, rule) {
+  const tokens = getDocumentMatchTokens(document);
+  const matchesCategory = (rule.categoryTokens || []).some((token) => tokens.category.includes(token));
+  const matchesName = (rule.nameTokens || []).some((token) => tokens.name.includes(token));
+  return matchesCategory || matchesName;
+}
+
+function getDaysUntilDate(value) {
+  const date = toDateValue(value);
+  if (!date) return null;
+  return Math.floor((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
+function resolveDocumentToneByExpiry(document) {
+  const thresholds = CURRENCY_THRESHOLDS.document;
+  const days = getDaysUntilDate(document.expiryDate);
+
+  if (days === null) {
+    return { tone: 'red', label: 'RED', detail: 'Missing expiry date' };
+  }
+
+  if (days < thresholds.amberMinDays) {
+    return { tone: 'red', label: 'RED', detail: `Expired ${Math.abs(days)} day(s) ago` };
+  }
+
+  if (days < thresholds.greenMinDays) {
+    return { tone: 'amber', label: 'AMBER', detail: `Expires in ${days} day(s)` };
+  }
+
+  return { tone: 'green', label: 'GREEN', detail: `Valid for ${days} day(s)` };
+}
+
+function pickWorstTone(values) {
+  const order = { red: 3, amber: 2, green: 1 };
+  if (!values.length) return 'red';
+  return values.reduce((worst, tone) => (order[tone] > order[worst] ? tone : worst), 'green');
+}
+
+function toToneLabel(tone) {
+  if (tone === 'green') return 'GREEN';
+  if (tone === 'amber') return 'AMBER';
+  return 'RED';
+}
+
+function deriveQualificationStatus(documents) {
+  if (!documents.length) {
+    return {
+      tone: 'red',
+      label: 'RED',
+      detail: 'No supporting record'
+    };
+  }
+
+  const evaluations = documents.map((document) => resolveDocumentToneByExpiry(document));
+  const tone = pickWorstTone(evaluations.map((item) => item.tone));
+  const ranked = evaluations.sort((left, right) => {
+    const order = { red: 3, amber: 2, green: 1 };
+    return (order[right.tone] || 0) - (order[left.tone] || 0);
+  });
+
+  return {
+    tone,
+    label: toToneLabel(tone),
+    detail: ranked[0]?.detail || 'No detail'
+  };
+}
+
+function getNumberFromProfile(candidates = []) {
+  for (const candidate of candidates) {
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function getDateFromProfile(candidates = []) {
+  for (const candidate of candidates) {
+    const date = toDateValue(candidate);
+    if (date) return date;
+  }
+  return null;
+}
+
+function evaluateDaysRecency(dateValue, threshold) {
+  if (!dateValue) return { tone: 'red', label: 'RED', detail: 'No record date' };
+  const daysSince = Math.floor((Date.now() - dateValue.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysSince <= threshold.green) return { tone: 'green', label: 'GREEN', detail: `${daysSince} day(s) since` };
+  if (daysSince <= threshold.amber) return { tone: 'amber', label: 'AMBER', detail: `${daysSince} day(s) since` };
+  return { tone: 'red', label: 'RED', detail: `${daysSince} day(s) since` };
+}
+
+function evaluateHoursRecency(value, threshold) {
+  if (value === null) return { tone: 'red', label: 'RED', detail: 'No logged hours' };
+  if (value >= threshold.green) return { tone: 'green', label: 'GREEN', detail: `${value}h logged` };
+  if (value >= threshold.amber) return { tone: 'amber', label: 'AMBER', detail: `${value}h logged` };
+  return { tone: 'red', label: 'RED', detail: `${value}h logged` };
+}
+
+function getEmbeddedEditLogs(document) {
+  if (Array.isArray(document.editLogs)) return document.editLogs;
+  if (Array.isArray(document.edit_logs)) return document.edit_logs;
+  if (document.lastEditLog && typeof document.lastEditLog === 'object') return [document.lastEditLog];
+  return [];
+}
+
+function toHistoryEventFromEditLog(document, log, index) {
+  const fieldName = log.field || log.fieldName || 'unknown_field';
+  const oldValue = formatShortValue(log.oldValue);
+  const newValue = formatShortValue(log.newValue);
+  return {
+    when: log.timestamp || log.createdAt || log.when || null,
+    event: `${document.documentName || 'Document'}: ${fieldName} changed (${oldValue} -> ${newValue})`,
+    source: log.source || 'edit_logs',
+    editedBy: log.editedBy || document.lastEditedBy || 'N/A',
+    sortSeed: index
+  };
 }
 
 function setTab(tabName) {
@@ -215,6 +373,7 @@ function renderTrainingTab() {
 
   if (!trainingDocs.length) {
     body.innerHTML = '<tr><td colspan="5">No training records yet. Add training certificates under documents.</td></tr>';
+    renderQualificationMatrix();
     return;
   }
 
@@ -230,6 +389,96 @@ function renderTrainingTab() {
         <td>${escapeHtml(document.licenseOrCertificateNumber || document.firestoreId || 'N/A')}</td>
       </tr>`;
     })
+    .join('');
+
+  renderQualificationMatrix();
+}
+
+function renderQualificationMatrix() {
+  if (!activeView) return;
+  const container = activeView.querySelector('#crew-qualification-matrix');
+  if (!container) return;
+
+  const items = QUALIFICATION_RULES.map((rule) => {
+    const relatedDocs = profileDocuments.filter((document) => matchDocumentByRule(document, rule));
+    const status = deriveQualificationStatus(relatedDocs);
+    return `<article class="crew-matrix-item"><strong>${escapeHtml(rule.label)}</strong><span class="crew-matrix-pill ${status.tone}">${escapeHtml(status.label)}</span><small>${escapeHtml(status.detail)}</small></article>`;
+  });
+
+  container.innerHTML = items.join('');
+}
+
+function renderRecencyMatrix() {
+  if (!activeView || !profileUser) return;
+  const container = activeView.querySelector('#crew-recency-matrix');
+  if (!container) return;
+
+  const thresholds = CURRENCY_THRESHOLDS.recency;
+  const experience = profileUser.flightExperience || {};
+  const hours = profileUser.flightHours || {};
+
+  const lastFlight = getDateFromProfile([
+    profileUser.lastFlightAt,
+    experience.lastFlightAt,
+    hours.lastFlightAt
+  ]);
+
+  const lastSimulator = getDateFromProfile([
+    profileUser.lastSimulatorAt,
+    profileUser.lastSimAt,
+    experience.lastSimulatorAt,
+    experience.lastSimAt
+  ]);
+
+  const lastLineCheck = getDateFromProfile([
+    profileUser.lastLineCheckAt,
+    experience.lastLineCheckAt
+  ]);
+
+  const hoursLast30 = getNumberFromProfile([
+    profileUser.hoursLast30Days,
+    profileUser.flightHoursLast30Days,
+    experience.hoursLast30Days,
+    hours.last30Days
+  ]);
+
+  const hoursLast90 = getNumberFromProfile([
+    profileUser.hoursLast90Days,
+    profileUser.flightHoursLast90Days,
+    experience.hoursLast90Days,
+    hours.last90Days
+  ]);
+
+  const items = [
+    {
+      label: 'Last Flight Recency',
+      result: evaluateDaysRecency(lastFlight, thresholds.lastFlightMaxDays),
+      thresholdText: `Green <= ${thresholds.lastFlightMaxDays.green}d, Amber <= ${thresholds.lastFlightMaxDays.amber}d, Red > ${thresholds.lastFlightMaxDays.amber}d`
+    },
+    {
+      label: 'Simulator Recency',
+      result: evaluateDaysRecency(lastSimulator, thresholds.lastSimulatorMaxDays),
+      thresholdText: `Green <= ${thresholds.lastSimulatorMaxDays.green}d, Amber <= ${thresholds.lastSimulatorMaxDays.amber}d, Red > ${thresholds.lastSimulatorMaxDays.amber}d`
+    },
+    {
+      label: 'Line Check Recency',
+      result: evaluateDaysRecency(lastLineCheck, thresholds.lastLineCheckMaxDays),
+      thresholdText: `Green <= ${thresholds.lastLineCheckMaxDays.green}d, Amber <= ${thresholds.lastLineCheckMaxDays.amber}d, Red > ${thresholds.lastLineCheckMaxDays.amber}d`
+    },
+    {
+      label: 'Hours Last 30 Days',
+      result: evaluateHoursRecency(hoursLast30, thresholds.hoursLast30Min),
+      thresholdText: `Green >= ${thresholds.hoursLast30Min.green}h, Amber >= ${thresholds.hoursLast30Min.amber}h, Red < ${thresholds.hoursLast30Min.amber}h`
+    },
+    {
+      label: 'Hours Last 90 Days',
+      result: evaluateHoursRecency(hoursLast90, thresholds.hoursLast90Min),
+      thresholdText: `Green >= ${thresholds.hoursLast90Min.green}h, Amber >= ${thresholds.hoursLast90Min.amber}h, Red < ${thresholds.hoursLast90Min.amber}h`
+    }
+  ];
+
+  container.innerHTML = items
+    .map((item) => `<article class="crew-matrix-item"><strong>${escapeHtml(item.label)}</strong><span class="crew-matrix-pill ${item.result.tone}">${escapeHtml(item.result.label)}</span><small>${escapeHtml(item.result.detail)} | ${escapeHtml(item.thresholdText)}</small></article>`)
     .join('');
 }
 
@@ -257,6 +506,45 @@ function renderFlightExperienceTab() {
   grid.innerHTML = metrics
     .map(([label, value]) => `<dl class="crew-profile-item"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(formatHourValue(value))}</dd></dl>`)
     .join('');
+
+  renderRecencyMatrix();
+}
+
+function renderNotesTab() {
+  if (!activeView || !profileUser) return;
+  const container = activeView.querySelector('#crew-profile-notes');
+  if (!container) return;
+
+  const operationalNotes = normalizeText(profileUser.notes || profileUser.operationalNotes || profileUser.internalNotes || '');
+  const reviewer = profileUser.reviewedBy || profileUser.reviewer || 'Not assigned';
+  const reviewStatus = profileUser.reviewStatus || profileUser.internalReviewStatus || 'Pending';
+  const reviewDate = profileUser.lastReviewedAt || profileUser.reviewedAt || null;
+  const reviewRemarks = normalizeText(profileUser.reviewRemarks || profileUser.internalReviewRemarks || '');
+
+  container.innerHTML = `
+    <article class="crew-profile-note-card">
+      <h4>Operational Notes</h4>
+      <p>${escapeHtml(operationalNotes || 'No notes available yet.')}</p>
+    </article>
+    <div class="crew-profile-note-grid">
+      <article class="crew-profile-note-card">
+        <h4>Internal Review Status</h4>
+        <p>${escapeHtml(reviewStatus)}</p>
+      </article>
+      <article class="crew-profile-note-card">
+        <h4>Reviewer</h4>
+        <p>${escapeHtml(reviewer)}</p>
+      </article>
+      <article class="crew-profile-note-card">
+        <h4>Last Review Date</h4>
+        <p>${escapeHtml(formatDateTime(reviewDate))}</p>
+      </article>
+      <article class="crew-profile-note-card">
+        <h4>Review Remarks</h4>
+        <p>${escapeHtml(reviewRemarks || 'No review remarks yet.')}</p>
+      </article>
+    </div>
+  `;
 }
 
 async function renderConnectionsTab(currentUser) {
@@ -304,6 +592,10 @@ function renderHistoryTab() {
       editedBy: document.lastEditedBy || 'N/A'
     }));
 
+  const editLogEvents = profileDocuments.flatMap((document) =>
+    getEmbeddedEditLogs(document).map((log, index) => toHistoryEventFromEditLog(document, log, index))
+  );
+
   const outgoingEvents = (connectionContext.outgoing || [])
     .filter((item) => item.recipientId === profileUser?.uid || item.recipientEmail === profileUser?.email)
     .map((item) => ({
@@ -328,12 +620,13 @@ function renderHistoryTab() {
     editedBy: profileUser?.email || profileUser?.uid || 'N/A'
   };
 
-  const events = [profileEvent, ...documentEvents, ...outgoingEvents, ...incomingEvents]
+  const events = [profileEvent, ...editLogEvents, ...documentEvents, ...outgoingEvents, ...incomingEvents]
     .filter((event) => !!event.when)
     .sort((left, right) => {
       const leftTime = toDateValue(left.when)?.getTime() || 0;
       const rightTime = toDateValue(right.when)?.getTime() || 0;
-      return rightTime - leftTime;
+      if (rightTime !== leftTime) return rightTime - leftTime;
+      return (right.sortSeed || 0) - (left.sortSeed || 0);
     })
     .slice(0, 20);
 
@@ -402,6 +695,7 @@ export async function init(view, context) {
   renderDocumentsTab();
   renderTrainingTab();
   renderFlightExperienceTab();
+  renderNotesTab();
   await renderConnectionsTab(context?.currentUser);
   renderHistoryTab();
   bindEvents();

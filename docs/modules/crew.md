@@ -75,16 +75,16 @@ Target:
 - History
 - Connections
 
-Current: Dedicated Crew Profile route/page now includes Personal, Documents, Training, Flight Experience, Connections, and History tabs.
-Next: Add Notes tab and richer timeline detail from edit logs.
+Current: Dedicated Crew Profile route/page now includes Personal, Documents, Training, Flight Experience, Notes, Connections, and History tabs.
+Next: Add deeper review workflows and full audit read path for timeline completeness.
 
 ### 4. Qualifications and Documents
 Target:
 - Licence, Medical, RTR, Passport, Visa, Endorsements, Ratings, authorizations, custom docs.
 - Issue/expiry/status/reminders/attachments/history/editor metadata.
 
-Current: Strong baseline already in place with audit and sync queue.
-Next: Template categories, status matrix, and qualification mapping.
+Current: Strong baseline with audit/sync queue and a profile-level qualification matrix.
+Next: Add template categories and workflow-driven qualification mapping.
 
 ### 5. Training Management
 Target:
@@ -134,8 +134,8 @@ Next: Add disconnect history and connection timeline.
 Target:
 - Chronological crew activity stream based on document and training events.
 
-Current: Edit logs available at data layer.
-Next: Surface edit_logs and request events as unified timeline UI.
+Current: Timeline now surfaces profile/document/request events and embedded field-level changes when present in document records.
+Next: Add guaranteed full edit_log feed support for immutable audit completeness.
 
 ## Phase Plan
 
@@ -191,7 +191,7 @@ Status: Planned.
 - Deeper integration with maintenance and dispatch modules
 
 ## Next Implementation Slice (Recommended)
-1. Add Notes tab and internal review fields to Crew Profile.
-2. Add richer timeline detail from edit_logs field-level changes.
-3. Add qualification matrix and document template presets.
-4. Add training due reminders and currency indicators.
+1. Add dedicated training record model and service.
+2. Add explicit currency rules and recency threshold indicators.
+3. Add document template presets and qualification mapping workflows.
+4. Add full edit_log feed access path (subcollection or denormalized audit stream).

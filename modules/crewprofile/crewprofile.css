@@ -190,6 +190,113 @@
   gap: 0.55rem;
 }
 
+.crew-profile-matrix {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.crew-matrix-item {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+  background: #ffffff;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.crew-matrix-item strong {
+  font-size: 0.8rem;
+  color: #0f172a;
+}
+
+.crew-matrix-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.12rem 0.44rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.crew-matrix-pill.valid {
+  background: #ecfdf5;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.crew-matrix-pill.green {
+  background: #ecfdf5;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.crew-matrix-pill.amber {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.crew-matrix-pill.red {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.crew-matrix-pill.expiring {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.crew-matrix-pill.expired,
+.crew-matrix-pill.missing {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.crew-matrix-item small {
+  display: block;
+  grid-column: 1 / -1;
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.crew-profile-notes {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.crew-profile-note-card {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 10px;
+  padding: 0.6rem;
+  background: #ffffff;
+}
+
+.crew-profile-note-card h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  color: #0f172a;
+}
+
+.crew-profile-note-card p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #334155;
+  white-space: pre-wrap;
+}
+
+.crew-profile-note-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
 .crew-profile-connection-card {
   border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 10px;
@@ -209,6 +316,11 @@
 
   .crew-profile-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .crew-profile-matrix,
+  .crew-profile-note-grid {
+    grid-template-columns: 1fr;
   }
 }
 
