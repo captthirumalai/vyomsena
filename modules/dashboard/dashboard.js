@@ -1,5 +1,6 @@
 import { getAircraft, onAircraftSnapshot } from '../../services/aircraftService.js';
 import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
+import { appConfig } from '../../config/app.config.js';
 
 let aircraftUnsubscribe = null;
 let crewUnsubscribe = null;
@@ -368,6 +369,8 @@ export async function init(view, context) {
   if (heading) {
     heading.textContent = 'Live Dashboard';
   }
+
+  setText('dashboard-release-chip', `Build: ${appConfig.releaseVersion || 'V2.x'}`);
 
   const cards = view.querySelectorAll('.card');
   cards.forEach((card, index) => {

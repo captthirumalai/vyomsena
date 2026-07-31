@@ -1,6 +1,7 @@
 import { getMenuRoutesForUser } from '../shared/routes.js';
 import { authStore } from '../stores/authStore.js';
 import { themeStore } from '../stores/themeStore.js';
+import { appConfig } from '../config/app.config.js';
 
 function query(selector) {
   return document.querySelector(selector);
@@ -317,6 +318,7 @@ export function initLayout() {
 
         <footer class="vs-footer hidden" id="app-footer">
           <p>VyomSena — Aviation Management System</p>
+          <span class="vs-release-chip" id="app-release-chip">${appConfig.releaseVersion || 'V2.x'}</span>
         </footer>
       </div>
     </div>
