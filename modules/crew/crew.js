@@ -59,6 +59,69 @@ const crewListState = {
   sortDirection: 'asc'
 };
 
+const DOC_TEMPLATE_PRESETS = {
+  MEDICAL_CLASS1: {
+    documentName: 'Class 1 Medical',
+    documentCategory: 'MEDICAL',
+    reminderLeadTimeDays: 30,
+    issuingAuthorityOrBody: 'DGCA'
+  },
+  LICENCE_CPL: {
+    documentName: 'Commercial Pilot License (CPL)',
+    documentCategory: 'LICENCE',
+    reminderLeadTimeDays: 60,
+    issuingAuthorityOrBody: 'DGCA'
+  },
+  RTR: {
+    documentName: 'RTR License',
+    documentCategory: 'RTR',
+    reminderLeadTimeDays: 45,
+    issuingAuthorityOrBody: 'WPC'
+  },
+  PASSPORT: {
+    documentName: 'Passport',
+    documentCategory: 'PASSPORT',
+    reminderLeadTimeDays: 120,
+    issuingAuthorityOrBody: 'Government Authority'
+  },
+  VISA: {
+    documentName: 'Visa',
+    documentCategory: 'VISA',
+    reminderLeadTimeDays: 90,
+    issuingAuthorityOrBody: 'Immigration Authority'
+  },
+  PPC: {
+    documentName: 'Pilot Proficiency Check (PPC)',
+    documentCategory: 'TRAINING',
+    reminderLeadTimeDays: 30,
+    issuingAuthorityOrBody: 'Approved Training Organization'
+  },
+  OPC: {
+    documentName: 'Operator Proficiency Check (OPC)',
+    documentCategory: 'TRAINING',
+    reminderLeadTimeDays: 30,
+    issuingAuthorityOrBody: 'Operator Training Department'
+  },
+  CRM: {
+    documentName: 'Crew Resource Management (CRM)',
+    documentCategory: 'TRAINING',
+    reminderLeadTimeDays: 30,
+    issuingAuthorityOrBody: 'Training Department'
+  },
+  DG: {
+    documentName: 'Dangerous Goods (DG) Training',
+    documentCategory: 'TRAINING',
+    reminderLeadTimeDays: 45,
+    issuingAuthorityOrBody: 'Training Department'
+  },
+  LINE_CHECK: {
+    documentName: 'Line Check',
+    documentCategory: 'TRAINING',
+    reminderLeadTimeDays: 30,
+    issuingAuthorityOrBody: 'Flight Operations'
+  }
+};
+
 function toDateValue(value) {
   const raw = value?.toDate ? value.toDate() : value;
   const parsed = raw ? new Date(raw) : null;
@@ -631,6 +694,37 @@ function upsertDocInCache(pilotUid, document) {
   docsByPilotCache.set(pilotUid, next);
 }
 
+function applyDocumentTemplate(templateKey) {
+  if (!activeView) return;
+  if (!templateKey || templateKey === 'CUSTOM') return;
+
+  const template = DOC_TEMPLATE_PRESETS[templateKey];
+  if (!template) return;
+
+  const nameInput = activeView.querySelector('#crew-doc-name');
+  const categoryInput = activeView.querySelector('#crew-doc-category');
+  const reminderInput = activeView.querySelector('#crew-doc-reminder');
+  const authorityInput = activeView.querySelector('#crew-doc-authority');
+  const status = activeView.querySelector('#crew-doc-upload-status');
+
+  if (nameInput instanceof HTMLInputElement) {
+    nameInput.value = template.documentName;
+  }
+  if (categoryInput instanceof HTMLInputElement) {
+    categoryInput.value = template.documentCategory;
+  }
+  if (reminderInput instanceof HTMLInputElement) {
+    reminderInput.value = `${template.reminderLeadTimeDays}`;
+  }
+  if (authorityInput instanceof HTMLInputElement && !authorityInput.value.trim()) {
+    authorityInput.value = template.issuingAuthorityOrBody;
+  }
+
+  if (status) {
+    status.textContent = `Applied template: ${template.documentName}`;
+  }
+}
+
 function bindEvents() {
   activeView?.querySelector('#crew-refresh')?.addEventListener('click', async () => {
     setStatus('Refreshing crew data...');
@@ -675,6 +769,12 @@ function bindEvents() {
     if (!(target instanceof HTMLSelectElement)) return;
     crewListState.sortDirection = `${target.value || 'asc'}`;
     renderCrewTable();
+  });
+
+  activeView?.querySelector('#crew-doc-template')?.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    applyDocumentTemplate(target.value || 'CUSTOM');
   });
 
   activeView?.querySelector('#crew-table-body')?.addEventListener('click', async (event) => {
@@ -868,6 +968,10 @@ function bindEvents() {
       });
 
       form.reset();
+      const templateSelect = activeView?.querySelector('#crew-doc-template');
+      if (templateSelect instanceof HTMLSelectElement) {
+        templateSelect.value = 'CUSTOM';
+      }
       if (status) status.textContent = `Uploaded to ${uploadResult.storagePath}.`;
 
       await selectPilot(targetPilotUid);

@@ -83,16 +83,16 @@ Target:
 - Licence, Medical, RTR, Passport, Visa, Endorsements, Ratings, authorizations, custom docs.
 - Issue/expiry/status/reminders/attachments/history/editor metadata.
 
-Current: Strong baseline with audit/sync queue and a profile-level qualification matrix.
-Next: Add template categories and workflow-driven qualification mapping.
+Current: Strong baseline with audit/sync queue, profile-level qualification matrix, and upload template presets for common doc/training types.
+Next: Add workflow-driven qualification mapping and approval actions.
 
 ### 5. Training Management
 Target:
 - PPC, IPC, OPC, Simulator, Ground, CRM, DG, Security, HF, Emergency, Line Check, Recurrent.
 - Due/completed/instructor/result/certificate fields.
 
-Current: Training tab added in Crew Profile using existing document records.
-Next: Add dedicated training record model, reminders, and instructor/result fields.
+Current: Dedicated training record service integrated (training bookings by user) with Crew Profile Training tab fallback to document-derived records.
+Next: Add web create/update workflows, reminders, and instructor/result capture forms.
 
 ### 6. Flight Experience
 Target:
@@ -119,8 +119,8 @@ Target indicators:
 - DG
 - CRM
 
-Current: Document compliance only.
-Next: Add currency matrix with green/amber/red logic.
+Current: Currency and recency indicators now use explicit green/amber/red threshold logic in Crew Profile.
+Next: Tune thresholds by role/fleet policy and add dashboard-level currency overview.
 
 ### 9. Crew Connections
 Target:
@@ -134,8 +134,8 @@ Next: Add disconnect history and connection timeline.
 Target:
 - Chronological crew activity stream based on document and training events.
 
-Current: Timeline now surfaces profile/document/request events and embedded field-level changes when present in document records.
-Next: Add guaranteed full edit_log feed support for immutable audit completeness.
+Current: Timeline now surfaces profile/document/request/training events and reads denormalized field-level document audits via `recentAudit`.
+Next: Optionally expose immutable subcollection audit feed behind an elevated/admin path if rules change.
 
 ## Phase Plan
 
@@ -191,7 +191,7 @@ Status: Planned.
 - Deeper integration with maintenance and dispatch modules
 
 ## Next Implementation Slice (Recommended)
-1. Add dedicated training record model and service.
-2. Add explicit currency rules and recency threshold indicators.
-3. Add document template presets and qualification mapping workflows.
-4. Add full edit_log feed access path (subcollection or denormalized audit stream).
+1. Add web create/update workflows for dedicated training records.
+2. Add workflow-driven qualification mapping and approval states.
+3. Add dashboard-level currency overview and role-based threshold policy controls.
+4. Add optional admin-only immutable edit_log browser if security rules permit.

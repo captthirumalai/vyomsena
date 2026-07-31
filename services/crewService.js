@@ -24,6 +24,7 @@ import {
   rejectConnectionRequest,
   cancelConnectionRequest
 } from './connectionService.js';
+import { listTrainingRecordsByUser } from './crewTrainingService.js';
 
 export async function getCrew(operatorUid) {
   return await listPilotsForOperator(operatorUid);
@@ -31,6 +32,10 @@ export async function getCrew(operatorUid) {
 
 export async function getPilotDocuments(pilotUid) {
   return await listDocumentsByUser(pilotUid);
+}
+
+export async function getPilotTrainingRecords(pilotUid) {
+  return await listTrainingRecordsByUser(pilotUid);
 }
 
 export async function createPilotDocument(payload) {

@@ -1,5 +1,6 @@
 import {
   getPilotDocuments,
+  getPilotTrainingRecords,
   getIncomingLinkRequests,
   getOutgoingLinkRequests,
   summarizeCrewDocumentCompliance
@@ -13,6 +14,7 @@ let activeView = null;
 let profileUid = null;
 let profileUser = null;
 let profileDocuments = [];
+let profileTrainingRecords = [];
 let connectionContext = {
   incoming: [],
   outgoing: []
@@ -232,8 +234,37 @@ function evaluateHoursRecency(value, threshold) {
 function getEmbeddedEditLogs(document) {
   if (Array.isArray(document.editLogs)) return document.editLogs;
   if (Array.isArray(document.edit_logs)) return document.edit_logs;
+  if (Array.isArray(document.recentAudit)) return document.recentAudit;
   if (document.lastEditLog && typeof document.lastEditLog === 'object') return [document.lastEditLog];
   return [];
+}
+
+function normalizeTrainingStatus(value) {
+  const status = `${value || ''}`.trim().toUpperCase();
+  if (!status) return 'PENDING';
+  if (status === 'ACCEPTED') return 'COMPLETED';
+  if (status === 'REJECTED') return 'DECLINED';
+  return status;
+}
+
+function getTrainingRecordStatus(record) {
+  const normalized = normalizeTrainingStatus(record.status);
+  if (normalized === 'COMPLETED') {
+    return { tone: 'green', label: 'GREEN', detail: 'Completed' };
+  }
+  if (normalized === 'DECLINED' || normalized === 'CANCELLED') {
+    return { tone: 'red', label: 'RED', detail: normalized };
+  }
+
+  const due = toDateValue(record.dueAt || record.dueDate || record.expiryDate);
+  if (!due) {
+    return { tone: 'amber', label: 'AMBER', detail: normalized };
+  }
+
+  const days = Math.floor((due.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (days < 0) return { tone: 'red', label: 'RED', detail: `Overdue by ${Math.abs(days)} day(s)` };
+  if (days < 30) return { tone: 'amber', label: 'AMBER', detail: `Due in ${days} day(s)` };
+  return { tone: 'green', label: 'GREEN', detail: `Due in ${days} day(s)` };
 }
 
 function toHistoryEventFromEditLog(document, log, index) {
@@ -362,6 +393,32 @@ function renderTrainingTab() {
   if (!activeView) return;
   const body = activeView.querySelector('#crew-profile-training-body');
   if (!body) return;
+
+  if (profileTrainingRecords.length) {
+    const sorted = profileTrainingRecords
+      .slice()
+      .sort((left, right) => {
+        const leftTime = toDateValue(left.dueAt || left.dueDate || left.expiryDate)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const rightTime = toDateValue(right.dueAt || right.dueDate || right.expiryDate)?.getTime() || Number.MAX_SAFE_INTEGER;
+        return leftTime - rightTime;
+      });
+
+    body.innerHTML = sorted
+      .map((record) => {
+        const status = getTrainingRecordStatus(record);
+        return `<tr>
+          <td>${escapeHtml(record.trainingType || record.courseName || 'Training')}</td>
+          <td>${escapeHtml(formatDate(record.completedAt || record.completionDate))}</td>
+          <td>${escapeHtml(formatDate(record.dueAt || record.dueDate || record.expiryDate))}</td>
+          <td><span class="crew-training-pill ${status.tone}">${escapeHtml(status.label)}</span></td>
+          <td>${escapeHtml(record.certificateNumber || record.trainingCode || record.recordId || 'N/A')}</td>
+        </tr>`;
+      })
+      .join('');
+
+    renderQualificationMatrix();
+    return;
+  }
 
   const trainingDocs = profileDocuments
     .filter((document) => isTrainingDocument(document))
@@ -620,7 +677,14 @@ function renderHistoryTab() {
     editedBy: profileUser?.email || profileUser?.uid || 'N/A'
   };
 
-  const events = [profileEvent, ...editLogEvents, ...documentEvents, ...outgoingEvents, ...incomingEvents]
+  const trainingEvents = profileTrainingRecords.map((record) => ({
+    when: record.lastModified || record.completedAt || record.createdAt || null,
+    event: `${record.trainingType || record.courseName || 'Training'} status ${normalizeTrainingStatus(record.status).toLowerCase()}`,
+    source: 'training_records',
+    editedBy: record.updatedBy || record.instructor || profileUser?.email || 'N/A'
+  }));
+
+  const events = [profileEvent, ...trainingEvents, ...editLogEvents, ...documentEvents, ...outgoingEvents, ...incomingEvents]
     .filter((event) => !!event.when)
     .sort((left, right) => {
       const leftTime = toDateValue(left.when)?.getTime() || 0;
@@ -688,7 +752,13 @@ export async function init(view, context) {
     };
   }
 
-  profileDocuments = await getPilotDocuments(profileUid);
+  const [documents, trainingRecords] = await Promise.all([
+    getPilotDocuments(profileUid),
+    getPilotTrainingRecords(profileUid).catch(() => [])
+  ]);
+
+  profileDocuments = documents;
+  profileTrainingRecords = trainingRecords;
 
   renderHeader();
   renderPersonalTab();
@@ -707,6 +777,7 @@ export async function init(view, context) {
       profileUid = null;
       profileUser = null;
       profileDocuments = [];
+      profileTrainingRecords = [];
       connectionContext = { incoming: [], outgoing: [] };
     }
   };

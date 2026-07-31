@@ -205,6 +205,22 @@
   <form id="crew-doc-upload-form" class="crew-form">
     <div class="crew-grid">
       <label>
+        Template
+        <select id="crew-doc-template" name="documentTemplate">
+          <option value="CUSTOM" selected>Custom</option>
+          <option value="MEDICAL_CLASS1">Medical - Class 1</option>
+          <option value="LICENCE_CPL">Licence - CPL</option>
+          <option value="RTR">RTR</option>
+          <option value="PASSPORT">Passport</option>
+          <option value="VISA">Visa</option>
+          <option value="PPC">Training - PPC</option>
+          <option value="OPC">Training - OPC</option>
+          <option value="CRM">Training - CRM</option>
+          <option value="DG">Training - Dangerous Goods</option>
+          <option value="LINE_CHECK">Training - Line Check</option>
+        </select>
+      </label>
+      <label>
         Document Name
         <input id="crew-doc-name" name="documentName" type="text" required placeholder="Class 1 Medical" />
       </label>

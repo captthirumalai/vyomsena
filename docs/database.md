@@ -20,6 +20,7 @@ Treat Firestore schema as an API contract.
 - `training_centers`
 - `training_offerings`
 - `training_bookings`
+- `operator_training_records` (web-only, operator managed)
 
 ## users
 
@@ -66,6 +67,11 @@ Core fields:
 - `lastModified`
 - `reminderLeadTimeDays`
 
+Optional audit-read fields (web timeline support under current rules):
+
+- `recentAudit` (array of latest field-change entries)
+- `lastEditLog` (latest field-change entry)
+
 Cross-platform file reference fields:
 
 - `documentUri` for Android-local references (for example: `content://...`)
@@ -79,6 +85,8 @@ Web upload path convention (parity-safe):
 Subcollection:
 
 - `user_documents/{documentId}/edit_logs`
+
+Note: under current rules, `edit_logs` is write-only from clients. Web timeline therefore reads `recentAudit`/`lastEditLog` from parent document for audit visibility.
 
 ## Crew feature mapping (Android + Web)
 
@@ -174,6 +182,35 @@ Field compatibility notes for current rules:
 - `training_centers` documents are owner-scoped by doc id (`{uid}`).
 - `training_offerings` ownership field must include `trainingCenterId`.
 - `training_bookings` deletes are disallowed by rules.
+
+## operator_training_records (web-only)
+
+This collection is additive and does not replace Android training collections.
+
+- Purpose: operator-managed crew training records for web workflows.
+- Owner field: `operatorId`.
+- Crew linkage: `userId` (pilot uid).
+- Suggested fields:
+	- `operatorId`
+	- `userId`
+	- `trainingType`
+	- `trainingCode` (optional)
+	- `completedAt` (optional)
+	- `dueAt` (optional)
+	- `status`
+	- `instructor` (optional)
+	- `result` (optional)
+	- `certificateNumber` (optional)
+	- `notes` (optional)
+	- `readers` (optional)
+	- `createdAt`
+	- `lastModified`
+
+Rule model:
+
+- Operator creates/updates/deletes their own records.
+- Pilot can read own record.
+- Linked operator can read pilot records.
 
 ## Service ownership
 

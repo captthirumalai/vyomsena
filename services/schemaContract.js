@@ -33,6 +33,9 @@ const CONTRACTS = {
   },
   training_bookings: {
     required: []
+  },
+  operator_training_records: {
+    required: ['operatorId', 'userId', 'trainingType', 'status', 'createdAt', 'lastModified']
   }
 };
 

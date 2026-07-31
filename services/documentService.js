@@ -21,6 +21,7 @@ const EDIT_LOG_FIELDS = [
   'issuingAuthorityOrBody',
   'notesOrDetails'
 ];
+const DENORMALIZED_AUDIT_LIMIT = 20;
 
 function toDateValue(value) {
   const raw = value?.toDate ? value.toDate() : value;
@@ -273,14 +274,30 @@ export async function updateUserDocumentWithAudit(documentId, updates, editedBy 
   const before = { firestoreId: snapshot.id, ...snapshot.data() };
   const normalizedUpdates = { ...updates, isDirty: updates.isDirty ?? false };
 
-  await updateUserDocument(documentId, normalizedUpdates, editedBy);
-
   const changedFields = EDIT_LOG_FIELDS.filter((fieldName) => {
     if (!(fieldName in normalizedUpdates)) return false;
     const oldValue = normalizeComparableValue(before[fieldName]);
     const newValue = normalizeComparableValue(normalizedUpdates[fieldName]);
     return oldValue !== newValue;
   });
+
+  if (changedFields.length > 0) {
+    const auditTimestamp = new Date().toISOString();
+    const recentAudit = Array.isArray(before.recentAudit) ? before.recentAudit : [];
+    const nextEntries = changedFields.map((fieldName) => ({
+      field: fieldName,
+      oldValue: before[fieldName] ?? null,
+      newValue: normalizedUpdates[fieldName] ?? null,
+      editedBy: editedBy || null,
+      source: 'web',
+      timestamp: auditTimestamp
+    }));
+
+    normalizedUpdates.recentAudit = [...nextEntries, ...recentAudit].slice(0, DENORMALIZED_AUDIT_LIMIT);
+    normalizedUpdates.lastEditLog = nextEntries[0];
+  }
+
+  await updateUserDocument(documentId, normalizedUpdates, editedBy);
 
   await Promise.all(
     changedFields.map((fieldName) =>
