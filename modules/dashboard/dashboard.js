@@ -4,6 +4,7 @@ import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, summarizeCrewDocumen
 let aircraftUnsubscribe = null;
 let crewUnsubscribe = null;
 let complianceRequestToken = 0;
+let warningWindowSelectCleanup = null;
 
 const dashboardState = {
   aircraftFleet: [],
@@ -14,6 +15,7 @@ const dashboardState = {
     expiring: 0,
     expired: 0
   },
+  warningDays: 30,
   operatorUid: null,
   lastSyncAt: null
 };
@@ -37,12 +39,6 @@ function setText(id, value) {
 
 function normalizeStatus(value) {
   return `${value || ''}`.trim().toLowerCase();
-}
-
-function getStatusTone(value) {
-  if (value === 'critical') return 'critical';
-  if (value === 'watch') return 'watch';
-  return 'good';
 }
 
 function getDocStatus(document, warningDays = 30) {
@@ -100,14 +96,14 @@ function renderHealthBadges({ fleetAttention, compliance }) {
   }
 }
 
-function renderAlerts({ fleetTotal, fleetOperational, fleetAttention, crewTotal, compliance }) {
+function renderAlerts({ fleetTotal, fleetOperational, fleetAttention, crewTotal, compliance, warningDays }) {
   const alerts = [];
 
   if (compliance.expired > 0) {
     alerts.push({ tone: 'critical', copy: `${compliance.expired} document(s) expired and require immediate action.` });
   }
   if (compliance.expiring > 0) {
-    alerts.push({ tone: 'watch', copy: `${compliance.expiring} document(s) expiring within 30 days.` });
+    alerts.push({ tone: 'watch', copy: `${compliance.expiring} document(s) expiring within ${warningDays} days.` });
   }
   if (fleetAttention > 0) {
     alerts.push({ tone: 'watch', copy: `${fleetAttention} aircraft not operational in the active fleet.` });
@@ -136,7 +132,7 @@ function renderAlerts({ fleetTotal, fleetOperational, fleetAttention, crewTotal,
     .join('');
 }
 
-function renderWatchlistRows(crewList, docsByPilot) {
+function renderWatchlistRows(crewList, docsByPilot, warningDays) {
   const body = document.getElementById('dashboard-watchlist-body');
   if (!body) return;
 
@@ -146,7 +142,7 @@ function renderWatchlistRows(crewList, docsByPilot) {
   docsByPilot.forEach((docs, pilotUid) => {
     const pilot = crewMap.get(pilotUid);
     docs.forEach((item) => {
-      const status = getDocStatus(item);
+      const status = getDocStatus(item, warningDays);
       if (status === 'Valid') return;
       const expiry = toDateValue(item.expiryDate);
       watchlist.push({
@@ -217,7 +213,7 @@ function renderFleetFocusRows(aircraftFleet) {
     .join('');
 }
 
-function renderCrewRiskRows(crewList, docsByPilot) {
+function renderCrewRiskRows(crewList, docsByPilot, warningDays) {
   const body = document.getElementById('dashboard-crew-risk-body');
   if (!body) return;
 
@@ -228,7 +224,7 @@ function renderCrewRiskRows(crewList, docsByPilot) {
     let nextCriticalDate = null;
 
     docs.forEach((item) => {
-      const status = getDocStatus(item);
+      const status = getDocStatus(item, warningDays);
       const expiry = toDateValue(item.expiryDate);
       if (status === 'Expired') expired += 1;
       if (status === 'Expiring') expiring += 1;
@@ -289,8 +285,14 @@ function renderDashboard() {
 
   setText(
     'dashboard-meta',
-    `Loaded ${fleetTotal} aircraft and ${crewTotal} pilots. Fleet readiness ${fleetTotal ? Math.round((fleetOperational / fleetTotal) * 100) : 0}% with ${complianceRate}% documentation compliance.`
+    `Loaded ${fleetTotal} aircraft and ${crewTotal} pilots. Fleet readiness ${fleetTotal ? Math.round((fleetOperational / fleetTotal) * 100) : 0}% with ${complianceRate}% documentation compliance using a ${dashboardState.warningDays}-day alert window.`
   );
+  setText('dashboard-watchlist-hint', `Top expiry risks (${dashboardState.warningDays}-day window)`);
+
+  const warningWindowSelect = document.getElementById('dashboard-warning-window');
+  if (warningWindowSelect && warningWindowSelect.value !== String(dashboardState.warningDays)) {
+    warningWindowSelect.value = String(dashboardState.warningDays);
+  }
   setText(
     'dashboard-last-sync',
     dashboardState.lastSyncAt ? `Synced ${dashboardState.lastSyncAt.toLocaleTimeString()}` : 'Sync pending'
@@ -306,12 +308,38 @@ function renderDashboard() {
     fleetOperational,
     fleetAttention,
     crewTotal,
-    compliance: dashboardState.compliance
+    compliance: dashboardState.compliance,
+    warningDays: dashboardState.warningDays
   });
 
-  renderWatchlistRows(dashboardState.crewList, dashboardState.docsByPilot);
+  renderWatchlistRows(dashboardState.crewList, dashboardState.docsByPilot, dashboardState.warningDays);
   renderFleetFocusRows(dashboardState.aircraftFleet);
-  renderCrewRiskRows(dashboardState.crewList, dashboardState.docsByPilot);
+  renderCrewRiskRows(dashboardState.crewList, dashboardState.docsByPilot, dashboardState.warningDays);
+}
+
+function recalculateComplianceFromCachedDocuments() {
+  const allDocuments = Array.from(dashboardState.docsByPilot.values()).flat();
+  dashboardState.compliance = summarizeCrewDocumentCompliance(allDocuments, dashboardState.warningDays);
+}
+
+function bindDashboardControls() {
+  warningWindowSelectCleanup?.();
+  warningWindowSelectCleanup = null;
+
+  const warningWindowSelect = document.getElementById('dashboard-warning-window');
+  if (!warningWindowSelect) return;
+
+  warningWindowSelect.value = String(dashboardState.warningDays);
+  const onWarningWindowChange = () => {
+    const nextWindow = Number(warningWindowSelect.value);
+    dashboardState.warningDays = Number.isFinite(nextWindow) && nextWindow > 0 ? nextWindow : 30;
+    recalculateComplianceFromCachedDocuments();
+    dashboardState.lastSyncAt = new Date();
+    renderDashboard();
+  };
+
+  warningWindowSelect.addEventListener('change', onWarningWindowChange);
+  warningWindowSelectCleanup = () => warningWindowSelect.removeEventListener('change', onWarningWindowChange);
 }
 
 async function refreshComplianceDocuments() {
@@ -330,7 +358,7 @@ async function refreshComplianceDocuments() {
 
   const allDocuments = Array.from(docsByPilot.values()).flat();
   dashboardState.docsByPilot = docsByPilot;
-  dashboardState.compliance = summarizeCrewDocumentCompliance(allDocuments);
+  dashboardState.compliance = summarizeCrewDocumentCompliance(allDocuments, dashboardState.warningDays);
   dashboardState.lastSyncAt = new Date();
   renderDashboard();
 }
@@ -348,6 +376,7 @@ export async function init(view, context) {
   });
 
   dashboardState.operatorUid = context?.currentUser?.uid || null;
+  bindDashboardControls();
 
   if (!dashboardState.operatorUid) {
     setText('dashboard-meta', 'No authorized operator available for this dashboard view.');
@@ -396,6 +425,8 @@ export async function init(view, context) {
       aircraftUnsubscribe?.();
       crewUnsubscribe?.();
       complianceRequestToken += 1;
+      warningWindowSelectCleanup?.();
+      warningWindowSelectCleanup = null;
       console.log('Dashboard module destroyed');
     }
   };

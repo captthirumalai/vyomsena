@@ -7,6 +7,15 @@
     </div>
     <div class="dashboard-hero-side">
       <span id="dashboard-last-sync" class="dashboard-sync">Syncing...</span>
+      <div class="dashboard-controls">
+        <label for="dashboard-warning-window">Alert Window</label>
+        <select id="dashboard-warning-window" aria-label="Select compliance alert window">
+          <option value="15">15 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="45">45 days</option>
+          <option value="60">60 days</option>
+        </select>
+      </div>
       <div class="dashboard-quick-links">
         <a href="#/crew" class="dash-link">Crew</a>
         <a href="#/aircraft" class="dash-link">Aircraft</a>
@@ -67,7 +76,7 @@
   <article class="card dashboard-panel">
     <div class="dashboard-panel-head">
       <h3>Document Watchlist</h3>
-      <span class="panel-hint">Top expiry risks</span>
+      <span id="dashboard-watchlist-hint" class="panel-hint">Top expiry risks</span>
     </div>
     <div class="dash-table-wrap">
       <table class="dash-table">
