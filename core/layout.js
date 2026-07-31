@@ -12,6 +12,40 @@ function getUserLabel(user) {
   return `Signed in as ${user.name || user.email || user.uid}`;
 }
 
+function resolveSidebarIcon(icon, title) {
+  const normalized = `${icon || ''}`.trim().toLowerCase();
+
+  const iconMap = {
+    dashboard: 'DB',
+    crew: 'CR',
+    aircraft: 'AC',
+    ai: 'AI',
+    dispatch: 'DP',
+    efb: 'EF',
+    flightops: 'FO',
+    maintenance: 'MX',
+    notam: 'NT',
+    reports: 'RP',
+    settings: 'ST',
+    sms: 'SM',
+    training: 'TR',
+    weather: 'WX'
+  };
+
+  if (iconMap[normalized]) {
+    return iconMap[normalized];
+  }
+
+  const base = `${title || normalized || ''}`.trim();
+  if (!base) return '--';
+
+  return base
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('') || '--';
+}
+
 function renderSidebar(user) {
   const nav = query('#app-sidebar-nav');
   if (!nav) return;
@@ -26,7 +60,7 @@ function renderSidebar(user) {
     .map(
       (route) => `
         <a href="#${route.path}" class="vs-sidebar-link" data-route="${route.path}" aria-label="${route.title || route.name}">
-          <span class="vs-nav-icon">${route.icon || '•'}</span>
+          <span class="vs-nav-icon">${resolveSidebarIcon(route.icon, route.title || route.name)}</span>
           <span>${route.title || route.name}</span>
         </a>
       `

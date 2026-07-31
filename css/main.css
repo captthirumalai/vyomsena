@@ -712,12 +712,12 @@ body[data-theme='dark'] .vs-sidebar-link:hover {
   grid-template-columns: minmax(0, 1.85fr) minmax(360px, 0.95fr);
   gap: 1.9rem;
   align-items: stretch;
-  min-height: calc(100vh - 4rem);
+  min-height: 0;
 }
 
 .vs-hero-panel {
   position: relative;
-  min-height: 700px;
+  min-height: 620px;
   background-image: linear-gradient(180deg, rgba(5, 10, 23, 0.88), rgba(9, 18, 36, 0.58)), url('vams_hero.jpg');
   background-size: cover;
   background-position: center;
@@ -944,8 +944,8 @@ body[data-theme='dark'] .vs-sidebar-link:hover {
 
 .vs-form-panel {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: flex-start;
 }
 
 .vs-form-inner {
@@ -1038,7 +1038,7 @@ body[data-theme='dark'] .vs-sidebar-link:hover {
 }
 
 .vs-app-view {
-  min-height: 520px;
+  min-height: 360px;
   padding: 1rem;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -1081,23 +1081,86 @@ body[data-theme='dark'] .input-group select {
 }
 
 .vs-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   padding: 0.55rem 0.95rem;
+}
+
+.vs-topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.vs-topbar .brand-copy,
+.vs-topbar .route-copy {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.vs-topbar .route-copy {
+  align-items: center;
 }
 
 .vs-topbar-title h1 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.02rem;
+  line-height: 1.2;
 }
 
 .vs-topbar-title p {
-  margin: 0.25rem 0 0;
+  margin: 0;
+  font-size: 0.82rem;
   color: var(--muted-color);
+}
+
+.vs-topbar .route-label {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+}
+
+.vs-topbar #app-route {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.vs-topbar .route-breadcrumbs {
+  margin-left: 0.1rem;
+}
+
+.vs-topbar .breadcrumb-list {
+  gap: 0.35rem;
+}
+
+.vs-topbar .breadcrumb-item {
+  font-size: 0.76rem;
 }
 
 .vs-topbar-actions {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+}
+
+@media (max-width: 980px) {
+  .vs-topbar {
+    align-items: flex-start;
+  }
+
+  .vs-topbar-title {
+    gap: 0.45rem;
+  }
+
+  .vs-topbar-actions {
+    margin-left: auto;
+  }
 }
 
 .vs-footer {
