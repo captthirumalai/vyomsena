@@ -31,6 +31,17 @@
   margin-bottom: 0.8rem;
 }
 
+.crew-selection-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+#crew-selected-label {
+  font-size: 0.8rem;
+}
+
 .crew-list-controls {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

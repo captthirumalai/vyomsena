@@ -3,7 +3,6 @@ import {
   deleteDoc,
   serverTimestamp
 } from './firestoreService.js';
-import { listPilotsForOperator, watchPilotsForOperator, unlinkPilotFromOperator, createPilotProfile } from './userService.js';
 import { findUserByEmail, linkPilotToOperator } from './userService.js';
 import {
   listDocumentsByUser,
@@ -25,9 +24,16 @@ import {
   cancelConnectionRequest
 } from './connectionService.js';
 import { listTrainingRecordsByUser } from './crewTrainingService.js';
+import {
+  listCrewProfilesForOperator,
+  watchCrewProfilesForOperator,
+  createCrewProfile,
+  updateCrewProfile
+} from './crewProfileService.js';
+import { createCrewLinkCode } from './crewLinkCodeService.js';
 
 export async function getCrew(operatorUid) {
-  return await listPilotsForOperator(operatorUid);
+  return await listCrewProfilesForOperator(operatorUid);
 }
 
 export async function getPilotDocuments(pilotUid) {
@@ -60,15 +66,17 @@ export function summarizeCrewDocumentCompliance(documents, warningDays = 30) {
 }
 
 export function onCrewSnapshot(operatorUid, onNext, onError) {
-  return watchPilotsForOperator(operatorUid, onNext, onError);
+  return watchCrewProfilesForOperator(operatorUid, onNext, onError);
 }
 
 export async function createPilot({ name, email, licenseNum, medicalExpiryDate, licenseExpiryDate, operatorUid }) {
-  const profile = await createPilotProfile({
+  const profile = await createCrewProfile({
     name,
     email,
-    linkedOperator: operatorUid,
-    createdAt: serverTimestamp()
+    operatorId: operatorUid,
+    role: 'PILOT',
+    status: 'Active',
+    linkState: 'UNLINKED'
   });
 
   const medicalDocument = await createUserDocument({
@@ -106,7 +114,22 @@ export async function createPilot({ name, email, licenseNum, medicalExpiryDate, 
 }
 
 export async function delinkPilot(pilotUid) {
-  await unlinkPilotFromOperator(pilotUid);
+  await updateCrewProfile(pilotUid, {
+    pilotUid: null,
+    linkState: 'UNLINKED'
+  });
+}
+
+export async function updatePilotProfile(pilotUid, updates) {
+  await updateCrewProfile(pilotUid, updates);
+}
+
+export async function generateCrewProfileLinkCode({ crewProfileId, operatorId }) {
+  return await createCrewLinkCode({
+    crewProfileId,
+    operatorId,
+    validityMs: 5 * 60 * 1000
+  });
 }
 
 export async function deletePilot(pilotUid) {

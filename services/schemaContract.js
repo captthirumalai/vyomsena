@@ -36,6 +36,12 @@ const CONTRACTS = {
   },
   operator_training_records: {
     required: ['operatorId', 'userId', 'trainingType', 'status', 'createdAt', 'lastModified']
+  },
+  crew_profiles: {
+    required: ['operatorId', 'name', 'role', 'status', 'createdAt', 'lastModified']
+  },
+  crew_link_codes: {
+    required: ['crewProfileId', 'operatorId', 'code', 'expiresAt', 'used', 'status', 'createdAt', 'lastModified']
   }
 };
 

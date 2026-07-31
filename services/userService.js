@@ -28,10 +28,23 @@ function normalizeProfileShape(data) {
 export async function getUserByUid(uid) {
   const userRef = doc('users', uid);
   const snapshot = await getDoc(userRef);
-  if (!snapshot.exists()) return null;
-  const data = normalizeProfileShape({ uid: snapshot.id, ...snapshot.data() });
-  validateContract('users', data, 'getUserByUid', 'read');
-  return data;
+  if (snapshot.exists()) {
+    const data = normalizeProfileShape({ uid: snapshot.id, ...snapshot.data() });
+    validateContract('users', data, 'getUserByUid', 'read');
+    return data;
+  }
+
+  const crewProfileSnapshot = await getDoc(doc('crew_profiles', uid));
+  if (!crewProfileSnapshot.exists()) return null;
+
+  const crewRaw = crewProfileSnapshot.data();
+  return normalizeProfileShape({
+    uid: crewProfileSnapshot.id,
+    role: crewRaw.role || ROLE_PILOT,
+    linkedOperator: crewRaw.operatorId || null,
+    organizationBase: crewRaw.organizationBase || crewRaw.base || null,
+    ...crewRaw
+  });
 }
 
 export async function createUserProfile(profile) {

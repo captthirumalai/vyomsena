@@ -16,6 +16,16 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == record.operatorId;
     }
 
+    function isCrewProfileOwnerById(crewProfileId) {
+      return request.auth != null
+        && request.auth.uid == get(/databases/$(database)/documents/crew_profiles/$(crewProfileId)).data.operatorId;
+    }
+
+    function isCrewProfileLinkedPilot(crewProfileId) {
+      return request.auth != null
+        && request.auth.uid == get(/databases/$(database)/documents/crew_profiles/$(crewProfileId)).data.pilotUid;
+    }
+
     // USERS COLLECTION
     match /users/{userId} {
       allow read: if request.auth != null;
@@ -56,13 +66,12 @@ service cloud.firestore {
     match /operator_training_records/{recordId} {
       allow read: if request.auth != null && (
         isOperatorTrainingOwner(resource.data) ||
-        request.auth.uid == resource.data.userId ||
-        isLinkedOperator(resource.data.userId)
+        isCrewProfileLinkedPilot(resource.data.userId)
       );
 
       allow create: if request.auth != null
         && request.auth.uid == request.resource.data.operatorId
-        && isLinkedOperator(request.resource.data.userId);
+        && isCrewProfileOwnerById(request.resource.data.userId);
 
       allow update: if request.auth != null
         && isOperatorTrainingOwner(resource.data)
@@ -72,25 +81,64 @@ service cloud.firestore {
       allow delete: if request.auth != null && isOperatorTrainingOwner(resource.data);
     }
 
+    // CREW PROFILES (Web operator-owned source of truth)
+    match /crew_profiles/{crewProfileId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.operatorId ||
+        request.auth.uid == resource.data.pilotUid
+      );
+
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.operatorId;
+
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.operatorId
+        && request.resource.data.operatorId == resource.data.operatorId;
+
+      allow delete: if request.auth != null
+        && request.auth.uid == resource.data.operatorId;
+    }
+
+    // CREW LINK CODES (Web operator-generated 5-minute linking codes)
+    match /crew_link_codes/{tokenId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.operatorId ||
+        isCrewProfileLinkedPilot(resource.data.crewProfileId)
+      );
+
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.operatorId
+        && isCrewProfileOwnerById(request.resource.data.crewProfileId);
+
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.operatorId
+        && request.resource.data.operatorId == resource.data.operatorId
+        && request.resource.data.crewProfileId == resource.data.crewProfileId;
+
+      allow delete: if request.auth != null
+        && request.auth.uid == resource.data.operatorId;
+    }
+
     // USER DOCUMENTS
     match /user_documents/{docId} {
       allow read: if request.auth != null;
 
       allow delete: if request.auth != null
-        && (isOwner(resource.data) || isLinkedOperator(resource.data.userId));
+        && (isOwner(resource.data) || isLinkedOperator(resource.data.userId) || isCrewProfileOwnerById(resource.data.userId));
 
       allow create: if request.auth != null
-        && (isOwner(request.resource.data) || isLinkedOperator(request.resource.data.userId));
+        && (isOwner(request.resource.data) || isLinkedOperator(request.resource.data.userId) || isCrewProfileOwnerById(request.resource.data.userId));
 
       allow update: if request.auth != null
-        && (isOwner(resource.data) || isLinkedOperator(resource.data.userId))
+        && (isOwner(resource.data) || isLinkedOperator(resource.data.userId) || isCrewProfileOwnerById(resource.data.userId))
         && request.resource.data.userId == resource.data.userId;
 
       // Subcollection for immutable edit logs
       match /edit_logs/{logId} {
         allow create: if request.auth != null && (
           isOwner(get(/databases/$(database)/documents/user_documents/$(docId)).data) ||
-          isLinkedOperator(get(/databases/$(database)/documents/user_documents/$(docId)).data.userId)
+          isLinkedOperator(get(/databases/$(database)/documents/user_documents/$(docId)).data.userId) ||
+          isCrewProfileOwnerById(get(/databases/$(database)/documents/user_documents/$(docId)).data.userId)
         );
         allow read, update, delete: if false;
       }

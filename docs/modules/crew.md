@@ -5,7 +5,12 @@ Title: Crew Management
 
 ## Current Build Snapshot
 - Live crew roster with real-time Firestore sync.
+- Operator-owned `crew_profiles` roster with pre-link profile creation.
+- 5-minute crew link code generation workflow for pilot app linking.
 - Search, filter, and sort controls in roster list.
+- One-crew navigation controls (prev/next/clear) and selected-crew context.
+- Operator actions for linked crew: profile edit, status toggle, soft remove, and delink.
+- Bulk status update action for all visible crew after filters.
 - Connection request workflows (operator to pilot and pilot response).
 - Document upload, edit, delete with offline queue retry.
 - Compliance summary counters (valid, expiring, expired).
@@ -191,7 +196,7 @@ Status: Planned.
 - Deeper integration with maintenance and dispatch modules
 
 ## Next Implementation Slice (Recommended)
-1. Add web create/update workflows for dedicated training records.
+1. Add pilot-side Android link verification flow for `crew_link_codes`.
 2. Add workflow-driven qualification mapping and approval states.
 3. Add dashboard-level currency overview and role-based threshold policy controls.
-4. Add optional admin-only immutable edit_log browser if security rules permit.
+4. Add optional backend verification endpoint for one-time code redemption.

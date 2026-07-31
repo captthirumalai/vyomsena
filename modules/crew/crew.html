@@ -25,6 +25,12 @@
 
   <div class="crew-toolbar">
     <button type="button" id="crew-refresh" class="crew-btn crew-btn-secondary">Refresh</button>
+    <div class="crew-selection-tools">
+      <button type="button" id="crew-prev" class="crew-btn crew-btn-secondary">Prev Crew</button>
+      <button type="button" id="crew-next" class="crew-btn crew-btn-secondary">Next Crew</button>
+      <button type="button" id="crew-clear-selection" class="crew-btn crew-btn-secondary">Clear</button>
+      <span id="crew-selected-label" class="muted">No crew selected</span>
+    </div>
     <span id="crew-status" class="muted">Loading crew data...</span>
     <div class="crew-sync-tools">
       <span id="crew-sync-count" class="crew-sync-pill">Pending Sync: 0</span>
@@ -74,6 +80,20 @@
         <option value="desc">Descending</option>
       </select>
     </label>
+    <label>
+      Bulk Status (Visible Crew)
+      <select id="crew-bulk-status">
+        <option value="">Select status</option>
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+        <option value="Suspended">Suspended</option>
+        <option value="On Leave">On Leave</option>
+      </select>
+    </label>
+    <label>
+      Bulk Apply
+      <button type="button" id="crew-bulk-apply" class="crew-btn crew-btn-secondary">Apply to Visible</button>
+    </label>
   </div>
 
   <div class="crew-list" id="crew-list">
@@ -96,8 +116,8 @@
 
 <section class="card" id="crew-add-card">
   <div class="card-heading">
-    <h3>Add Pilot</h3>
-    <p>Create a pilot profile with initial medical and license records.</p>
+    <h3>Create Crew Profile</h3>
+    <p>Create an operator-owned crew profile and seed baseline licence/medical records before pilot app linking.</p>
   </div>
 
   <form id="crew-add-form" class="crew-form">
@@ -125,7 +145,7 @@
     </div>
 
     <div class="crew-form-actions">
-      <button id="crew-add-submit" type="submit" class="crew-btn crew-btn-primary">Add Pilot</button>
+      <button id="crew-add-submit" type="submit" class="crew-btn crew-btn-primary">Create Crew Profile</button>
       <span id="crew-add-status" class="muted"></span>
     </div>
   </form>

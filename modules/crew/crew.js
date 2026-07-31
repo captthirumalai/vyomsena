@@ -1,7 +1,10 @@
 import {
   getCrew,
   onCrewSnapshot,
+  createPilot,
   delinkPilot,
+  updatePilotProfile,
+  generateCrewProfileLinkCode,
   requestPilotLinkByEmail,
   getIncomingLinkRequests,
   getOutgoingLinkRequests,
@@ -401,7 +404,7 @@ function setVisible(selector, shouldShow) {
 
 function applyRoleLayout() {
   const pilotMode = isPilotRole();
-  setVisible('#crew-add-card', false);
+  setVisible('#crew-add-card', !!crewPermissions?.canEdit && !pilotMode);
   setVisible('#crew-link-card', !!crewPermissions?.canManageLinkRequests && !pilotMode);
   setVisible('#crew-incoming-card', !!crewPermissions?.canRespondIncomingRequest && pilotMode);
 
@@ -493,7 +496,14 @@ function renderCrewTable() {
       ];
 
       if (canPerformCrewAction(activeCurrentUser, 'edit')) {
+        actionItems.push(`<button type="button" class="crew-btn crew-btn-secondary" data-action="edit-profile" data-pilot-uid="${escapeHtml(pilot.uid)}">Edit</button>`);
+        actionItems.push(`<button type="button" class="crew-btn crew-btn-secondary" data-action="toggle-status" data-pilot-uid="${escapeHtml(pilot.uid)}">${pilot.status === 'Active' || !pilot.status ? 'Set Inactive' : 'Set Active'}</button>`);
+        actionItems.push(`<button type="button" class="crew-btn crew-btn-secondary" data-action="link-code" data-pilot-uid="${escapeHtml(pilot.uid)}">Generate Link Code</button>`);
         actionItems.push(`<button type="button" class="crew-btn crew-btn-secondary" data-action="delink" data-pilot-uid="${escapeHtml(pilot.uid)}">Delink</button>`);
+      }
+
+      if (canPerformCrewAction(activeCurrentUser, 'delete')) {
+        actionItems.push(`<button type="button" class="crew-btn crew-btn-danger" data-action="soft-delete" data-pilot-uid="${escapeHtml(pilot.uid)}">Soft Remove</button>`);
       }
 
       const rowActions = `<div class="crew-action-row">${actionItems.join('')}</div>`;
@@ -511,7 +521,129 @@ function renderCrewTable() {
     .join('');
 
   updateSummary();
+  renderSelectedCrewLabel();
   setStatus(`Showing ${visiblePilots.length} of ${pilotsCache.length} crew profile(s).`);
+}
+
+function renderSelectedCrewLabel() {
+  const label = activeView?.querySelector('#crew-selected-label');
+  if (!label) return;
+  const pilot = pilotsCache.find((item) => item.uid === selectedPilotUid);
+  if (!pilot) {
+    label.textContent = 'No crew selected';
+    return;
+  }
+  label.textContent = `Selected: ${toProfileName(pilot)} (${pilot.uid})`;
+}
+
+async function editPilotProfile(pilotUid) {
+  const pilot = pilotsCache.find((item) => item.uid === pilotUid);
+  if (!pilot) return;
+
+  const nextName = window.prompt('Pilot Name:', pilot.fullName || pilot.name || '');
+  if (nextName === null) return;
+  const nextEmail = window.prompt('Pilot Email:', pilot.email || '');
+  if (nextEmail === null) return;
+  const nextRole = window.prompt('Role (PILOT/AME/TRAINING/OPERATIONS):', normalizeRole(pilot.role || 'PILOT'));
+  if (nextRole === null) return;
+  const nextDesignation = window.prompt('Designation:', pilot.designation || '');
+  if (nextDesignation === null) return;
+  const nextBase = window.prompt('Base:', pilot.organizationBase || pilot.base || '');
+  if (nextBase === null) return;
+  const nextPhone = window.prompt('Mobile:', pilot.mobile || pilot.companyPhone || '');
+  if (nextPhone === null) return;
+  const nextStatus = window.prompt('Status (Active/Inactive/Suspended/On Leave):', pilot.status || 'Active');
+  if (nextStatus === null) return;
+
+  const updates = {
+    fullName: nextName.trim() || pilot.fullName || pilot.name || '',
+    name: nextName.trim() || pilot.name || '',
+    email: nextEmail.trim().toLowerCase() || pilot.email || '',
+    role: normalizeRole(nextRole.trim() || pilot.role || 'PILOT'),
+    designation: nextDesignation.trim() || null,
+    organizationBase: nextBase.trim() || null,
+    base: nextBase.trim() || null,
+    mobile: nextPhone.trim() || null,
+    status: nextStatus.trim() || 'Active'
+  };
+
+  await updatePilotProfile(pilotUid, updates);
+  setStatus(`Updated crew profile ${pilotUid}.`);
+  await refreshCrew();
+}
+
+async function togglePilotStatus(pilotUid) {
+  const pilot = pilotsCache.find((item) => item.uid === pilotUid);
+  if (!pilot) return;
+
+  const current = `${pilot.status || 'Active'}`;
+  const next = current === 'Active' ? 'Inactive' : 'Active';
+  await updatePilotProfile(pilotUid, { status: next });
+  setStatus(`Status updated to ${next} for ${toProfileName(pilot)}.`);
+  await refreshCrew();
+}
+
+async function softRemovePilot(pilotUid) {
+  const pilot = pilotsCache.find((item) => item.uid === pilotUid);
+  if (!pilot) return;
+
+  const confirmed = window.confirm('Soft remove this pilot from your roster? This sets status=Deleted and unlinks from operator.');
+  if (!confirmed) return;
+
+  await updatePilotProfile(pilotUid, { status: 'Deleted' });
+  await delinkPilot(pilotUid);
+  setStatus(`Soft removed ${toProfileName(pilot)} from operator roster.`);
+  await refreshCrew();
+}
+
+async function applyBulkStatusToVisible() {
+  if (!activeView) return;
+  const select = activeView.querySelector('#crew-bulk-status');
+  if (!(select instanceof HTMLSelectElement)) return;
+
+  const nextStatus = `${select.value || ''}`.trim();
+  if (!nextStatus) {
+    setStatus('Select a bulk status first.');
+    return;
+  }
+
+  const visible = getSortedAndFilteredPilots();
+  if (!visible.length) {
+    setStatus('No visible crew to update.');
+    return;
+  }
+
+  const confirmed = window.confirm(`Apply status ${nextStatus} to ${visible.length} visible crew record(s)?`);
+  if (!confirmed) return;
+
+  await Promise.all(visible.map((pilot) => updatePilotProfile(pilot.uid, { status: nextStatus })));
+  setStatus(`Applied status ${nextStatus} to ${visible.length} crew record(s).`);
+  await refreshCrew();
+}
+
+function clearSelectedCrew() {
+  selectedPilotUid = null;
+  const body = activeView?.querySelector('#crew-doc-table-body');
+  const caption = activeView?.querySelector('#crew-doc-caption');
+  if (caption) caption.textContent = 'Select a pilot row to inspect Firestore document fields.';
+  if (body) body.innerHTML = '<tr><td colspan="13">No pilot selected.</td></tr>';
+  renderCrewTable();
+}
+
+async function moveSelection(direction) {
+  const visible = getSortedAndFilteredPilots();
+  if (!visible.length) {
+    setStatus('No crew available for navigation.');
+    return;
+  }
+
+  const currentIndex = visible.findIndex((item) => item.uid === selectedPilotUid);
+  const safeIndex = currentIndex < 0 ? 0 : currentIndex;
+  const nextIndex = direction === 'next'
+    ? Math.min(safeIndex + 1, visible.length - 1)
+    : Math.max(safeIndex - 1, 0);
+
+  await selectPilot(visible[nextIndex].uid);
 }
 
 function renderPilotDocuments(documents, pilot) {
@@ -684,7 +816,68 @@ function setAddFormBusy(isBusy) {
   const submit = activeView?.querySelector('#crew-add-submit');
   if (!submit) return;
   submit.disabled = isBusy;
-  submit.textContent = isBusy ? 'Adding...' : 'Add Pilot';
+  submit.textContent = isBusy ? 'Creating...' : 'Create Crew Profile';
+}
+
+async function createOperatorCrewProfile(form) {
+  if (!(form instanceof HTMLFormElement)) return;
+  if (!activeOperatorUid) return;
+
+  const addStatus = activeView?.querySelector('#crew-add-status');
+  const name = form.name?.value?.trim();
+  const email = form.email?.value?.trim().toLowerCase();
+  const license = form.license?.value?.trim();
+  const medicalExpiryDate = toTimestampCandidate(form.medicalExpiry?.value || null);
+  const licenseExpiryDate = toTimestampCandidate(form.licenseExpiry?.value || null);
+
+  if (!name || !email || !license) {
+    if (addStatus) addStatus.textContent = 'Name, email, and license number are required.';
+    return;
+  }
+
+  try {
+    setAddFormBusy(true);
+    if (addStatus) addStatus.textContent = 'Creating crew profile and seed compliance records...';
+
+    const result = await createPilot({
+      name,
+      email,
+      licenseNum: license,
+      medicalExpiryDate,
+      licenseExpiryDate,
+      operatorUid: activeOperatorUid
+    });
+
+    form.reset();
+    if (addStatus) addStatus.textContent = `Crew profile created: ${result.uid}.`;
+    await refreshCrew();
+    await selectPilot(result.uid);
+  } catch (error) {
+    console.error('Create crew profile failed:', error);
+    if (addStatus) addStatus.textContent = error.message || 'Unable to create crew profile.';
+  } finally {
+    setAddFormBusy(false);
+  }
+}
+
+async function issueCrewLinkCode(pilotUid) {
+  if (!activeOperatorUid) return;
+  const pilot = pilotsCache.find((item) => item.uid === pilotUid);
+  if (!pilot) return;
+
+  try {
+    const result = await generateCrewProfileLinkCode({
+      crewProfileId: pilotUid,
+      operatorId: activeOperatorUid
+    });
+
+    const expiry = toDateValue(result.expiresAt);
+    const expiryText = expiry ? expiry.toLocaleTimeString() : 'in 5 minutes';
+    setStatus(`Link ready for ${toProfileName(pilot)} | Profile ID: ${pilotUid} | Code: ${result.code} | Expires: ${expiryText}`);
+  } catch (error) {
+    console.error('Generate link code failed:', error);
+    setStatus(error.message || 'Unable to generate link code.');
+  }
 }
 
 function upsertDocInCache(pilotUid, document) {
@@ -734,6 +927,23 @@ function bindEvents() {
 
   activeView?.querySelector('#crew-sync-retry')?.addEventListener('click', async () => {
     await runQueueSync({ source: 'manual', refreshAfter: true });
+  });
+
+  activeView?.querySelector('#crew-prev')?.addEventListener('click', async () => {
+    await moveSelection('prev');
+  });
+
+  activeView?.querySelector('#crew-next')?.addEventListener('click', async () => {
+    await moveSelection('next');
+  });
+
+  activeView?.querySelector('#crew-clear-selection')?.addEventListener('click', () => {
+    clearSelectedCrew();
+  });
+
+  activeView?.querySelector('#crew-bulk-apply')?.addEventListener('click', async () => {
+    if (!canPerformCrewAction(activeCurrentUser, 'edit')) return;
+    await applyBulkStatusToVisible();
   });
 
   activeView?.querySelector('#crew-search')?.addEventListener('input', (event) => {
@@ -793,6 +1003,30 @@ function bindEvents() {
         return;
       }
 
+      if (action === 'edit-profile') {
+        if (!canPerformCrewAction(activeCurrentUser, 'edit')) return;
+        await editPilotProfile(pilotUid);
+        return;
+      }
+
+      if (action === 'toggle-status') {
+        if (!canPerformCrewAction(activeCurrentUser, 'edit')) return;
+        await togglePilotStatus(pilotUid);
+        return;
+      }
+
+      if (action === 'soft-delete') {
+        if (!canPerformCrewAction(activeCurrentUser, 'delete')) return;
+        await softRemovePilot(pilotUid);
+        return;
+      }
+
+      if (action === 'link-code') {
+        if (!canPerformCrewAction(activeCurrentUser, 'edit')) return;
+        await issueCrewLinkCode(pilotUid);
+        return;
+      }
+
       if (action === 'delink') {
         if (isPilotRole()) return;
         const confirmed = window.confirm('Delink this pilot from your organization?');
@@ -815,8 +1049,7 @@ function bindEvents() {
   activeView?.querySelector('#crew-add-form')?.addEventListener('submit', async (event) => {
     if (!canPerformCrewAction(activeCurrentUser, 'edit')) return;
     event.preventDefault();
-    const addStatus = activeView?.querySelector('#crew-add-status');
-    if (addStatus) addStatus.textContent = 'Pilot profiles must be self-created by pilots under current Firestore rules.';
+    await createOperatorCrewProfile(event.currentTarget);
   });
 
   activeView?.querySelector('#crew-link-form')?.addEventListener('submit', async (event) => {
@@ -1234,9 +1467,9 @@ export async function init(view, context) {
     );
   } else {
     crewUnsubscribe = onCrewSnapshot(
-      operatorUid,
-      async (snapshot) => {
-        pilotsCache = snapshot.docs.map((item) => ({ uid: item.id, ...item.data() }));
+      activeOperatorUid,
+      async (profiles) => {
+        pilotsCache = profiles.map((item) => ({ uid: item.uid || item.crewProfileId, ...item }));
         docsByPilotCache = await getCrewDocumentsByPilots(pilotsCache.map((pilot) => pilot.uid));
         renderCrewTable();
         setStatus(`Live update: ${pilotsCache.length} pilot profile(s).`);
