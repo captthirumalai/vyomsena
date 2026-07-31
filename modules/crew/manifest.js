@@ -1,7 +1,7 @@
 export const manifest = {
   path: '/crew',
   name: 'Crew',
-  title: 'Crew Roster',
+  title: 'Crew Management',
   icon: 'crew',
   order: 20,
   showInMenu: true,
