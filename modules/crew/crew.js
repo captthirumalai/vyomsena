@@ -509,13 +509,13 @@ function renderCrewTable() {
       const rowActions = `<div class="crew-action-row">${actionItems.join('')}</div>`;
 
       return `<tr data-pilot-uid="${escapeHtml(pilot.uid)}" class="${isSelected ? 'selected' : ''}">
-        <td><strong>${escapeHtml(toProfileName(pilot))}</strong><br /><small>${escapeHtml(pilot.email || 'No email')}</small></td>
-        <td>${escapeHtml(normalizeRole(pilot.role))}</td>
-        <td>${escapeHtml(status)}</td>
-        <td>${docs.length}</td>
-        <td>${escapeHtml(licenseNumber)}</td>
-        <td>${escapeHtml(medicalExpiry)}</td>
-        <td>${rowActions}</td>
+        <td data-label="Name"><strong>${escapeHtml(toProfileName(pilot))}</strong><br /><small>${escapeHtml(pilot.email || 'No email')}</small></td>
+        <td data-label="Role">${escapeHtml(normalizeRole(pilot.role))}</td>
+        <td data-label="Compliance">${escapeHtml(status)}</td>
+        <td data-label="Documents">${docs.length}</td>
+        <td data-label="License #">${escapeHtml(licenseNumber)}</td>
+        <td data-label="Medical Expiry">${escapeHtml(medicalExpiry)}</td>
+        <td data-label="Actions">${rowActions}</td>
       </tr>`;
     })
     .join('');
@@ -662,19 +662,19 @@ function renderPilotDocuments(documents, pilot) {
 
   body.innerHTML = documents
     .map((doc) => `<tr>
-      <td>${escapeHtml(doc.documentCategory || 'GENERAL')}</td>
-      <td>${escapeHtml(doc.documentName || 'Untitled')}</td>
-      <td>${escapeHtml(doc.licenseOrCertificateNumber || 'N/A')}</td>
-      <td>${escapeHtml(formatDate(doc.issueDate))}</td>
-      <td>${escapeHtml(formatDate(doc.expiryDate))}</td>
-      <td>${escapeHtml(doc.issuingAuthorityOrBody || 'N/A')}</td>
-      <td>${escapeHtml(`${doc.reminderLeadTimeDays ?? 'N/A'} day(s)` )}</td>
-      <td>${Array.isArray(doc.readers) ? doc.readers.length : 0}</td>
-      <td>${escapeHtml(doc.storagePath || 'N/A')}</td>
-      <td>${escapeHtml(doc.documentUri || 'N/A')}</td>
-      <td>${escapeHtml(doc.lastEditedBy || 'N/A')}</td>
-      <td>${escapeHtml(formatDate(doc.lastModified))}${doc.isDirty ? ' (Pending Sync)' : ''}</td>
-      <td>
+      <td data-label="Category">${escapeHtml(doc.documentCategory || 'GENERAL')}</td>
+      <td data-label="Document Name">${escapeHtml(doc.documentName || 'Untitled')}</td>
+      <td data-label="Number">${escapeHtml(doc.licenseOrCertificateNumber || 'N/A')}</td>
+      <td data-label="Issue Date">${escapeHtml(formatDate(doc.issueDate))}</td>
+      <td data-label="Expiry Date">${escapeHtml(formatDate(doc.expiryDate))}</td>
+      <td data-label="Authority">${escapeHtml(doc.issuingAuthorityOrBody || 'N/A')}</td>
+      <td data-label="Reminder">${escapeHtml(`${doc.reminderLeadTimeDays ?? 'N/A'} day(s)` )}</td>
+      <td data-label="Reader Count">${Array.isArray(doc.readers) ? doc.readers.length : 0}</td>
+      <td data-label="Storage Path" class="crew-doc-meta">${escapeHtml(doc.storagePath || 'N/A')}</td>
+      <td data-label="Document URI" class="crew-doc-meta">${escapeHtml(doc.documentUri || 'N/A')}</td>
+      <td data-label="Last Edited By">${escapeHtml(doc.lastEditedBy || 'N/A')}</td>
+      <td data-label="Last Modified">${escapeHtml(formatDate(doc.lastModified))}${doc.isDirty ? ' (Pending Sync)' : ''}</td>
+      <td data-label="Action">
         <button type="button" class="crew-btn crew-btn-secondary" data-doc-action="edit" data-document-id="${escapeHtml(doc.firestoreId)}">Edit</button>
         <button type="button" class="crew-btn crew-btn-danger" data-doc-action="delete" data-document-id="${escapeHtml(doc.firestoreId)}" data-storage-path="${escapeHtml(doc.storagePath || '')}">Delete</button>
       </td>
@@ -709,10 +709,10 @@ function renderOutgoingRequests() {
       const status = normalizeRequestStatus(request.status);
 
       return `<tr>
-        <td>${escapeHtml(request.recipientEmail || request.recipientId || 'Unknown')}</td>
-        <td>${escapeHtml(status)}</td>
-        <td>${escapeHtml(formatDate(request.createdAt))}</td>
-        <td><span class="muted">Awaiting pilot response</span></td>
+        <td data-label="Pilot Email">${escapeHtml(request.recipientEmail || request.recipientId || 'Unknown')}</td>
+        <td data-label="Status">${escapeHtml(status)}</td>
+        <td data-label="Created">${escapeHtml(formatDate(request.createdAt))}</td>
+        <td data-label="Actions"><span class="muted">Awaiting pilot response</span></td>
       </tr>`;
     })
     .join('');
@@ -740,11 +740,11 @@ function renderIncomingRequests() {
       const canRespond = status === 'PENDING';
       const canAccept = canRespond && !!request.requesterId;
       return `<tr>
-        <td>${escapeHtml(request.requesterName || request.requesterId || 'Unknown')}</td>
-        <td>${escapeHtml(request.requesterEmail || 'N/A')}</td>
-        <td>${escapeHtml(status)}</td>
-        <td>${escapeHtml(formatDate(request.createdAt))}</td>
-        <td>
+        <td data-label="Operator">${escapeHtml(request.requesterName || request.requesterId || 'Unknown')}</td>
+        <td data-label="Email">${escapeHtml(request.requesterEmail || 'N/A')}</td>
+        <td data-label="Status">${escapeHtml(status)}</td>
+        <td data-label="Created">${escapeHtml(formatDate(request.createdAt))}</td>
+        <td data-label="Actions">
           <div class="crew-action-row">
             ${canAccept ? `<button type="button" class="crew-btn crew-btn-primary" data-incoming-action="accept" data-request-id="${escapeHtml(request.requestId)}" data-operator-uid="${escapeHtml(request.requesterId)}">Accept</button>` : ''}
             ${canRespond ? `<button type="button" class="crew-btn crew-btn-danger" data-incoming-action="decline" data-request-id="${escapeHtml(request.requestId)}">Decline</button>` : ''}

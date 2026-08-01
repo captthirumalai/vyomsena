@@ -234,3 +234,87 @@
   margin-top: 0.75rem;
   flex-wrap: wrap;
 }
+
+@media (max-width: 760px) {
+  .crew-list,
+  .crew-doc-list,
+  .crew-link-list {
+    overflow-x: visible;
+  }
+
+  .crew-table,
+  .crew-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .crew-table thead {
+    display: none;
+  }
+
+  .crew-table tbody tr {
+    display: block;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.7rem;
+    background: var(--surface);
+  }
+
+  .crew-table tbody tr.selected {
+    background: rgba(37, 99, 235, 0.08);
+  }
+
+  .crew-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.32rem 0;
+    border-bottom: 1px solid var(--border-color);
+    white-space: normal;
+  }
+
+  .crew-table td:last-child {
+    border-bottom: none;
+  }
+
+  .crew-table td::before {
+    content: attr(data-label);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-color);
+    flex: 0 0 auto;
+  }
+
+  .crew-table td:not([data-label])::before,
+  .crew-table td[data-label='']::before {
+    display: none;
+  }
+
+  .crew-table td[colspan] {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .crew-table td[data-label='Name'] {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .crew-table td[data-label='Action'] {
+    flex-wrap: wrap;
+  }
+
+  .crew-table .crew-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .crew-doc-meta {
+    display: none !important;
+  }
+}

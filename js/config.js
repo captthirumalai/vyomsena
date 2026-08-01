@@ -1,4 +1,4 @@
 export const config = {
   appName: 'VAMS V2',
-  version: 'V2.1.7'
+  version: 'V2.1.8'
 };
