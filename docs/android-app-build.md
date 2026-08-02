@@ -265,10 +265,20 @@ If the operator delinks the pilot (web), web clears `users/{uid}.linkedOperator`
 
 ## 8. UI structure (recommended)
 
+The app uses a **dual-workspace** model:
+
+- **Aviation Home (Personal / Legacy)**: the existing offline-first CRUD experience for independent pilots, AMEs, or pilots tracking personal documents not shared with a company. Behavior is unchanged: Add/Edit/Delete locally.
+- **Company Home (Managed / Corporate)**: the VAMS V2 read/sync workspace. Shown for pilots linked to an operator. Strictly read-only for company data (no create/edit/delete) and contains the **Link to Company** (6-digit code) screen when unlinked.
+
+Requirements:
+
 - **Auth**: Google / email-password sign-in screen.
-- **Personal mode**: pilot's own documents, expiry summary, "Link to company" entry point (link-code entry).
-- **Company-linked mode**: company header (operator name), pilot's documents (same set), expiry summary, link status indicator, "unlink/leave" is not offered (delink is operator-controlled).
-- Keep personal and company modes visually distinct.
+- **Aviation Home (personal)**: pilot's own documents with offline-first CRUD, expiry summary, "Link to company" entry point (deep-links to Company Home code entry).
+- **Company Home (company-linked)**: company header (operator name), pilot's synced documents (read-only), expiry summary, link status badge. "unlink/leave" is not offered (delink is operator-controlled).
+- Keep personal and company workspaces visually distinct.
+- Both workspaces read the same `users/{uid}`; when `linkedOperator` is set, Aviation Home shows a "Company Managed" badge.
+
+Full Company Home module requirements (categories, linking logic, mode-specific UI, checklist) are in `docs/android-company-home.md`.
 
 ---
 
