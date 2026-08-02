@@ -128,3 +128,14 @@
   color: var(--cm-amber);
   font-weight: 600;
 }
+
+.cm-field.is-invalid {
+  color: var(--cm-red);
+}
+
+.cm-field.is-invalid > input,
+.cm-field.is-invalid > select,
+.cm-field.is-invalid > textarea {
+  border-color: var(--cm-red);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}

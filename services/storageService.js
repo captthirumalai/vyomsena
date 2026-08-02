@@ -17,6 +17,13 @@ export function buildUserDocumentStoragePath(userId, documentId, fileName) {
   return `documents/${safeUserId}/${safeDocumentId}/${safeFileName}`;
 }
 
+function buildTokenDownloadUrl(storagePath, token) {
+  if (!token) return null;
+  const bucket = getStorageInstance().app?.options?.storageBucket;
+  if (!bucket) return null;
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`;
+}
+
 export async function uploadUserDocumentFile({ userId, documentId, file }) {
   if (!file) {
     throw new Error('No file selected for upload.');
@@ -24,8 +31,10 @@ export async function uploadUserDocumentFile({ userId, documentId, file }) {
 
   const path = buildUserDocumentStoragePath(userId, documentId, file.name);
   const targetRef = storageRef(getStorageInstance(), path);
-  await uploadBytes(targetRef, file);
-  const downloadUrl = await getDownloadURL(targetRef);
+  const snapshot = await uploadBytes(targetRef, file);
+
+  const downloadToken = snapshot.metadata?.downloadTokens?.[0];
+  const downloadUrl = buildTokenDownloadUrl(path, downloadToken) || (await getDownloadURL(targetRef));
 
   return {
     storagePath: path,

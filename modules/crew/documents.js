@@ -171,6 +171,9 @@ export function onDocumentCategoryChange(categoryKey) {
   const presets = DOCUMENT_MASTER_LIST[key] || [];
   const first = key !== 'CUSTOM' ? presets[0] : null;
 
+  query('#cm-doc-name')?.closest('.cm-field')?.classList.remove('is-invalid');
+  query('#cm-doc-name-custom')?.closest('.cm-field')?.classList.remove('is-invalid');
+
   if (first) {
     setFormField('#cm-doc-authority', first.authority || '');
     setFormField('#cm-doc-reminder', `${first.reminderDays ?? 30}`);
@@ -254,8 +257,19 @@ export async function submitDocumentUpload(form) {
   const file = form.documentFile?.files?.[0] || null;
   const submit = query('#cm-doc-upload-submit');
 
-  if (!documentName || !file) {
-    if (status) status.textContent = 'Document name and file are required.';
+  const requiredFields = [
+    { input: isCustomCategory ? form.documentNameCustom : form.documentName, valid: Boolean(documentName) },
+    { input: form.documentFile, valid: Boolean(file) }
+  ];
+  requiredFields.forEach(({ input }) => input?.closest('.cm-field')?.classList.remove('is-invalid'));
+
+  const invalidFields = requiredFields.filter(({ valid }) => !valid);
+  if (invalidFields.length) {
+    invalidFields.forEach(({ input }) => input?.closest('.cm-field')?.classList.add('is-invalid'));
+    if (status) {
+      status.textContent = 'Document name and file are required.';
+      status.classList.add('is-error');
+    }
     return;
   }
 
@@ -585,6 +599,13 @@ export function bindDocumentControls() {
   query('#cm-doc-name')?.addEventListener('change', (event) => {
     onDocumentNameChange(event.target?.value || '');
   });
+
+  const clearInvalidField = (event) => {
+    if (event.target instanceof HTMLElement) event.target.closest('.cm-field')?.classList.remove('is-invalid');
+  };
+  query('#cm-doc-name')?.addEventListener('change', clearInvalidField);
+  query('#cm-doc-name-custom')?.addEventListener('input', clearInvalidField);
+  query('#cm-doc-file')?.addEventListener('change', clearInvalidField);
 
   query('#cm-doc-upload-form')?.addEventListener('submit', (event) => {
     event.preventDefault();
