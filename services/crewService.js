@@ -3,7 +3,14 @@ import {
   deleteDoc,
   serverTimestamp
 } from './firestoreService.js';
-import { findUserByEmail, linkPilotToOperator, unlinkPilotFromOperator, listPilotsForOperator, watchPilotsForOperator } from './userService.js';
+import {
+  findUserByEmail,
+  linkPilotToOperator,
+  unlinkPilotFromOperator,
+  listPilotsForOperator,
+  watchPilotsForOperator,
+  getUserByUid
+} from './userService.js';
 import {
   listDocumentsByUser,
   createUserDocument,
@@ -91,6 +98,18 @@ function mergeCrewMembers(operatorUid, profiles, linkedPilots) {
 
 const materializedCrewProfileKeys = new Set();
 
+function isAcceptedRequest(request) {
+  const normalized = `${request?.status || ''}`.trim().toUpperCase();
+  return normalized === 'ACCEPTED';
+}
+
+async function getAcceptedRequestPilots(operatorUid) {
+  const requests = await listOutgoingRequests(operatorUid);
+  const accepted = requests.filter((request) => isAcceptedRequest(request) && request.recipientId && request.recipientId !== operatorUid);
+  const users = await Promise.all(accepted.map((request) => getUserByUid(request.recipientId)));
+  return users.filter((user) => user && `${user.role || ''}`.toUpperCase() === 'PILOT');
+}
+
 async function ensureLinkedPilotProfiles(operatorUid, profiles, linkedPilots) {
   const coverage = getProfileCoverage(profiles);
   const uncovered = (linkedPilots || []).filter((user) => !isLinkedPilotCovered(coverage, user));
@@ -109,19 +128,21 @@ async function ensureLinkedPilotProfiles(operatorUid, profiles, linkedPilots) {
 }
 
 export async function getCrew(operatorUid) {
-  const [profiles, linkedPilots] = await Promise.all([
+  const [profiles, linkedPilots, acceptedPilots] = await Promise.all([
     listCrewProfilesForOperator(operatorUid),
-    listPilotsForOperator(operatorUid)
+    listPilotsForOperator(operatorUid),
+    getAcceptedRequestPilots(operatorUid)
   ]);
+  const pool = [...(linkedPilots || []), ...(acceptedPilots || [])];
 
   const coverage = getProfileCoverage(profiles);
-  if ((linkedPilots || []).some((user) => !isLinkedPilotCovered(coverage, user))) {
-    await ensureLinkedPilotProfiles(operatorUid, profiles, linkedPilots);
+  if (pool.some((user) => !isLinkedPilotCovered(coverage, user))) {
+    await ensureLinkedPilotProfiles(operatorUid, profiles, pool);
     const refreshed = await listCrewProfilesForOperator(operatorUid);
-    return mergeCrewMembers(operatorUid, refreshed, linkedPilots);
+    return mergeCrewMembers(operatorUid, refreshed, pool);
   }
 
-  return mergeCrewMembers(operatorUid, profiles, linkedPilots);
+  return mergeCrewMembers(operatorUid, profiles, pool);
 }
 
 export async function getPilotDocuments(pilotUid) {
@@ -200,10 +221,11 @@ export function summarizeCrewDocumentCompliance(documents, warningDays = 30) {
 export function onCrewSnapshot(operatorUid, onNext, onError) {
   let profiles = null;
   let linkedPilots = null;
+  let acceptedPilots = null;
 
   const publish = () => {
-    if (!profiles || !linkedPilots) return;
-    onNext(mergeCrewMembers(operatorUid, profiles, linkedPilots));
+    if (!profiles || !linkedPilots || !acceptedPilots) return;
+    onNext(mergeCrewMembers(operatorUid, profiles, [...linkedPilots, ...acceptedPilots]));
   };
 
   const unsubProfiles = watchCrewProfilesForOperator(
@@ -225,9 +247,22 @@ export function onCrewSnapshot(operatorUid, onNext, onError) {
     onError
   );
 
+  const unsubRequests = watchOutgoingRequests(
+    operatorUid,
+    async (requests) => {
+      const accepted = requests.filter((request) => isAcceptedRequest(request) && request.recipientId && request.recipientId !== operatorUid);
+      const users = await Promise.all(accepted.map((request) => getUserByUid(request.recipientId)));
+      acceptedPilots = users.filter((user) => user && `${user.role || ''}`.toUpperCase() === 'PILOT');
+      ensureLinkedPilotProfiles(operatorUid, profiles || [], acceptedPilots);
+      publish();
+    },
+    onError
+  );
+
   return () => {
     unsubProfiles();
     unsubLinked();
+    unsubRequests();
   };
 }
 

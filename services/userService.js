@@ -100,13 +100,15 @@ export async function updateUserProfile(uid, updates) {
 
 export async function listPilotsForOperator(operatorUid) {
   const usersRef = collection('users');
-  const crewQuery = query(usersRef, where('linkedOperator', '==', operatorUid), where('role', '==', ROLE_PILOT));
+  const crewQuery = query(usersRef, where('linkedOperator', '==', operatorUid));
   const snapshot = await getDocs(crewQuery);
-  return snapshot.docs.map((item) => {
-    const data = normalizeProfileShape({ uid: item.id, ...item.data() });
-    validateContract('users', data, 'listPilotsForOperator', 'read');
-    return data;
-  });
+  return snapshot.docs
+    .map((item) => {
+      const data = normalizeProfileShape({ uid: item.id, ...item.data() });
+      validateContract('users', data, 'listPilotsForOperator', 'read');
+      return data;
+    })
+    .filter((data) => `${data.role || ''}`.toUpperCase() === ROLE_PILOT);
 }
 
 export async function findUserByEmail(email) {
@@ -126,8 +128,17 @@ export async function findUserByEmail(email) {
 
 export function watchPilotsForOperator(operatorUid, onNext, onError) {
   const usersRef = collection('users');
-  const crewQuery = query(usersRef, where('linkedOperator', '==', operatorUid), where('role', '==', ROLE_PILOT));
-  return onSnapshot(crewQuery, onNext, onError);
+  const crewQuery = query(usersRef, where('linkedOperator', '==', operatorUid));
+  return onSnapshot(
+    crewQuery,
+    (snapshot) => {
+      const pilots = snapshot.docs
+        .map((item) => normalizeProfileShape({ uid: item.id, ...item.data() }))
+        .filter((data) => `${data.role || ''}`.toUpperCase() === ROLE_PILOT);
+      onNext(pilots);
+    },
+    onError
+  );
 }
 
 export async function linkPilotToOperator(pilotUid, operatorUid) {
