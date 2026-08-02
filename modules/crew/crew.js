@@ -610,7 +610,7 @@ function renderCrewTable() {
   if (!body) return;
 
   if (!pilotsCache.length) {
-    body.innerHTML = '<tr><td colspan="9" class="cm-empty">No linked pilots found for this operator.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="cm-empty">No linked pilots found for this operator.</td></tr>';
     updateKPIs();
     updateTableFooter(0, 0);
     return;
@@ -623,15 +623,12 @@ function renderCrewTable() {
   const pagePilots = visiblePilots.slice(startIndex, startIndex + PAGE_SIZE);
 
   if (!visiblePilots.length) {
-    body.innerHTML = '<tr><td colspan="9" class="cm-empty">No crew members match the current filters.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="cm-empty">No crew members match the current filters.</td></tr>';
     updateKPIs();
     updateTableFooter(0, visiblePilots.length);
     setStatus('No matching crew found. Adjust search, filter, or sort settings.');
     return;
   }
-
-  const canEdit = canPerformCrewAction(activeCurrentUser, 'edit');
-  const canDelete = canPerformCrewAction(activeCurrentUser, 'delete');
 
   body.innerHTML = pagePilots
     .map((pilot) => {
@@ -643,45 +640,6 @@ function renderCrewTable() {
       const licenceExpiry = getLicenceExpiry(docs);
       const isSelected = selectedPilotUid === pilot.uid;
       const isChecked = selectedRows.has(pilot.uid);
-
-      const actionItems = [
-        `<button type="button" class="cm-action-btn" data-action="profile" data-pilot-uid="${escapeHtml(pilot.uid)}" data-tip="Profile" aria-label="View profile">
-          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
-        </button>`
-      ];
-
-      if (canEdit) {
-        actionItems.push(
-          `<button type="button" class="cm-action-btn" data-action="edit-profile" data-pilot-uid="${escapeHtml(pilot.uid)}" data-tip="Edit" aria-label="Edit profile">
-            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-          </button>`,
-          `<button type="button" class="cm-action-btn" data-action="documents" data-pilot-uid="${escapeHtml(pilot.uid)}" data-tip="Documents" aria-label="View documents">
-            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M9 13h6M9 17h6"/></svg>
-          </button>`,
-          `<button type="button" class="cm-action-btn" data-action="link-code" data-pilot-uid="${escapeHtml(pilot.uid)}" data-tip="Generate Link Code" aria-label="Generate link code">
-            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10 14l4-4M15 9l2-2a2.83 2.83 0 0 1 4 4l-2 2M9 15l-2 2a2.83 2.83 0 0 1-4-4l2-2M7 17l4-4"/></svg>
-          </button>`,
-          `<button type="button" class="cm-action-btn" data-action="toggle-status" data-pilot-uid="${escapeHtml(pilot.uid)}" data-tip="${pilot.status === 'Active' || !pilot.status ? 'Set Inactive' : 'Set Active'}" aria-label="Toggle status">
-            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
-          </button>`
-        );
-      }
-
-      if (!isPilotRole()) {
-        actionItems.push(
-          `<button type="button" class="cm-action-btn" data-action="delink" data-pilot-uid="${escapeHtml(pilot.uid)}" data-tip="Delink" aria-label="Delink pilot">
-            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M18 6L6 18M6 6l12 12"/></svg>
-          </button>`
-        );
-      }
-
-      if (canDelete) {
-        actionItems.push(
-          `<button type="button" class="cm-action-btn is-danger" data-action="soft-delete" data-pilot-uid="${escapeHtml(pilot.uid)}" data-tip="Delete" aria-label="Delete crew">
-            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-          </button>`
-        );
-      }
 
       return `<tr data-pilot-uid="${escapeHtml(pilot.uid)}" class="${isSelected ? 'is-selected' : ''}">
         <td data-label="Select" class="cm-col-check">
@@ -702,7 +660,6 @@ function renderCrewTable() {
         <td data-label="Licence Expiry">${renderExpiryCell(licenceExpiry)}</td>
         <td data-label="Compliance"><span class="cm-ring-wrap">${renderMiniRing(percent, status)}</span></td>
         <td data-label="Status">${getProfileStatusBadgeHtml(pilot.status)}</td>
-        <td data-label="Actions" class="cm-col-actions"><span class="cm-action-row">${actionItems.join('')}</span></td>
       </tr>`;
     })
     .join('');
@@ -741,6 +698,47 @@ function openDrawer(pilotUid) {
   const percent = getCompliancePercent(docs);
   const status = getCompliance(docs);
 
+  const canEdit = canPerformCrewAction(activeCurrentUser, 'edit');
+  const canDelete = canPerformCrewAction(activeCurrentUser, 'delete');
+  const pilotStatus = `${pilot.status || 'Active'}`;
+
+  const drawerActions = [
+    ...(canEdit
+      ? [`<button type="button" class="cm-drawer-action" data-drawer-action="edit" data-pilot-uid="${escapeHtml(pilot.uid)}" title="Edit profile">
+          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+          <span>Edit Profile</span>
+        </button>`]
+      : []),
+    `<button type="button" class="cm-drawer-action" data-drawer-action="documents" data-pilot-uid="${escapeHtml(pilot.uid)}" title="View documents">
+      <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M9 13h6M9 17h6"/></svg>
+      <span>Documents</span>
+    </button>`,
+    ...(!isPilotRole()
+      ? [`<button type="button" class="cm-drawer-action" data-drawer-action="link-code" data-pilot-uid="${escapeHtml(pilot.uid)}" title="Generate link code">
+          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10 14l4-4M15 9l2-2a2.83 2.83 0 0 1 4 4l-2 2M9 15l-2 2a2.83 2.83 0 0 1-4-4l2-2M7 17l4-4"/></svg>
+          <span>Link Code</span>
+        </button>`]
+      : []),
+    ...(canEdit
+      ? [`<button type="button" class="cm-drawer-action" data-drawer-action="toggle-status" data-pilot-uid="${escapeHtml(pilot.uid)}" title="${pilotStatus === 'Active' ? 'Set Inactive' : 'Set Active'}">
+          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          <span>${pilotStatus === 'Active' ? 'Set Inactive' : 'Set Active'}</span>
+        </button>`]
+      : []),
+    ...(!isPilotRole()
+      ? [`<button type="button" class="cm-drawer-action" data-drawer-action="delink" data-pilot-uid="${escapeHtml(pilot.uid)}" title="Delink pilot">
+          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M18 6L6 18M6 6l12 12"/></svg>
+          <span>Delink</span>
+        </button>`]
+      : []),
+    ...(canDelete
+      ? [`<button type="button" class="cm-drawer-action is-danger" data-drawer-action="soft-delete" data-pilot-uid="${escapeHtml(pilot.uid)}" title="Delete crew member">
+          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+          <span>Delete</span>
+        </button>`]
+      : [])
+  ].join('');
+
   body.innerHTML = `
     <div class="cm-drawer-head">
       <h2>Crew Quick View</h2>
@@ -766,6 +764,8 @@ function openDrawer(pilotUid) {
       <div class="cm-drawer-summary-item"><span>Medical</span><strong>${escapeHtml(formatShortDate(medical))}</strong></div>
       <div class="cm-drawer-summary-item"><span>Compliance</span><strong>${percent}%</strong></div>
     </div>
+
+    <div class="cm-drawer-actions">${drawerActions}</div>
 
     <div class="cm-drawer-section is-open" data-section>
       <button type="button" class="cm-drawer-section-head" aria-expanded="true">Personal Details
@@ -864,6 +864,30 @@ function openDrawer(pilotUid) {
       const willOpen = !section.classList.contains('is-open');
       section.classList.toggle('is-open', willOpen);
       section.querySelector('.cm-drawer-section-head')?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+  });
+
+  queryAll('.cm-drawer-action').forEach((actionButton) => {
+    actionButton.addEventListener('click', () => {
+      const action = actionButton.getAttribute('data-drawer-action');
+      const targetUid = actionButton.getAttribute('data-pilot-uid') || pilotUid;
+      closeDrawer();
+      if (action === 'edit') {
+        openProfileForm(targetUid);
+      } else if (action === 'documents') {
+        selectedPilotUid = targetUid;
+        const docSelect = query('#cm-doc-pilot');
+        if (docSelect) docSelect.value = targetUid;
+        setActiveTab('documents');
+      } else if (action === 'link-code') {
+        issueCrewLinkCode(targetUid);
+      } else if (action === 'toggle-status') {
+        togglePilotStatus(targetUid);
+      } else if (action === 'delink') {
+        handleDelink(targetUid);
+      } else if (action === 'soft-delete') {
+        softRemovePilot(targetUid);
+      }
     });
   });
 
@@ -2405,50 +2429,10 @@ function bindDirectoryControls() {
     if (activeTab === 'bulk') renderBulkTab();
   });
 
-  query('#cm-table-body')?.addEventListener('click', async (event) => {
+  query('#cm-table-body')?.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-
-    const actionButton = target.closest('button[data-action]');
-    if (actionButton) {
-      const action = actionButton.getAttribute('data-action');
-      const pilotUid = actionButton.getAttribute('data-pilot-uid');
-      if (!action || !pilotUid) return;
-
-      if (action === 'profile') {
-        openDrawer(pilotUid);
-        return;
-      }
-      if (action === 'edit-profile') {
-        if (!canPerformCrewAction(activeCurrentUser, 'edit')) return;
-        openProfileForm(pilotUid);
-        return;
-      }
-      if (action === 'documents') {
-        selectedPilotUid = pilotUid;
-        const docSelect = query('#cm-doc-pilot');
-        if (docSelect) docSelect.value = pilotUid;
-        setActiveTab('documents');
-        return;
-      }
-      if (action === 'toggle-status') {
-        await togglePilotStatus(pilotUid);
-        return;
-      }
-      if (action === 'soft-delete') {
-        await softRemovePilot(pilotUid);
-        return;
-      }
-      if (action === 'link-code') {
-        await issueCrewLinkCode(pilotUid);
-        return;
-      }
-      if (action === 'delink') {
-        await handleDelink(pilotUid);
-        return;
-      }
-      return;
-    }
+    if (target.closest('.cm-col-check')) return;
 
     const row = target.closest('tr[data-pilot-uid]');
     if (row) {
