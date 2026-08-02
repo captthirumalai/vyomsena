@@ -1,0 +1,196 @@
+/* VyomSena Crew Management - COMPLIANCE TAB styles (extracted from crew.css) */
+
+/* ============================ COMPLIANCE TAB ============================ */
+
+.cm-comp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.cm-comp-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.cm-comp-ring {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  flex: 0 0 auto;
+}
+
+.cm-comp-ring svg {
+  width: 96px;
+  height: 96px;
+  transform: rotate(-90deg);
+}
+
+.cm-comp-ring .cm-ring-track {
+  fill: none;
+  stroke: #e9eef7;
+  stroke-width: 10;
+}
+
+.cm-comp-ring .cm-ring-bar {
+  fill: none;
+  stroke: var(--cm-green);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 326.7;
+  stroke-dashoffset: 326.7;
+  transition: stroke-dashoffset 700ms cubic-bezier(0.4, 0, 0.2, 1), stroke 300ms ease;
+}
+
+.cm-comp-ring .cm-ring-bar.is-amber {
+  stroke: var(--cm-amber);
+}
+
+.cm-comp-ring .cm-ring-bar.is-red {
+  stroke: var(--cm-red);
+}
+
+.cm-comp-ring strong {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.cm-comp-meta h3 {
+  margin: 0 0 0.2rem;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.cm-comp-meta p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--cm-muted);
+}
+
+.cm-comp-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.cm-comp-windows {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.cm-comp-window {
+  text-align: center;
+}
+
+.cm-comp-window strong {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.cm-comp-window span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--cm-muted);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.cm-progress {
+  height: 8px;
+  background: #eef2f7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cm-progress-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  transition: width 700ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cm-progress-amber {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.cm-progress-blue {
+  background: linear-gradient(90deg, #3b82f6, var(--cm-primary));
+}
+
+.cm-progress-red {
+  background: linear-gradient(90deg, #ef4444, var(--cm-red));
+}
+
+.cm-alerts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.cm-alert-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  background: #fafbfe;
+  font-size: 0.82rem;
+}
+
+.cm-alert-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.cm-alert-dot.is-amber {
+  background: var(--cm-amber);
+}
+
+.cm-alert-dot.is-red {
+  background: var(--cm-red);
+}
+
+.cm-alert-item .cm-alert-text {
+  min-width: 0;
+}
+
+.cm-alert-item .cm-alert-text strong {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cm-alert-item .cm-alert-text span {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--cm-muted);
+}
+
+/* VyomSena Crew Management - BULK TAB styles (extracted from crew.css) */
+
+/* ============================ BULK TAB ============================ */
+
+.cm-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}

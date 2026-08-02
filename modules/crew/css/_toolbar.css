@@ -1,0 +1,145 @@
+/* VyomSena Crew Management - TOOLBAR styles (extracted from crew.css) */
+
+/* ============================ TOOLBAR ============================ */
+
+.cm-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+
+.cm-toolbar-search {
+  flex: 1 1 260px;
+}
+
+.cm-field {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--cm-muted);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.cm-field > input,
+.cm-field > select {
+  min-height: 40px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-card);
+  color: var(--cm-text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  outline: none;
+  transition: border-color var(--cm-ease), box-shadow var(--cm-ease);
+}
+
+.cm-field > input:focus,
+.cm-field > select:focus {
+  border-color: var(--cm-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.cm-field-grow {
+  flex: 1 1 220px;
+}
+
+.cm-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.cm-error {
+  color: var(--cm-red);
+  font-size: 0.72rem;
+  font-weight: 500;
+  min-height: 1em;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* VyomSena Crew Management - SYNC STRIP styles (extracted from crew.css) */
+
+/* ============================ SYNC STRIP ============================ */
+
+.cm-sync-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  font-size: 0.78rem;
+}
+
+.cm-sync-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-weight: 700;
+  background: var(--cm-green-bg);
+  color: var(--cm-green);
+  border: 1px solid var(--cm-green-border);
+}
+
+.cm-sync-pill.has-pending {
+  background: var(--cm-amber-bg);
+  color: var(--cm-amber);
+  border-color: var(--cm-amber-border);
+}
+
+.cm-sync-pill-blue {
+  background: var(--cm-blue-bg);
+  color: var(--cm-blue);
+  border-color: var(--cm-blue-border);
+}
+
+.cm-sync-flash {
+  border-radius: 8px;
+  padding: 0.22rem 0.55rem;
+  font-weight: 600;
+  animation: cm-panel-in 160ms ease-out;
+}
+
+.cm-sync-flash.is-success {
+  background: var(--cm-green-bg);
+  color: var(--cm-green);
+  border: 1px solid var(--cm-green-border);
+}
+
+.cm-sync-flash.is-warning {
+  background: var(--cm-amber-bg);
+  color: var(--cm-amber);
+  border: 1px solid var(--cm-amber-border);
+}
+
+.cm-sync-flash.is-error {
+  background: var(--cm-red-bg);
+  color: var(--cm-red);
+  border: 1px solid var(--cm-red-border);
+}
+
+.cm-sync-error {
+  color: var(--cm-muted);
+  max-width: 36rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-sync-error.has-error {
+  color: var(--cm-red);
+}
+
+.cm-status {
+  margin-left: auto;
+  color: var(--cm-muted);
+}

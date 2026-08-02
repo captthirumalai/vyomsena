@@ -1,0 +1,67 @@
+/* VyomSena Crew Management - LINK CODE styles (extracted from crew.css) */
+
+/* ============================ LINK CODE ============================ */
+
+.cm-linking-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.cm-code-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.9rem 1rem;
+  background: #f8faff;
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+}
+
+.cm-code-box strong {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: var(--cm-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-code-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.cm-code-timer {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--cm-muted);
+  font-weight: 600;
+}
+
+.cm-timer-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cm-border-strong);
+}
+
+.cm-timer-dot.is-live {
+  background: var(--cm-green);
+  animation: cm-pulse 1.4s ease-in-out infinite;
+}
+
+.cm-timer-dot.is-live.is-ending {
+  background: var(--cm-red);
+}
+
+@keyframes cm-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}

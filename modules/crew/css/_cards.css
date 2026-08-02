@@ -1,0 +1,86 @@
+/* VyomSena Crew Management - CARDS styles (extracted from crew.css) */
+
+/* ============================ CARDS ============================ */
+
+.cm-card {
+  background: var(--cm-card);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius);
+  box-shadow: var(--cm-shadow);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.cm-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.cm-card-head h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.cm-card-head p {
+  margin: 0;
+  color: var(--cm-muted);
+  font-size: 0.82rem;
+}
+
+/* VyomSena Crew Management - BADGES styles (extracted from crew.css) */
+
+/* ============================ BADGES ============================ */
+
+.cm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cm-badge-green {
+  background: var(--cm-green-bg);
+  color: var(--cm-green);
+  border: 1px solid var(--cm-green-border);
+}
+
+.cm-badge-amber {
+  background: var(--cm-amber-bg);
+  color: var(--cm-amber);
+  border: 1px solid var(--cm-amber-border);
+}
+
+.cm-badge-red {
+  background: var(--cm-red-bg);
+  color: var(--cm-red);
+  border: 1px solid var(--cm-red-border);
+}
+
+.cm-badge-blue {
+  background: var(--cm-blue-bg);
+  color: var(--cm-blue);
+  border: 1px solid var(--cm-blue-border);
+}
+
+.cm-badge-navy {
+  background: #eef2ff;
+  color: var(--cm-primary);
+  border: 1px solid var(--cm-blue-border);
+}
+
+.cm-badge-muted {
+  background: #f1f5f9;
+  color: var(--cm-muted);
+  border: 1px solid var(--cm-border-strong);
+}

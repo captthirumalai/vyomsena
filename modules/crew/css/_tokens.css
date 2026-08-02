@@ -1,0 +1,59 @@
+/* VyomSena Crew Management - design tokens, base reset, icon primitives (extracted from crew.css) */
+
+/* ============================================================
+   VyomSena Crew Management — Modern Enterprise UI
+   Design tokens per spec: #F7F9FC bg, white cards, 16px radius,
+   #1D4ED8 primary, #2563EB accent, soft shadows, Inter font.
+   ============================================================ */
+
+.cm-shell {
+  --cm-bg: #f7f9fc;
+  --cm-card: #ffffff;
+  --cm-primary: #1d4ed8;
+  --cm-accent: #2563eb;
+  --cm-navy: #0b1533;
+  --cm-navy-2: #101c44;
+  --cm-text: #0f172a;
+  --cm-muted: #64748b;
+  --cm-border: #e6eaf2;
+  --cm-border-strong: #d3dae6;
+  --cm-green: #16a34a;
+  --cm-green-bg: #ecfdf3;
+  --cm-green-border: #bbf7d0;
+  --cm-amber: #d97706;
+  --cm-amber-bg: #fffbeb;
+  --cm-amber-border: #fde68a;
+  --cm-red: #dc2626;
+  --cm-red-bg: #fef2f2;
+  --cm-red-border: #fecaca;
+  --cm-blue: #2563eb;
+  --cm-blue-bg: #eff6ff;
+  --cm-blue-border: #bfdbfe;
+  --cm-radius: 16px;
+  --cm-radius-sm: 10px;
+  --cm-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.06);
+  --cm-shadow-hover: 0 4px 10px rgba(15, 23, 42, 0.08), 0 16px 40px rgba(15, 23, 42, 0.1);
+  --cm-ease: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: var(--cm-text);
+  min-width: 0;
+}
+
+.cm-shell,
+.cm-shell *,
+.cm-shell *::before,
+.cm-shell *::after {
+  box-sizing: border-box;
+}
+
+.cm-shell button,
+.cm-shell input,
+.cm-shell select {
+  font: inherit;
+}
+
+.cm-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}

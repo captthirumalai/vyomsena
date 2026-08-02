@@ -1,0 +1,230 @@
+/* VyomSena Crew Management - DRAWER styles (extracted from crew.css) */
+
+/* ============================ DRAWER ============================ */
+
+.cm-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(11, 21, 51, 0.42);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity var(--cm-ease);
+}
+
+.cm-drawer-backdrop.is-open {
+  opacity: 1;
+}
+
+.cm-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 110;
+  width: 420px;
+  max-width: 100vw;
+  background: var(--cm-card);
+  box-shadow: -18px 0 50px rgba(11, 21, 51, 0.18);
+  transform: translateX(100%);
+  transition: transform var(--cm-ease);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cm-drawer.is-open {
+  transform: translateX(0);
+}
+
+.cm-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.cm-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 1.1rem;
+}
+
+.cm-drawer-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.cm-drawer-profile {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.cm-drawer-profile .cm-avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 1.2rem;
+}
+
+.cm-drawer-identity strong {
+  display: block;
+  font-size: 1.05rem;
+}
+
+.cm-drawer-identity span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--cm-muted);
+}
+
+.cm-drawer-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1.1rem;
+}
+
+.cm-drawer-summary-item {
+  background: #f8faff;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  padding: 0.7rem 0.6rem;
+  text-align: center;
+}
+
+.cm-drawer-summary-item span {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--cm-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cm-drawer-summary-item strong {
+  display: block;
+  font-size: 0.92rem;
+  margin-top: 0.25rem;
+  word-break: break-all;
+}
+
+.cm-drawer-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 1.1rem;
+}
+
+.cm-drawer-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-card);
+  color: var(--cm-text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--cm-ease), background-color var(--cm-ease), color var(--cm-ease), box-shadow var(--cm-ease);
+}
+
+.cm-drawer-action .cm-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.cm-drawer-action:hover {
+  border-color: var(--cm-accent);
+  color: var(--cm-primary);
+  background: var(--cm-blue-bg);
+}
+
+.cm-drawer-action.is-danger:hover {
+  border-color: var(--cm-red);
+  color: var(--cm-red);
+  background: var(--cm-red-bg);
+}
+
+.cm-drawer-section {
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  margin-bottom: 0.7rem;
+  overflow: hidden;
+}
+
+.cm-drawer-section-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.8rem 0.9rem;
+  background: #fafbfe;
+  border: none;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--cm-text);
+  text-align: left;
+}
+
+.cm-drawer-section-head .cm-icon {
+  transition: transform var(--cm-ease);
+}
+
+.cm-drawer-section.is-open .cm-drawer-section-head .cm-icon {
+  transform: rotate(180deg);
+}
+
+.cm-drawer-section-body {
+  display: none;
+  padding: 0.9rem;
+}
+
+.cm-drawer-section.is-open .cm-drawer-section-body {
+  display: block;
+  animation: cm-panel-in 180ms ease-out;
+}
+
+.cm-drawer-kv {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.cm-drawer-kv .kv-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  font-size: 0.8rem;
+}
+
+.cm-drawer-kv .kv-row dt {
+  color: var(--cm-muted);
+}
+
+.cm-drawer-kv .kv-row dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+
+.cm-drawer-footer {
+  display: flex;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-card);
+}
+
+.cm-drawer-footer .cm-btn {
+  flex: 1;
+}

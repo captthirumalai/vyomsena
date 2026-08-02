@@ -1,0 +1,173 @@
+/* VyomSena Crew Management - KPI ROW styles (extracted from crew.css) */
+
+/* ============================ KPI ROW ============================ */
+
+.cm-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.cm-kpi {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 0.85rem;
+  align-items: center;
+  text-align: left;
+  padding: 1.1rem 1.15rem;
+  background: var(--cm-card);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius);
+  box-shadow: var(--cm-shadow);
+  cursor: pointer;
+  transition: transform var(--cm-ease), box-shadow var(--cm-ease), border-color var(--cm-ease);
+}
+
+.cm-kpi:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--cm-shadow-hover);
+  border-color: var(--cm-border-strong);
+}
+
+.cm-kpi-icon {
+  grid-row: span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+}
+
+.cm-kpi-icon .cm-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.cm-kpi-icon-navy {
+  background: #eef2ff;
+  color: var(--cm-primary);
+}
+
+.cm-kpi-icon-green {
+  background: var(--cm-green-bg);
+  color: var(--cm-green);
+}
+
+.cm-kpi-icon-amber {
+  background: var(--cm-amber-bg);
+  color: var(--cm-amber);
+}
+
+.cm-kpi-icon-red {
+  background: var(--cm-red-bg);
+  color: var(--cm-red);
+}
+
+.cm-kpi-icon-blue {
+  background: var(--cm-blue-bg);
+  color: var(--cm-blue);
+}
+
+.cm-kpi-body {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.cm-kpi-body strong {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.cm-kpi-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--cm-text);
+}
+
+.cm-kpi-sub {
+  grid-column: 2;
+  font-size: 0.72rem;
+  color: var(--cm-muted);
+}
+
+/* VyomSena Crew Management - TABS styles (extracted from crew.css) */
+
+/* ============================ TABS ============================ */
+
+.cm-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  background: var(--cm-bg);
+  padding: 0.4rem 0 0;
+  border-bottom: 1px solid var(--cm-border);
+}
+
+.cm-tab {
+  position: relative;
+  padding: 0.7rem 0.9rem;
+  background: transparent;
+  border: none;
+  color: var(--cm-muted);
+  font-size: 0.87rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--cm-ease);
+}
+
+.cm-tab:hover {
+  color: var(--cm-primary);
+}
+
+.cm-tab.is-active {
+  color: var(--cm-primary);
+}
+
+.cm-tab-underline {
+  position: absolute;
+  bottom: 0;
+  height: 2.5px;
+  border-radius: 999px;
+  background: var(--cm-primary);
+  transition: left var(--cm-ease), width var(--cm-ease), transform var(--cm-ease);
+  will-change: left, width;
+}
+
+/* VyomSena Crew Management - PANELS styles (extracted from crew.css) */
+
+/* ============================ PANELS ============================ */
+
+.cm-content {
+  padding: 1.25rem 0 2rem;
+}
+
+.cm-panel {
+  display: none;
+  animation: cm-panel-in 220ms ease-out;
+}
+
+.cm-panel.is-active {
+  display: block;
+}
+
+@keyframes cm-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

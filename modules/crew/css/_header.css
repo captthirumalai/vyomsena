@@ -1,0 +1,174 @@
+/* VyomSena Crew Management - HEADER styles (extracted from crew.css) */
+
+/* ============================ HEADER ============================ */
+
+.cm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.25rem 0 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cm-header-left {
+  min-width: 0;
+}
+
+.cm-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--cm-muted);
+  margin-bottom: 0.5rem;
+}
+
+.cm-breadcrumb-sep {
+  color: var(--cm-border-strong);
+}
+
+.cm-breadcrumb-current {
+  color: var(--cm-primary);
+}
+
+.cm-title {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.cm-subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--cm-muted);
+  font-size: 0.92rem;
+}
+
+.cm-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+/* VyomSena Crew Management - CONTROLS styles (extracted from crew.css) */
+
+/* ============================ CONTROLS ============================ */
+
+.cm-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cm-search-wrap .cm-icon-search {
+  position: absolute;
+  left: 0.8rem;
+  color: var(--cm-muted);
+  pointer-events: none;
+}
+
+.cm-search-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.5rem 0.9rem 0.5rem 2.4rem;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-card);
+  color: var(--cm-text);
+  font-size: 0.87rem;
+  outline: none;
+  transition: border-color var(--cm-ease), box-shadow var(--cm-ease);
+}
+
+.cm-search-input:focus {
+  border-color: var(--cm-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.cm-search-sm {
+  width: 220px;
+}
+
+.cm-search-sm .cm-search-input {
+  padding-left: 0.9rem;
+}
+
+.cm-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-card);
+  color: var(--cm-text);
+  cursor: pointer;
+  position: relative;
+  transition: border-color var(--cm-ease), box-shadow var(--cm-ease);
+}
+
+.cm-icon-btn:hover {
+  border-color: var(--cm-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.cm-notif-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cm-red);
+  border: 2px solid var(--cm-card);
+}
+
+.cm-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.8rem 0.35rem 0.4rem;
+  border: 1px solid var(--cm-border);
+  border-radius: 999px;
+  background: var(--cm-card);
+}
+
+.cm-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--cm-primary), var(--cm-accent));
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.cm-avatar-lg {
+  width: 56px;
+  height: 56px;
+  font-size: 1.2rem;
+}
+
+.cm-user-meta {
+  display: grid;
+  line-height: 1.2;
+}
+
+.cm-user-meta strong {
+  font-size: 0.82rem;
+}
+
+.cm-user-meta span {
+  font-size: 0.7rem;
+  color: var(--cm-muted);
+}

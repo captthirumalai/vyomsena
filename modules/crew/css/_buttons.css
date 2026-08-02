@@ -1,0 +1,85 @@
+/* VyomSena Crew Management - BUTTONS styles (extracted from crew.css) */
+
+/* ============================ BUTTONS ============================ */
+
+.cm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid transparent;
+  border-radius: var(--cm-radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 120ms ease, box-shadow var(--cm-ease), background-color var(--cm-ease), border-color var(--cm-ease), color var(--cm-ease);
+}
+
+.cm-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cm-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.cm-btn-primary {
+  background: var(--cm-primary);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.28);
+}
+
+.cm-btn-primary:hover:not(:disabled) {
+  background: #1e40af;
+  box-shadow: 0 6px 16px rgba(29, 78, 216, 0.34);
+}
+
+.cm-btn-ghost {
+  background: var(--cm-card);
+  color: var(--cm-text);
+  border-color: var(--cm-border-strong);
+}
+
+.cm-btn-ghost:hover:not(:disabled) {
+  border-color: var(--cm-accent);
+  color: var(--cm-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.cm-btn-danger {
+  background: var(--cm-red-bg);
+  color: var(--cm-red);
+  border-color: var(--cm-red-border);
+}
+
+.cm-btn-danger:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
+.cm-btn-sm {
+  min-height: 34px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.cm-btn-md {
+  min-height: 40px;
+  padding: 0.5rem 1rem;
+  font-size: 0.87rem;
+}
+
+.cm-btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: cm-spin 700ms linear infinite;
+}
+
+@keyframes cm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

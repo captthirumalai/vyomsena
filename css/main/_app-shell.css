@@ -1,0 +1,150 @@
+/* VyomSena app shell - app-shell styles (extracted from css/main.css) */
+
+.app-shell {
+  display: none;
+  gap: 1.5rem;
+}
+
+.app-shell:not(.hidden) {
+  display: block;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow);
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.route-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.route-label {
+  margin: 0;
+  color: var(--muted-color);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+#app-route {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--secondary-color);
+}
+
+.route-breadcrumbs {
+  display: block;
+}
+
+.breadcrumb-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.breadcrumb-item {
+  position: relative;
+  color: var(--muted-color);
+  font-size: 0.85rem;
+}
+
+.breadcrumb-item:not(.active)::after {
+  content: '\00b7';
+  margin-left: 0.5rem;
+  color: var(--border-color);
+}
+
+.breadcrumb-item.active {
+  color: var(--secondary-color);
+}
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.brand-group img {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+}
+
+.brand-copy h1 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.brand-copy p {
+  margin: 0.35rem 0 0;
+  color: var(--muted-color);
+  font-size: 0.95rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app-nav {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app-nav a {
+  color: var(--secondary-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.app-nav a:hover {
+  color: var(--primary-strong);
+}
+
+.app-view {
+  min-height: 400px;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .landing-page {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  #app {
+    padding: 1.5rem 1rem 2rem;
+  }
+
+  .hero-title {
+    font-size: 2.4rem;
+  }
+
+  .hero-cards {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,68 @@
+/* VyomSena Crew Management - TOAST styles (extracted from crew.css) */
+
+/* ============================ TOAST ============================ */
+
+.cm-toast {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 150;
+  max-width: 380px;
+  padding: 0.85rem 1rem;
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-navy);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 12px 40px rgba(11, 21, 51, 0.35);
+  animation: cm-toast-in 220ms ease-out;
+}
+
+.cm-toast.is-success {
+  background: #166534;
+}
+
+.cm-toast.is-error {
+  background: #991b1b;
+}
+
+.cm-toast.is-warning {
+  background: #92400e;
+}
+
+@keyframes cm-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* VyomSena Crew Management - TOOLTIP styles (extracted from crew.css) */
+
+/* ============================ TOOLTIP ============================ */
+
+.cm-action-btn[data-tip] {
+  position: relative;
+}
+
+.cm-action-btn[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.3rem 0.55rem;
+  background: var(--cm-navy);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: 0 6px 20px rgba(11, 21, 51, 0.25);
+}

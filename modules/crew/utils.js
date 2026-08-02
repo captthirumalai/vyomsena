@@ -1,0 +1,348 @@
+import { crewState, crewListState } from './state.js';
+import { summarizeCrewDocumentCompliance } from '../../services/crewService.js';
+import { getDocumentComplianceState } from '../../services/documentService.js';
+
+export function query(selector) {
+  return crewState.activeView?.querySelector(selector);
+}
+
+export function queryAll(selector) {
+  return crewState.activeView ? Array.from(crewState.activeView.querySelectorAll(selector)) : [];
+}
+
+export function toDateValue(value) {
+  const raw = value?.toDate ? value.toDate() : value;
+  const parsed = raw ? new Date(raw) : null;
+  return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
+}
+
+export function formatDate(value) {
+  const date = toDateValue(value);
+  return date ? date.toLocaleDateString() : 'N/A';
+}
+
+export function formatDateTime(value) {
+  const date = toDateValue(value);
+  return date ? date.toLocaleString() : 'N/A';
+}
+
+export function formatShortDate(value) {
+  const date = toDateValue(value);
+  if (!date) return 'N/A';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+export function daysUntil(value) {
+  const date = toDateValue(value);
+  if (!date) return null;
+  return Math.round((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
+export function formatExpiry(value) {
+  const date = toDateValue(value);
+  if (!date) return 'No expiry';
+  const days = daysUntil(value);
+  let rel = '';
+  if (days === null) rel = '';
+  else if (days < 0) rel = `overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'}`;
+  else if (days === 0) rel = 'expires today';
+  else rel = `in ${days} day${days === 1 ? '' : 's'}`;
+  return { date: formatShortDate(value), days, rel };
+}
+
+export function toTimestampCandidate(value) {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function generateId() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+export function normalizeRole(role) {
+  return `${role || 'PILOT'}`.toUpperCase();
+}
+
+export function isPilotRole() {
+  return crewState.activeRole === 'PILOT';
+}
+
+export function normalizeSearchText(value) {
+  return `${value || ''}`.trim().toLowerCase();
+}
+
+export function complianceRank(status) {
+  if (status === 'Expired') return 3;
+  if (status === 'Expiring') return 2;
+  return 1;
+}
+
+export function getPilotRoleLabel(pilot) {
+  return normalizeRole(pilot?.role || 'PILOT');
+}
+
+export function getPilotSearchText(pilot, docs) {
+  const licenseNumber = getLicenseNumber(docs);
+  return [
+    toProfileName(pilot),
+    pilot?.email || '',
+    licenseNumber,
+    pilot?.employeeId || '',
+    pilot?.designation || '',
+    getPilotRoleLabel(pilot)
+  ].join(' ').toLowerCase();
+}
+
+export function compareValues(left, right) {
+  if (left === right) return 0;
+  if (left === null || left === undefined) return 1;
+  if (right === null || right === undefined) return -1;
+  if (typeof left === 'number' && typeof right === 'number') return left - right;
+  return `${left}`.localeCompare(`${right}`);
+}
+
+export function getSortedAndFilteredPilots() {
+  const normalizedSearch = normalizeSearchText(crewListState.searchText);
+
+  const filtered = crewState.pilotsCache.filter((pilot) => {
+    const docs = crewState.docsByPilotCache.get(pilot.uid) || [];
+    const compliance = getCompliance(docs);
+    const pilotRole = getPilotRoleLabel(pilot);
+    const pilotStatus = `${pilot.status || 'Active'}`;
+
+    const matchesSearch = !normalizedSearch || getPilotSearchText(pilot, docs).includes(normalizedSearch);
+    const matchesCompliance = crewListState.compliance === 'ALL' || compliance.toUpperCase() === crewListState.compliance;
+    const matchesRole = crewListState.role === 'ALL' || pilotRole === crewListState.role;
+    const matchesStatus = crewListState.status === 'ALL' || pilotStatus === crewListState.status;
+
+    return matchesSearch && matchesCompliance && matchesRole && matchesStatus;
+  });
+
+  const sorted = filtered.slice().sort((leftPilot, rightPilot) => {
+    const leftDocs = crewState.docsByPilotCache.get(leftPilot.uid) || [];
+    const rightDocs = crewState.docsByPilotCache.get(rightPilot.uid) || [];
+
+    let comparison = 0;
+    if (crewListState.sortField === 'compliance') {
+      comparison = complianceRank(getCompliance(leftDocs)) - complianceRank(getCompliance(rightDocs));
+    } else if (crewListState.sortField === 'documents') {
+      comparison = leftDocs.length - rightDocs.length;
+    } else if (crewListState.sortField === 'medicalExpiry') {
+      const leftDate = toDateValue(getMedicalExpiry(leftDocs))?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const rightDate = toDateValue(getMedicalExpiry(rightDocs))?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      comparison = leftDate - rightDate;
+    } else if (crewListState.sortField === 'licenceExpiry') {
+      const leftDate = toDateValue(getLicenceExpiry(leftDocs))?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const rightDate = toDateValue(getLicenceExpiry(rightDocs))?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      comparison = leftDate - rightDate;
+    } else {
+      comparison = compareValues(toProfileName(leftPilot).toLowerCase(), toProfileName(rightPilot).toLowerCase());
+    }
+
+    return crewListState.sortDirection === 'desc' ? comparison * -1 : comparison;
+  });
+
+  return sorted;
+}
+
+export function escapeHtml(value) {
+  return `${value || ''}`
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+export function toProfileName(profile) {
+  return profile?.fullName || profile?.name || profile?.email || profile?.uid || 'Unknown';
+}
+
+export function setStatus(message) {
+  const status = query('#cm-status');
+  if (status) status.textContent = message;
+}
+
+export function showToast(message, tone = 'success') {
+  const toast = query('#cm-toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.remove('hidden', 'is-success', 'is-error', 'is-warning');
+  toast.classList.add(tone === 'error' ? 'is-error' : tone === 'warning' ? 'is-warning' : 'is-success');
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.classList.add('hidden'), 3200);
+}
+
+export function getCompliance(docs) {
+  const compliance = summarizeCrewDocumentCompliance(docs || []);
+  if (compliance.expired > 0) return 'Expired';
+  if (compliance.expiring > 0) return 'Expiring';
+  return 'Valid';
+}
+
+export function findPrimaryDoc(docs, matcher) {
+  return (docs || []).find((doc) => matcher(doc)) || null;
+}
+
+export function getLicenseNumber(docs) {
+  const licenseDoc = findPrimaryDoc(
+    docs,
+    (doc) => `${doc.documentCategory || ''}`.toUpperCase() === 'LICENCE' || `${doc.documentName || ''}`.toLowerCase().includes('license')
+  );
+  return licenseDoc?.licenseOrCertificateNumber || 'N/A';
+}
+
+export function getMedicalExpiry(docs) {
+  const medicalDoc = findPrimaryDoc(
+    docs,
+    (doc) => `${doc.documentCategory || ''}`.toUpperCase() === 'MEDICAL' || `${doc.documentName || ''}`.toLowerCase().includes('medical')
+  );
+  return medicalDoc?.expiryDate || null;
+}
+
+export function getLicenceExpiry(docs) {
+  const licenseDoc = findPrimaryDoc(
+    docs,
+    (doc) => `${doc.documentCategory || ''}`.toUpperCase() === 'LICENCE' || `${doc.documentName || ''}`.toLowerCase().includes('license')
+  );
+  return licenseDoc?.expiryDate || null;
+}
+
+export function getCompliancePercent(docs) {
+  const list = docs || [];
+  if (!list.length) return 0;
+  const valid = list.filter((doc) => getDocumentComplianceState(doc) === 'Valid').length;
+  return Math.round((valid / list.length) * 100);
+}
+
+export function getStatusBadgeHtml(status) {
+  if (status === 'Expired') return '<span class="cm-badge cm-badge-red">Expired</span>';
+  if (status === 'Expiring') return '<span class="cm-badge cm-badge-amber">Expiring</span>';
+  return '<span class="cm-badge cm-badge-green">Valid</span>';
+}
+
+export function getProfileStatusBadgeHtml(status) {
+  const current = `${status || 'Active'}`;
+  if (current === 'Active') return '<span class="cm-badge cm-badge-green">Active</span>';
+  if (current === 'Inactive') return '<span class="cm-badge cm-badge-muted">Inactive</span>';
+  if (current === 'Suspended') return '<span class="cm-badge cm-badge-red">Suspended</span>';
+  return '<span class="cm-badge cm-badge-amber">On Leave</span>';
+}
+
+export const CIRC = (r) => 2 * Math.PI * r;
+
+export function renderMiniRing(percent, status) {
+  const r = 17;
+  const circumference = CIRC(r);
+  const offset = circumference * (1 - percent / 100);
+  const tone = status === 'Expired' ? 'is-red' : status === 'Expiring' ? 'is-amber' : '';
+  return `
+    <span class="cm-ring" role="img" aria-label="${percent}% compliance">
+      <svg viewBox="0 0 44 44" aria-hidden="true">
+        <circle class="cm-ring-track" cx="22" cy="22" r="${r}"></circle>
+        <circle class="cm-ring-bar ${tone}" cx="22" cy="22" r="${r}" style="stroke-dasharray: ${circumference.toFixed(2)}; stroke-dashoffset: ${offset.toFixed(2)}"></circle>
+      </svg>
+      <strong>${percent}%</strong>
+    </span>
+    <span class="cm-badge ${status === 'Expired' ? 'cm-badge-red' : status === 'Expiring' ? 'cm-badge-amber' : 'cm-badge-green'}">${status}</span>
+  `;
+}
+
+export function getInitials(name) {
+  return `${name || 'U'}`
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+}
+
+export function renderExpiryCell(value) {
+  const parsed = formatExpiry(value);
+  const days = parsed.days;
+  const toneClass = days !== null && days < 0 ? 'is-danger' : days !== null && days < 30 ? 'is-warn' : '';
+  return `
+    <span class="cm-expiry">
+      <span class="cm-expiry-date">${escapeHtml(parsed.date)}</span>
+      ${days !== null && days !== undefined ? `<span class="cm-expiry-in ${toneClass}">${escapeHtml(parsed.rel)}</span>` : ''}
+    </span>
+  `;
+}
+
+export function setText(selector, text) {
+  const element = query(selector);
+  if (element) element.textContent = text;
+}
+
+export function updateNotifDot(pendingCount) {
+  const dot = query('#cm-notif-dot');
+  if (!dot) return;
+  dot.hidden = pendingCount === 0;
+}
+
+export function openModal(contentHtml, { title = '', subtitle = '' } = {}) {
+  const backdrop = query('#cm-modal-backdrop');
+  const content = query('#cm-modal-content');
+  if (!backdrop || !content) return;
+  content.innerHTML = `
+    ${title ? `<h3>${escapeHtml(title)}</h3>` : ''}
+    ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}
+    ${contentHtml}
+  `;
+  backdrop.classList.remove('hidden');
+  requestAnimationFrame(() => query('#cm-modal-close')?.focus());
+}
+
+export function closeModal() {
+  const backdrop = query('#cm-modal-backdrop');
+  if (backdrop) backdrop.classList.add('hidden');
+}
+
+export function confirmModal({ title, message, confirmLabel = 'Confirm', danger = false, onConfirm }) {
+  openModal(`
+    <p>${escapeHtml(message)}</p>
+    <div class="cm-modal-actions">
+      <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" id="cm-modal-cancel">Cancel</button>
+      <button type="button" class="cm-btn ${danger ? 'cm-btn-danger' : 'cm-btn-primary'} cm-btn-md" id="cm-modal-confirm">${escapeHtml(confirmLabel)}</button>
+    </div>
+  `, { title });
+  query('#cm-modal-cancel')?.addEventListener('click', closeModal);
+  query('#cm-modal-confirm')?.addEventListener('click', async () => {
+    closeModal();
+    await onConfirm();
+  });
+}
+
+export function setFormField(selector, value) {
+  const input = query(selector);
+  if (input) input.value = value ?? '';
+}
+
+export function setFormValue(selector, value) {
+  const input = query(selector);
+  if (input) input.value = value ?? '';
+}
+
+export function toInputDate(value) {
+  const date = toDateValue(value);
+  return date ? date.toISOString().slice(0, 10) : '';
+}
+
+export function clearFormErrors() {
+  queryAll('.cm-error').forEach((el) => (el.textContent = ''));
+  const status = query('#cm-profile-status');
+  if (status) {
+    status.textContent = '';
+    status.classList.remove('is-success', 'is-error');
+  }
+}
+
+export function setFieldError(fieldName, message) {
+  const error = query(`#cm-error-${fieldName}`);
+  if (error) error.textContent = message;
+}

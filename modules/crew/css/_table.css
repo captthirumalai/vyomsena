@@ -1,0 +1,171 @@
+/* VyomSena Crew Management - TABLE styles (extracted from crew.css) */
+
+/* ============================ TABLE ============================ */
+
+.cm-table-card {
+  background: var(--cm-card);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius);
+  box-shadow: var(--cm-shadow);
+  overflow: hidden;
+}
+
+.cm-table-scroll {
+  overflow-x: auto;
+}
+
+.cm-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.cm-table thead th {
+  text-align: left;
+  padding: 0.8rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cm-muted);
+  background: #fafbfe;
+  border-bottom: 1px solid var(--cm-border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cm-table tbody td {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--cm-border);
+  vertical-align: middle;
+  font-size: 0.85rem;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.cm-table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.cm-table tbody tr:hover {
+  background: #f8faff;
+}
+
+.cm-table tbody tr.is-selected {
+  background: var(--cm-blue-bg);
+}
+
+.cm-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cm-col-check {
+  width: 40px;
+}
+
+.cm-col-actions {
+  text-align: right !important;
+}
+
+.cm-cell-user {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.cm-cell-user .cm-user-name {
+  display: block;
+  font-weight: 700;
+}
+
+.cm-cell-user .cm-user-email {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--cm-muted);
+}
+
+.cm-expiry {
+  display: block;
+  line-height: 1.35;
+}
+
+.cm-expiry-date {
+  font-weight: 700;
+}
+
+.cm-expiry-in {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--cm-muted);
+}
+
+.cm-expiry-in.is-danger {
+  color: var(--cm-red);
+  font-weight: 600;
+}
+
+.cm-expiry-in.is-warn {
+  color: var(--cm-amber);
+  font-weight: 600;
+}
+
+.cm-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  border-top: 1px solid var(--cm-border);
+  font-size: 0.8rem;
+  color: var(--cm-muted);
+}
+
+.cm-pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cm-empty {
+  text-align: center;
+  padding: 2.5rem 1rem !important;
+  color: var(--cm-muted);
+  font-size: 0.9rem;
+}
+
+/* VyomSena Crew Management - ACTION ICON BUTTONS styles (extracted from crew.css) */
+
+/* ============================ ACTION ICON BUTTONS ============================ */
+
+.cm-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--cm-border);
+  border-radius: 8px;
+  background: var(--cm-card);
+  color: var(--cm-muted);
+  cursor: pointer;
+  transition: color var(--cm-ease), border-color var(--cm-ease), background-color var(--cm-ease), box-shadow var(--cm-ease);
+}
+
+.cm-action-btn:hover {
+  color: var(--cm-primary);
+  border-color: var(--cm-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.cm-action-btn.is-danger:hover {
+  color: var(--cm-red);
+  border-color: var(--cm-red-border);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.cm-action-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}

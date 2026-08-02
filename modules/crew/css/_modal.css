@@ -1,0 +1,82 @@
+/* VyomSena Crew Management - MODAL styles (extracted from crew.css) */
+
+/* ============================ MODAL ============================ */
+
+.cm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(11, 21, 51, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.cm-modal {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  max-height: 88vh;
+  background: var(--cm-card);
+  border-radius: var(--cm-radius);
+  box-shadow: 0 24px 80px rgba(11, 21, 51, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.cm-modal-close {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--cm-border);
+  border-radius: 8px;
+  background: var(--cm-card);
+  color: var(--cm-muted);
+  cursor: pointer;
+}
+
+.cm-modal-close:hover {
+  color: var(--cm-red);
+  border-color: var(--cm-red-border);
+}
+
+.cm-modal-content {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.cm-modal-content h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.cm-modal-content > p {
+  margin: 0 0 1rem;
+  color: var(--cm-muted);
+  font-size: 0.85rem;
+}
+
+.cm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.2rem;
+}
+
+.cm-pdf-viewer {
+  width: 100%;
+  height: 60vh;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  background: #f8fafc;
+}

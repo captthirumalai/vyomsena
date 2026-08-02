@@ -1,0 +1,133 @@
+/* VyomSena app shell - shell styles (extracted from css/main.css) */
+
+
+.vs-shell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 1.5rem;
+  min-height: calc(100vh - 3rem);
+}
+
+.vs-shell.auth-mode {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.vs-shell.auth-mode .vs-main {
+  grid-column: 1 / -1;
+}
+
+.vs-sidebar.hidden + .vs-main {
+  grid-column: 1 / -1;
+}
+
+.vs-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+}
+
+body[data-theme='dark'] .vs-sidebar {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+.vs-brand-panel {
+  display: flex;
+  align-items: center;
+  gap: 0.95rem;
+}
+
+.vs-brand-logo {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--primary-color);
+  color: white;
+  font-weight: 800;
+}
+
+.vs-brand-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.vs-brand-tag {
+  margin: 0.25rem 0 0;
+  color: var(--muted-color);
+  font-size: 0.9rem;
+}
+
+.vs-sidebar-nav {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.vs-sidebar-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 42px;
+  padding: 0.62rem 0.78rem;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  color: var(--secondary-color);
+  text-decoration: none;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.vs-sidebar-link.active,
+.vs-sidebar-link:hover {
+  color: var(--primary-strong);
+  background: rgba(37, 99, 235, 0.14);
+  border-color: rgba(37, 99, 235, 0.3);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.14);
+  transform: translateY(-1px);
+}
+
+.vs-sidebar-link:active {
+  transform: translateY(0);
+}
+
+body[data-theme='dark'] .vs-sidebar-link.active,
+body[data-theme='dark'] .vs-sidebar-link:hover {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+body[data-theme='dark'] .vs-sidebar-link {
+  background: rgba(15, 23, 42, 0.84);
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow: 0 8px 18px rgba(2, 6, 23, 0.4);
+}
+
+body[data-theme='dark'] .vs-sidebar-link.active,
+body[data-theme='dark'] .vs-sidebar-link:hover {
+  border-color: rgba(96, 165, 250, 0.36);
+  box-shadow: 0 10px 22px rgba(30, 64, 175, 0.35);
+}
+
+.vs-sidebar-footer {
+  margin-top: auto;
+}
+
+.vs-main {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.vs-content {
+  display: grid;
+  gap: 1rem;
+}

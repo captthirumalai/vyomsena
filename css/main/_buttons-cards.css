@@ -1,0 +1,80 @@
+/* VyomSena app shell - buttons-cards styles (extracted from css/main.css) */
+
+
+.vs-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vs-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.vs-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.vs-button--primary {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.16);
+}
+
+.vs-button--secondary {
+  background: white;
+  color: var(--secondary-color);
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+body[data-theme='dark'] .vs-button--secondary {
+  background: #1f2937;
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #e2e8f0;
+}
+
+.vs-button--sm {
+  min-height: 38px;
+  padding: 0 0.85rem;
+}
+
+.vs-button--md {
+  min-height: 44px;
+}
+
+.vs-button--lg {
+  min-height: 52px;
+  padding: 0 1.25rem;
+}
+
+.vs-card {
+  background: white;
+  border-radius: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 1.5rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+}
+
+.vs-card__title {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.vs-card__body {
+  color: var(--muted-color);
+  line-height: 1.75;
+}
+
+.vs-card__footer {
+  margin-top: 1.25rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  padding-top: 1rem;
+}
