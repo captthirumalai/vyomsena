@@ -30,6 +30,7 @@ export async function createCrewLinkCode({ crewProfileId, operatorId, validityMs
 
   const activeCodesQuery = query(
     collection(CREW_LINK_CODES),
+    where('operatorId', '==', operatorId),
     where('crewProfileId', '==', crewProfileId),
     where('used', '==', false)
   );
