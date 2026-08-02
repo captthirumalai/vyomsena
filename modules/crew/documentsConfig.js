@@ -86,7 +86,7 @@ export const DOCUMENT_MASTER_LIST = {
     { name: 'EFB Training', authority: 'Operator Training Department', reminderDays: 45 }
   ],
   IDENTITY: [
-    { name: 'Authorized Examiner Permit (AEP)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Airport Entry Permit (AEP)', authority: 'DGCA', reminderDays: 60 },
     { name: 'Company ID Card', authority: 'Operator HR', reminderDays: 120 },
     { name: 'Passport', authority: 'Passport Authority', reminderDays: 120 },
     { name: 'Visa', authority: 'Immigration Authority', reminderDays: 90 },
