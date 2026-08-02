@@ -345,16 +345,16 @@ function bindDashboardControls() {
 
 async function refreshComplianceDocuments() {
   const token = ++complianceRequestToken;
-  const pilotUids = dashboardState.crewList.map((pilot) => pilot.uid).filter(Boolean);
+  const crewList = dashboardState.crewList.filter((pilot) => Boolean(pilot.uid));
 
-  if (!pilotUids.length) {
+  if (!crewList.length) {
     dashboardState.docsByPilot = new Map();
     dashboardState.compliance = { total: 0, expiring: 0, expired: 0 };
     renderDashboard();
     return;
   }
 
-  const docsByPilot = await getCrewDocumentsByPilots(pilotUids);
+  const docsByPilot = await getCrewDocumentsByPilots(crewList);
   if (token !== complianceRequestToken) return;
 
   const allDocuments = Array.from(docsByPilot.values()).flat();

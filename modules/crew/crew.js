@@ -2,6 +2,7 @@ import {
   getCrew,
   onCrewSnapshot,
   getPilotDocuments,
+  getPilotDocumentsForProfile,
   getCrewDocumentsByPilots,
   getIncomingLinkRequests,
   getOutgoingLinkRequests,
@@ -11,7 +12,8 @@ import {
   requestPilotLinkByEmail,
   withdrawConnectionRequest,
   acceptIncomingLinkRequest,
-  declineConnectionRequest
+  declineConnectionRequest,
+  watchPilotDocumentsForProfile
 } from '../../services/crewService.js';
 import { watchDocumentsByUser } from '../../services/documentService.js';
 import { startCrewDocumentSyncWorker } from '../../services/crewDocumentSyncService.js';
@@ -69,11 +71,11 @@ export async function selectPilot(pilotUid) {
   crewState.pilotDocUnsubscribe?.();
   crewState.pilotDocUnsubscribe = null;
 
-  const docs = await getPilotDocuments(pilotUid);
+  const docs = await getPilotDocumentsForProfile(pilot);
   crewState.docsByPilotCache.set(pilotUid, docs);
 
-  crewState.pilotDocUnsubscribe = watchDocumentsByUser(
-    pilotUid,
+  crewState.pilotDocUnsubscribe = watchPilotDocumentsForProfile(
+    pilot,
     (snapshot) => {
       const nextDocs = snapshot.docs.map((item) => ({ firestoreId: item.id, ...item.data() }));
       crewState.docsByPilotCache.set(pilotUid, nextDocs);
@@ -120,7 +122,7 @@ export async function refreshCrew() {
   const [pilots, outgoingRequests] = await Promise.all([getCrew(crewState.activeOperatorUid), getOutgoingLinkRequests(crewState.activeOperatorUid)]);
   crewState.pilotsCache = pilots;
   crewState.outgoingRequestsCache = outgoingRequests;
-  crewState.docsByPilotCache = await getCrewDocumentsByPilots(pilots.map((pilot) => pilot.uid));
+  crewState.docsByPilotCache = await getCrewDocumentsByPilots(pilots);
   setStatus(`Loaded ${pilots.length} pilot profile(s) from Firestore.`);
   renderTabContent(crewState.activeTab);
   updateKPIs();
@@ -554,7 +556,7 @@ export async function init(view, context) {
       crewState.activeOperatorUid,
       async (profiles) => {
         crewState.pilotsCache = profiles.map((item) => ({ uid: item.uid || item.crewProfileId, ...item }));
-        crewState.docsByPilotCache = await getCrewDocumentsByPilots(crewState.pilotsCache.map((pilot) => pilot.uid));
+        crewState.docsByPilotCache = await getCrewDocumentsByPilots(crewState.pilotsCache);
         renderTabContent(crewState.activeTab);
         updateKPIs();
         setStatus(`Live update: ${crewState.pilotsCache.length} pilot profile(s).`);

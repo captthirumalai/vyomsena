@@ -24,8 +24,7 @@ async function renderDispatch() {
   const queueBody = activeView.querySelector('#dispatch-queue-body');
   if (!statusLabel || !queueBody) return;
 
-  const pilotIds = latestCrew.map((pilot) => pilot.uid).filter(Boolean);
-  const docsByPilot = await getCrewDocumentsByPilots(pilotIds);
+  const docsByPilot = await getCrewDocumentsByPilots(latestCrew);
 
   const crewRows = latestCrew.map((pilot) => {
     const docs = docsByPilot.get(pilot.uid) || [];

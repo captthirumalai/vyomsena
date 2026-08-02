@@ -30,7 +30,7 @@ async function renderWeather() {
   const statusLabel = activeView.querySelector('#weather-status');
   if (!watchlistBody || !statusLabel) return;
 
-  const docsByPilot = await getCrewDocumentsByPilots(latestCrew.map((pilot) => pilot.uid).filter(Boolean));
+  const docsByPilot = await getCrewDocumentsByPilots(latestCrew);
 
   const nonOperationalAircraft = latestAircraft.filter((item) => `${item.status || ''}`.toLowerCase() !== 'operational');
   const crewConstraints = latestCrew

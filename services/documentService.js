@@ -332,6 +332,17 @@ export function watchDocumentsByUser(userId, onNext, onError) {
   return onSnapshot(docsQuery, onNext, onError);
 }
 
+export function watchDocumentsByUserIds(userIds, onNext, onError) {
+  const ids = Array.isArray(userIds) ? [...new Set(userIds.filter(Boolean))] : [];
+  if (ids.length === 0) {
+    onNext({ docs: [] });
+    return () => {};
+  }
+  const docsRef = collection('user_documents');
+  const docsQuery = query(docsRef, where('userId', 'in', ids));
+  return onSnapshot(docsQuery, onNext, onError);
+}
+
 export function watchAccessibleDocuments(userUid, onNext, onError) {
   const docsRef = collection('user_documents');
   const state = {

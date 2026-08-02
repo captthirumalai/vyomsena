@@ -11,7 +11,8 @@ import {
   deleteUserDocument,
   listDocumentsByUserIds,
   groupDocumentsByUser,
-  summarizeCompliance
+  summarizeCompliance,
+  watchDocumentsByUserIds
 } from './documentService.js';
 import {
   sendConnectionRequest,
@@ -40,6 +41,18 @@ export async function getPilotDocuments(pilotUid) {
   return await listDocumentsByUser(pilotUid);
 }
 
+export function getPilotDocumentUserIds(profile) {
+  return [...new Set([profile?.uid, profile?.pilotUid].filter(Boolean))];
+}
+
+export async function getPilotDocumentsForProfile(profile) {
+  return await listDocumentsByUserIds(getPilotDocumentUserIds(profile));
+}
+
+export function watchPilotDocumentsForProfile(profile, onNext, onError) {
+  return watchDocumentsByUserIds(getPilotDocumentUserIds(profile), onNext, onError);
+}
+
 export async function getPilotTrainingRecords(pilotUid) {
   return await listTrainingRecordsByUser(pilotUid);
 }
@@ -56,9 +69,41 @@ export async function updatePilotDocumentWithAudit(documentId, updates, editedBy
   await updateUserDocumentWithAudit(documentId, updates, editedBy);
 }
 
-export async function getCrewDocumentsByPilots(pilotUids) {
-  const documents = await listDocumentsByUserIds(pilotUids);
-  return groupDocumentsByUser(documents);
+export async function getCrewDocumentsByPilots(pilots) {
+  if (!Array.isArray(pilots) || pilots.length === 0) {
+    return new Map();
+  }
+
+  const profileIds = [];
+  const plainIds = [];
+  pilots.forEach((item) => {
+    if (item && typeof item === 'object') profileIds.push(item);
+    else if (typeof item === 'string' && item) plainIds.push(item);
+  });
+
+  const userIds = [
+    ...new Set([...profileIds.flatMap(getPilotDocumentUserIds), ...plainIds].filter(Boolean))
+  ];
+  const documents = await listDocumentsByUserIds(userIds);
+  const groupedByUser = groupDocumentsByUser(documents);
+
+  const pickDocs = (ids) => {
+    const seen = new Set();
+    const docs = [];
+    ids.forEach((userId) => {
+      (groupedByUser.get(userId) || []).forEach((item) => {
+        if (seen.has(item.firestoreId)) return;
+        seen.add(item.firestoreId);
+        docs.push(item);
+      });
+    });
+    return docs;
+  };
+
+  const result = new Map();
+  profileIds.forEach((pilot) => result.set(pilot.uid, pickDocs(getPilotDocumentUserIds(pilot))));
+  plainIds.forEach((id) => result.set(id, pickDocs([id])));
+  return result;
 }
 
 export function summarizeCrewDocumentCompliance(documents, warningDays = 30) {
