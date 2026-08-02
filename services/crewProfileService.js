@@ -6,6 +6,7 @@ import {
   getDoc,
   addDoc,
   updateDoc,
+  setDoc,
   doc,
   onSnapshot,
   serverTimestamp
@@ -96,6 +97,39 @@ export async function updateCrewProfile(crewProfileId, updates) {
     ...updates,
     lastModified: serverTimestamp()
   });
+}
+
+export async function ensureCrewProfileForUser({ crewProfileId, operatorId, user }) {
+  if (!crewProfileId || !operatorId || !user) {
+    throw new Error('crewProfileId, operatorId, and user are required.');
+  }
+
+  const existing = await getCrewProfileById(crewProfileId);
+  if (existing) return existing;
+
+  const fullName = user.fullName || user.name || 'Unnamed Crew';
+  const nextPayload = {
+    operatorId,
+    crewProfileId,
+    uid: crewProfileId,
+    pilotUid: crewProfileId,
+    linkState: 'LINKED',
+    name: user.name || fullName,
+    fullName,
+    email: `${user.email || ''}`.trim().toLowerCase() || null,
+    role: user.role || 'PILOT',
+    status: 'Active',
+    designation: user.designation || null,
+    organizationBase: user.organizationBase || user.base || null,
+    base: user.base || user.organizationBase || null,
+    mobile: user.mobile || null,
+    createdAt: user.createdAt || serverTimestamp(),
+    lastModified: serverTimestamp()
+  };
+
+  validateContract('crew_profiles', nextPayload, 'ensureCrewProfileForUser', 'write');
+  await setDoc(doc(CREW_PROFILES, crewProfileId), nextPayload);
+  return nextPayload;
 }
 
 export function watchCrewProfilesForOperator(operatorId, onNext, onError) {

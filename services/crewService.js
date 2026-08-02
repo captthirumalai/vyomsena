@@ -3,7 +3,7 @@ import {
   deleteDoc,
   serverTimestamp
 } from './firestoreService.js';
-import { findUserByEmail, linkPilotToOperator } from './userService.js';
+import { findUserByEmail, linkPilotToOperator, unlinkPilotFromOperator, listPilotsForOperator, watchPilotsForOperator } from './userService.js';
 import {
   listDocumentsByUser,
   createUserDocument,
@@ -29,12 +29,99 @@ import {
   listCrewProfilesForOperator,
   watchCrewProfilesForOperator,
   createCrewProfile,
-  updateCrewProfile
+  updateCrewProfile,
+  ensureCrewProfileForUser
 } from './crewProfileService.js';
 import { createCrewLinkCode } from './crewLinkCodeService.js';
 
+function normalizeLinkedPilot(user, operatorUid) {
+  const fullName = user.fullName || user.name || 'Unnamed Crew';
+  return {
+    crewProfileId: user.uid,
+    uid: user.uid,
+    operatorId: operatorUid,
+    pilotUid: user.uid,
+    linkState: 'LINKED',
+    name: user.name || fullName,
+    fullName,
+    email: user.email || null,
+    role: user.role || 'PILOT',
+    status: 'Active',
+    designation: user.designation || null,
+    organizationBase: user.organizationBase || user.base || null,
+    base: user.base || user.organizationBase || null,
+    mobile: user.mobile || null,
+    createdAt: user.createdAt || null,
+    lastModified: user.lastModified || null
+  };
+}
+
+function getProfileCoverage(profiles) {
+  const byEmail = new Set();
+  const byPilotUid = new Set();
+  const byUid = new Set();
+  profiles.forEach((profile) => {
+    if (profile.email) byEmail.add(`${profile.email}`.trim().toLowerCase());
+    if (profile.pilotUid) byPilotUid.add(profile.pilotUid);
+    if (profile.uid) byUid.add(profile.uid);
+  });
+  return { byEmail, byPilotUid, byUid };
+}
+
+function isLinkedPilotCovered(coverage, user) {
+  if (!user?.uid) return true;
+  const userEmail = user.email ? `${user.email}`.trim().toLowerCase() : null;
+  return (
+    coverage.byUid.has(user.uid) ||
+    coverage.byPilotUid.has(user.uid) ||
+    (userEmail && coverage.byEmail.has(userEmail))
+  );
+}
+
+function mergeCrewMembers(operatorUid, profiles, linkedPilots) {
+  const coverage = getProfileCoverage(profiles);
+  const merged = [...profiles];
+  (linkedPilots || []).forEach((user) => {
+    if (!isLinkedPilotCovered(coverage, user)) {
+      merged.push(normalizeLinkedPilot(user, operatorUid));
+    }
+  });
+  return merged;
+}
+
+const materializedCrewProfileKeys = new Set();
+
+async function ensureLinkedPilotProfiles(operatorUid, profiles, linkedPilots) {
+  const coverage = getProfileCoverage(profiles);
+  const uncovered = (linkedPilots || []).filter((user) => !isLinkedPilotCovered(coverage, user));
+  await Promise.all(
+    uncovered.map(async (user) => {
+      const key = `${operatorUid}:${user.uid}`;
+      if (materializedCrewProfileKeys.has(key)) return;
+      materializedCrewProfileKeys.add(key);
+      try {
+        await ensureCrewProfileForUser({ crewProfileId: user.uid, operatorId: operatorUid, user });
+      } catch (error) {
+        console.warn('Crew profile materialization failed:', error);
+      }
+    })
+  );
+}
+
 export async function getCrew(operatorUid) {
-  return await listCrewProfilesForOperator(operatorUid);
+  const [profiles, linkedPilots] = await Promise.all([
+    listCrewProfilesForOperator(operatorUid),
+    listPilotsForOperator(operatorUid)
+  ]);
+
+  const coverage = getProfileCoverage(profiles);
+  if ((linkedPilots || []).some((user) => !isLinkedPilotCovered(coverage, user))) {
+    await ensureLinkedPilotProfiles(operatorUid, profiles, linkedPilots);
+    const refreshed = await listCrewProfilesForOperator(operatorUid);
+    return mergeCrewMembers(operatorUid, refreshed, linkedPilots);
+  }
+
+  return mergeCrewMembers(operatorUid, profiles, linkedPilots);
 }
 
 export async function getPilotDocuments(pilotUid) {
@@ -111,7 +198,37 @@ export function summarizeCrewDocumentCompliance(documents, warningDays = 30) {
 }
 
 export function onCrewSnapshot(operatorUid, onNext, onError) {
-  return watchCrewProfilesForOperator(operatorUid, onNext, onError);
+  let profiles = null;
+  let linkedPilots = null;
+
+  const publish = () => {
+    if (!profiles || !linkedPilots) return;
+    onNext(mergeCrewMembers(operatorUid, profiles, linkedPilots));
+  };
+
+  const unsubProfiles = watchCrewProfilesForOperator(
+    operatorUid,
+    (nextProfiles) => {
+      profiles = nextProfiles;
+      publish();
+    },
+    onError
+  );
+
+  const unsubLinked = watchPilotsForOperator(
+    operatorUid,
+    (nextLinked) => {
+      linkedPilots = nextLinked;
+      ensureLinkedPilotProfiles(operatorUid, profiles || [], nextLinked);
+      publish();
+    },
+    onError
+  );
+
+  return () => {
+    unsubProfiles();
+    unsubLinked();
+  };
 }
 
 export async function createPilot({ name, email, licenseNum, medicalExpiryDate, licenseExpiryDate, operatorUid }) {
@@ -159,10 +276,20 @@ export async function createPilot({ name, email, licenseNum, medicalExpiryDate, 
 }
 
 export async function delinkPilot(pilotUid) {
-  await updateCrewProfile(pilotUid, {
-    pilotUid: null,
-    linkState: 'UNLINKED'
-  });
+  try {
+    await updateCrewProfile(pilotUid, {
+      pilotUid: null,
+      linkState: 'UNLINKED'
+    });
+  } catch (error) {
+    console.warn('Crew profile delink skipped:', error);
+  }
+
+  try {
+    await unlinkPilotFromOperator(pilotUid);
+  } catch (error) {
+    console.warn('Users doc unlink skipped:', error);
+  }
 }
 
 export async function updatePilotProfile(pilotUid, updates) {
