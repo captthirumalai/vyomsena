@@ -24,6 +24,11 @@ This document is the blueprint that later modules (flight documents, company doc
 | `user_documents` | Web (operator) uploads and maintains crew documents; `operatorId`, `userId`, `readers[]` identify scope. | Read/sync only; downloads for offline access. |
 | `connection_requests` | Legacy request/accept flow. Web no longer creates new requests; kept for migration and history. | No new writes. |
 | `crew_link_codes` | Web (operator) generates codes. Android redeems. | Redeem only (write allowed for redemption). |
+| `admin_users` | Web seeds `admin_users/{operatorUid}` once at workspace creation so the webapp can write. | Read none / ignored. |
+| `companies` | Web (operator) creates `companies/{companyId}` with `{ name, base, code, ownerEmail }`. | Read/sync for company context. |
+| `company_accounts` | Web (operator) creates `company_accounts/{accountId}` with `{ companyId, role, displayName, email }`. | Read own account. |
+| `company_invites` | Web (operator) generates 6-digit invite codes; Android redeems. | Redeem only. |
+| `companies/{companyId}/{module}` | Web (operator) writes module data (crew, aircraft, ...). | Read/sync live. |
 
 ## Core Rules
 1. The roster's single source of truth is `crew_profiles` scoped by `operatorId`.
@@ -53,6 +58,18 @@ This document is the blueprint that later modules (flight documents, company doc
 - Web maintains and verifies crew documents (compliance, expiry).
 - Android syncs the crew member's documents for offline read and download.
 - This shape scales to future shared/company documents: introduce a `scope`/`type` field and reuse `readers[]` for sharing.
+
+## Company Workspace Model
+
+The company workspace replaces the legacy bootstrap fields on `users` with dedicated collections:
+
+1. **`admin_users/{uid}`** — seeded once with the operator's UID so the web app is granted write access.
+2. **`companies/{companyId}`** — `{ name, base, code, ownerEmail }`, created at workspace registration.
+3. **`company_accounts/{accountId}`** — `{ companyId, role, displayName, email }`, one per workspace member.
+4. **`company_invites/{CODE}`** — invite generator: picking an account writes `{ companyId, accountId, email, role, createdAt, expiresAt = now + 5 min, usedBy: null, usedAt: null }` and the web UI shows the code for screen/SMS/WhatsApp.
+5. **`companies/{companyId}/crew`, `/aircraft`, ...** — module data written under the company so Android syncs it live.
+
+Registration (`registerWorkspace`) and operator sign-in (`bootstrapCompanyWorkspace`) create the workspace once and are idempotent. The invite generator lives in Settings > Invite User and in `services/companyService.js`.
 
 ## Rules Roadmap (when Android is read-only ready)
 | Phase | Rule |

@@ -187,5 +187,65 @@ service cloud.firestore {
     match /aircraft/{reg} {
       allow read, write: if request.auth != null;
     }
+
+    // ================= COMPANY WORKSPACE MODEL =================
+
+    // Helpers
+    function isCompanyAdmin(companyId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    function isCompanyAccountMember(companyId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/company_accounts/$(request.auth.uid))
+        && get(/databases/$(database)/documents/company_accounts/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    // ADMIN USERS (web write grant, seeded once)
+    match /admin_users/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid && !exists(/databases/$(database)/documents/admin_users/$(uid));
+      allow update: if request.auth != null && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    // COMPANIES (owner writes)
+    match /companies/{companyId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == companyId;
+      allow update, delete: if request.auth != null && request.auth.uid == companyId;
+    }
+
+    // COMPANY ACCOUNTS
+    match /company_accounts/{accountId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && isCompanyAdmin(request.resource.data.companyId);
+      allow update: if request.auth != null && isCompanyAdmin(resource.data.companyId);
+      allow delete: if request.auth != null && isCompanyAdmin(resource.data.companyId);
+    }
+
+    // COMPANY INVITES (5-minute 6-digit codes)
+    match /company_invites/{code} {
+      allow read: if request.auth != null && (
+        isCompanyAdmin(resource.data.companyId) ||
+        resource.data.usedBy == null
+      );
+      allow create: if request.auth != null && isCompanyAdmin(request.resource.data.companyId);
+      allow update: if request.auth != null && (
+        (isCompanyAdmin(resource.data.companyId) && resource.data.usedBy == null) ||
+        (resource.data.usedBy == null && request.resource.data.usedBy != null && request.resource.data.usedAt != null)
+      );
+      allow delete: if request.auth != null && isCompanyAdmin(resource.data.companyId);
+    }
+
+    // COMPANY MODULE SUBCOLLECTIONS: companies/{companyId}/{module}/{docId}
+    match /companies/{companyId}/{module}/{docId} {
+      allow read: if request.auth != null && (
+        isCompanyAdmin(companyId) || isCompanyAccountMember(companyId)
+      );
+      allow create, update, delete: if request.auth != null && isCompanyAdmin(companyId);
+    }
   }
 }

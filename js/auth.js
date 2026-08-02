@@ -8,7 +8,8 @@ import {
   sendResetEmail,
   signOutUser,
   loadUserProfile,
-  createUserProfile
+  createUserProfile,
+  bootstrapCompanyWorkspace
 } from '../services/authService.js';
 import { initRouter } from './router.js';
 import { emit as emitEvent } from '../services/eventBus.js';
@@ -269,6 +270,21 @@ export function initAuth() {
           showError(loginError, 'Pilots use the Android app. Web access is reserved for company operations workspaces.');
           await signOutUser();
           return;
+        }
+
+        if (normalizeRole(profileData.role) === 'OPERATIONS') {
+          try {
+            await bootstrapCompanyWorkspace({
+              uid: user.uid,
+              email: profileData.email || user.email,
+              fullName: profileData.name || profileData.fullName || user.displayName,
+              companyName: profileData.organizationName,
+              companyCode: profileData.organizationCode,
+              companyBase: profileData.organizationBase
+            });
+          } catch (err) {
+            console.warn('Company workspace bootstrap skipped:', err);
+          }
         }
 
         authStore.setUser(profileData);

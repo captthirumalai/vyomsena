@@ -11,6 +11,13 @@ import {
 } from './firebaseService.js';
 import { serverTimestamp } from './firestoreService.js';
 import { getUserByUid, createUserProfile as createUserProfileRecord } from './userService.js';
+import {
+  ensureAdminUser,
+  getCompany,
+  getCompanyAccount,
+  createCompany,
+  createCompanyAccount
+} from './companyService.js';
 
 export function initializeFirebaseAuth() {
   initFirebase();
@@ -103,6 +110,14 @@ export async function registerWorkspace({
   };
 
   await createUserProfileRecord(profile);
+  await bootstrapCompanyWorkspace({
+    uid,
+    email,
+    fullName,
+    companyName: organizationName,
+    companyCode: organizationCode,
+    companyBase: organizationBase
+  });
   return profile;
 }
 
@@ -112,6 +127,47 @@ export async function sendResetEmail(email) {
 
 export async function signOutUser() {
   return await signOut(getAuthInstance());
+}
+
+export async function bootstrapCompanyWorkspace({ uid, email, fullName, companyName, companyCode, companyBase }) {
+  if (!uid) return null;
+
+  const admin = await ensureAdminUser({
+    uid,
+    email,
+    displayName: fullName,
+    role: 'OWNER'
+  });
+
+  const normalizedCompanyName = `${companyName || ''}`.trim();
+  if (!normalizedCompanyName) return { admin, company: null };
+
+  let company = await getCompany(uid);
+  if (!company) {
+    company = await createCompany({
+      companyId: uid,
+      name: normalizedCompanyName,
+      base: companyBase || null,
+      code: companyCode || null,
+      ownerEmail: email,
+      ownerUid: uid,
+      ownerDisplayName: fullName
+    });
+  }
+
+  const existingAccount = await getCompanyAccount(uid);
+  if (!existingAccount) {
+    await createCompanyAccount({
+      companyId: uid,
+      accountId: uid,
+      role: 'OWNER',
+      displayName: fullName,
+      email,
+      uid
+    });
+  }
+
+  return { admin, company };
 }
 
 export async function loadUserProfile(uid) {

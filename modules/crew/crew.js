@@ -19,6 +19,7 @@ import { watchDocumentsByUser } from '../../services/documentService.js';
 import { startCrewDocumentSyncWorker } from '../../services/crewDocumentSyncService.js';
 import { canPerformCrewAction, getCrewPermissionsForUser } from '../../services/permissionService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
+import { mirrorCrewProfilesToCompany } from '../../services/companyService.js';
 import { crewState, crewListState, docListState, PAGE_SIZE, CREW_TAB_STORAGE_KEY } from './state.js';
 import {
   query,
@@ -124,6 +125,13 @@ export async function refreshCrew() {
   crewState.outgoingRequestsCache = outgoingRequests;
   crewState.docsByPilotCache = await getCrewDocumentsByPilots(pilots);
   setStatus(`Loaded ${pilots.length} pilot profile(s) from Firestore.`);
+
+  try {
+    await mirrorCrewProfilesToCompany(crewState.activeOperatorUid, pilots);
+  } catch (error) {
+    console.warn('Company crew mirror skipped:', error);
+  }
+
   renderTabContent(crewState.activeTab);
   updateKPIs();
 

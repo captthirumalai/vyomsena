@@ -1,5 +1,97 @@
-﻿<section class="card">
-  <h2>System Settings</h2>
-  <p class="muted">Configure organization-level platform preferences.</p>
-  <div id="settings-content" class="module-placeholder"></div>
+﻿<section class="st-shell">
+  <div class="st-grid">
+    <section class="vs-card">
+      <h3 class="vs-card__title">Company Workspace</h3>
+      <p class="vs-card__body">Company identity used by the web app and synced to Android.</p>
+      <dl class="st-dl" id="st-company-info">
+        <div class="st-dl-row"><dt>Name</dt><dd id="st-company-name">—</dd></div>
+        <div class="st-dl-row"><dt>Base</dt><dd id="st-company-base">—</dd></div>
+        <div class="st-dl-row"><dt>Company code</dt><dd id="st-company-code">—</dd></div>
+        <div class="st-dl-row"><dt>Owner email</dt><dd id="st-company-owner">—</dd></div>
+      </dl>
+    </section>
+
+    <section class="vs-card">
+      <h3 class="vs-card__title">Invite User</h3>
+      <p class="vs-card__body">Add a company account and generate a 5-minute invite code to share on screen, SMS, or WhatsApp.</p>
+      <form id="st-invite-form" novalidate>
+        <div class="st-form-row">
+          <label class="st-field">
+            <span>Display name</span>
+            <input type="text" id="st-invite-name" name="displayName" placeholder="e.g. Capt. Rohan Mehta" required />
+          </label>
+          <label class="st-field">
+            <span>Email</span>
+            <input type="email" id="st-invite-email" name="email" placeholder="crew@operator.com" required />
+          </label>
+          <label class="st-field">
+            <span>Role</span>
+            <select id="st-invite-role" name="role">
+              <option value="PILOT">Pilot</option>
+              <option value="OPERATIONS">Operations</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </label>
+        </div>
+        <div class="st-form-actions">
+          <button type="submit" class="vs-button vs-button--primary vs-button--md" id="st-invite-submit">
+            <span class="st-btn-spinner hidden" aria-hidden="true"></span>
+            <span>Invite user</span>
+          </button>
+          <span class="st-status" id="st-invite-status" aria-live="polite"></span>
+        </div>
+      </form>
+
+      <div class="st-invite-result hidden" id="st-invite-result" aria-live="polite">
+        <p>Share this invite code. It expires in 5 minutes and can be used once.</p>
+        <div class="st-code-box">
+          <strong id="st-invite-code">—</strong>
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-invite-copy">Copy</button>
+        </div>
+        <div class="st-share-row">
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-share-whatsapp">WhatsApp</button>
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-share-sms">SMS</button>
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-share-email">Email</button>
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-share-close">Close</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="vs-card">
+    <h3 class="vs-card__title">Company Accounts</h3>
+    <p class="vs-card__body">Accounts that belong to this company workspace.</p>
+    <div class="st-table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Display name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="st-accounts-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="vs-card">
+    <h3 class="vs-card__title">Recent Invites</h3>
+    <p class="vs-card__body">Generated invite codes and their redemption state.</p>
+    <div class="st-table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Expires</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="st-invites-body"></tbody>
+      </table>
+    </div>
+  </section>
 </section>
