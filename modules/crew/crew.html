@@ -459,11 +459,15 @@
             <option value="ALL">All</option>
             <option value="LICENCE">Licence</option>
             <option value="MEDICAL">Medical</option>
+            <option value="RATINGS">Ratings &amp; Endorsements</option>
+            <option value="CHECKS">Checks &amp; Proficiencies</option>
             <option value="TRAINING">Training</option>
+            <option value="IDENTITY">Security &amp; Identity</option>
+            <option value="GENERAL">General</option>
+            <option value="CUSTOM">Other (Custom)</option>
             <option value="RTR">RTR</option>
             <option value="PASSPORT">Passport</option>
             <option value="VISA">Visa</option>
-            <option value="GENERAL">General</option>
           </select>
         </label>
         <label class="cm-field">
@@ -477,48 +481,44 @@
         </label>
         <button type="button" class="cm-btn cm-btn-primary cm-btn-sm" id="cm-doc-upload-toggle">
           <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
-          <span>Upload</span>
+          <span>Create Document</span>
         </button>
       </div>
 
       <div class="cm-card hidden" id="cm-doc-upload-card">
         <div class="cm-card-head">
           <div>
-            <h2>Upload Document</h2>
+            <h2>Create Document</h2>
             <p id="cm-doc-upload-caption">Select a pilot, then fill the document details.</p>
           </div>
         </div>
         <form id="cm-doc-upload-form" class="cm-form-grid" novalidate>
           <label class="cm-field">
-            <span>Template</span>
-            <select id="cm-doc-template" name="documentTemplate" aria-label="Document template">
-              <option value="CUSTOM">Custom</option>
-              <option value="MEDICAL_CLASS1">Medical - Class 1</option>
-              <option value="LICENCE_CPL">Licence - CPL</option>
-              <option value="RTR">RTR</option>
-              <option value="PASSPORT">Passport</option>
-              <option value="VISA">Visa</option>
-              <option value="PPC">Training - PPC</option>
-              <option value="OPC">Training - OPC</option>
-              <option value="CRM">Training - CRM</option>
-              <option value="DG">Training - Dangerous Goods</option>
-              <option value="LINE_CHECK">Training - Line Check</option>
+            <span>Category</span>
+            <select id="cm-doc-category-input" name="documentCategory" aria-label="Document category">
+              <option value="LICENCE">Licence</option>
+              <option value="MEDICAL">Medical</option>
+              <option value="RATINGS">Ratings &amp; Endorsements</option>
+              <option value="CHECKS">Checks &amp; Proficiencies</option>
+              <option value="TRAINING">Training</option>
+              <option value="IDENTITY">Security &amp; Identity</option>
+              <option value="GENERAL">General / Operator</option>
+              <option value="CUSTOM">Other (Custom)</option>
             </select>
           </label>
           <label class="cm-field">
             <span>Document name</span>
-            <input type="text" id="cm-doc-name" name="documentName" placeholder="Class 1 Medical" required />
+            <select id="cm-doc-name" name="documentName" aria-label="Document name">
+              <option value="">Select document...</option>
+            </select>
+            <input type="text" id="cm-doc-name-custom" name="documentNameCustom" class="hidden" placeholder="Enter document name" aria-label="Custom document name" />
           </label>
           <label class="cm-field">
-            <span>Category</span>
-            <input type="text" id="cm-doc-category-input" name="documentCategory" placeholder="MEDICAL / LICENCE" />
-          </label>
-          <label class="cm-field">
-            <span>Number</span>
+            <span>Document number</span>
             <input type="text" id="cm-doc-number" name="licenseNumber" placeholder="Optional reference number" />
           </label>
           <label class="cm-field">
-            <span>Authority</span>
+            <span>Issuing authority</span>
             <input type="text" id="cm-doc-authority" name="authority" placeholder="DGCA / Organization" />
           </label>
           <label class="cm-field">
@@ -530,8 +530,12 @@
             <input type="date" id="cm-doc-expiry" name="expiryDate" />
           </label>
           <label class="cm-field">
-            <span>Reminder (days)</span>
+            <span>Days to reminder</span>
             <input type="number" id="cm-doc-reminder" name="reminderDays" min="0" value="30" />
+          </label>
+          <label class="cm-field">
+            <span>Notes / Remarks</span>
+            <textarea id="cm-doc-notes" name="notesOrRemarks" rows="3" placeholder="Optional remarks about this document"></textarea>
           </label>
           <label class="cm-field cm-field-file">
             <span>File</span>
@@ -540,7 +544,7 @@
           <div class="cm-form-actions cm-form-actions-upload">
             <button type="submit" class="cm-btn cm-btn-primary cm-btn-md" id="cm-doc-upload-submit">
               <span class="cm-btn-spinner hidden" aria-hidden="true"></span>
-              <span>Upload Document</span>
+              <span>Create Document</span>
             </button>
           </div>
           <p class="cm-form-status" id="cm-doc-upload-status" aria-live="polite"></p>

@@ -229,6 +229,7 @@ export async function createUserDocument(payload) {
     expiryDate: payload.expiryDate || null,
     issuingAuthorityOrBody: payload.issuingAuthorityOrBody || null,
     licenseOrCertificateNumber: payload.licenseOrCertificateNumber || null,
+    notesOrRemarks: payload.notesOrRemarks || null,
     operatorId: payload.operatorId || null,
     readers: payload.readers || [],
     reminderLeadTimeDays: payload.reminderLeadTimeDays ?? 30,

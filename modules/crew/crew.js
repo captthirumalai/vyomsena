@@ -76,67 +76,110 @@ const crewListState = {
   sortDirection: 'asc'
 };
 
-const DOC_TEMPLATE_PRESETS = {
-  MEDICAL_CLASS1: {
-    documentName: 'Class 1 Medical',
-    documentCategory: 'MEDICAL',
-    reminderLeadTimeDays: 30,
-    issuingAuthorityOrBody: 'DGCA'
-  },
-  LICENCE_CPL: {
-    documentName: 'Commercial Pilot License (CPL)',
-    documentCategory: 'LICENCE',
-    reminderLeadTimeDays: 60,
-    issuingAuthorityOrBody: 'DGCA'
-  },
-  RTR: {
-    documentName: 'RTR License',
-    documentCategory: 'RTR',
-    reminderLeadTimeDays: 45,
-    issuingAuthorityOrBody: 'WPC'
-  },
-  PASSPORT: {
-    documentName: 'Passport',
-    documentCategory: 'PASSPORT',
-    reminderLeadTimeDays: 120,
-    issuingAuthorityOrBody: 'Government Authority'
-  },
-  VISA: {
-    documentName: 'Visa',
-    documentCategory: 'VISA',
-    reminderLeadTimeDays: 90,
-    issuingAuthorityOrBody: 'Immigration Authority'
-  },
-  PPC: {
-    documentName: 'Pilot Proficiency Check (PPC)',
-    documentCategory: 'TRAINING',
-    reminderLeadTimeDays: 30,
-    issuingAuthorityOrBody: 'Approved Training Organization'
-  },
-  OPC: {
-    documentName: 'Operator Proficiency Check (OPC)',
-    documentCategory: 'TRAINING',
-    reminderLeadTimeDays: 30,
-    issuingAuthorityOrBody: 'Operator Training Department'
-  },
-  CRM: {
-    documentName: 'Crew Resource Management (CRM)',
-    documentCategory: 'TRAINING',
-    reminderLeadTimeDays: 30,
-    issuingAuthorityOrBody: 'Training Department'
-  },
-  DG: {
-    documentName: 'Dangerous Goods (DG) Training',
-    documentCategory: 'TRAINING',
-    reminderLeadTimeDays: 45,
-    issuingAuthorityOrBody: 'Training Department'
-  },
-  LINE_CHECK: {
-    documentName: 'Line Check',
-    documentCategory: 'TRAINING',
-    reminderLeadTimeDays: 30,
-    issuingAuthorityOrBody: 'Flight Operations'
-  }
+const DOCUMENT_CATEGORIES = [
+  { key: 'LICENCE', label: 'Licence' },
+  { key: 'MEDICAL', label: 'Medical' },
+  { key: 'RATINGS', label: 'Ratings & Endorsements' },
+  { key: 'CHECKS', label: 'Checks & Proficiencies' },
+  { key: 'TRAINING', label: 'Training' },
+  { key: 'IDENTITY', label: 'Security & Identity' },
+  { key: 'GENERAL', label: 'General / Operator' },
+  { key: 'CUSTOM', label: 'Other (Custom)' }
+];
+
+const DOCUMENT_MASTER_LIST = {
+  LICENCE: [
+    { name: 'Student Pilot Licence (SPL)', authority: 'DGCA', reminderDays: 30 },
+    { name: 'Private Pilot Licence (PPL)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Commercial Pilot Licence (CPL)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Airline Transport Pilot Licence (ATPL)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Flight Radio Telephony Operator Licence (FRTOL)', authority: 'WPC / DGCA', reminderDays: 45 },
+    { name: 'Restricted Radio Telephony (RTR)', authority: 'WPC', reminderDays: 45 },
+    { name: 'English Language Proficiency (ELP)', authority: 'DGCA', reminderDays: 45 }
+  ],
+  MEDICAL: [
+    { name: 'Class 1 Medical', authority: 'DGCA Medical Cell', reminderDays: 30 },
+    { name: 'Class 2 Medical', authority: 'Approved Medical Examiner', reminderDays: 30 },
+    { name: 'Medical Fitness Declaration', authority: 'Operator Medical Department', reminderDays: 30 }
+  ],
+  RATINGS: [
+    { name: 'Instrument Rating (IR)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Multi-Engine Rating (ME)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Single-Engine Rating (SE)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'First Officer Rating (FIR)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Flight Instructor Rating (AFI)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Multi-Engine Instructor Rating (MEI)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Type Rating', authority: 'DGCA', reminderDays: 60 },
+    { name: 'PBN Rating', authority: 'DGCA', reminderDays: 60 },
+    { name: 'RVSM Endorsement', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Low Visibility Operations (LVO)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Night Rating', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Seaplane Rating', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Glider Rating', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Helicopter Type Rating', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Examiner / Check Pilot Authorization', authority: 'DGCA', reminderDays: 60 }
+  ],
+  CHECKS: [
+    { name: 'Pilot Proficiency Check (PPC)', authority: 'Approved Examiner', reminderDays: 30 },
+    { name: 'Operator Proficiency Check (OPC)', authority: 'Operator Training Department', reminderDays: 30 },
+    { name: 'Instrument Rating Check', authority: 'Approved Examiner', reminderDays: 30 },
+    { name: 'Route / Line Check', authority: 'Flight Operations', reminderDays: 30 },
+    { name: 'Annual Route / Line Check', authority: 'Flight Operations', reminderDays: 30 },
+    { name: 'Base Check', authority: 'Flight Operations', reminderDays: 30 },
+    { name: 'Skill Test', authority: 'DGCA Examiner', reminderDays: 30 },
+    { name: 'Dangerous Goods (DG) CAT-10 Check', authority: 'Training Department', reminderDays: 45 }
+  ],
+  TRAINING: [
+    { name: 'Crew Resource Management (CRM) Initial', authority: 'Training Department', reminderDays: 30 },
+    { name: 'Crew Resource Management (CRM) Recurrent', authority: 'Training Department', reminderDays: 30 },
+    { name: 'Dangerous Goods (DG) Awareness', authority: 'Training Department', reminderDays: 45 },
+    { name: 'Dangerous Goods (DG) CAT-10 Training', authority: 'Training Department', reminderDays: 45 },
+    { name: 'Security / AVSEC Training', authority: 'Training Department', reminderDays: 45 },
+    { name: 'Human Factors Training', authority: 'Training Department', reminderDays: 45 },
+    { name: 'SMS / Safety Management Training', authority: 'Training Department', reminderDays: 45 },
+    { name: 'SOP Training', authority: 'Operator Training Department', reminderDays: 30 },
+    { name: 'Company Induction', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'Aircraft Technical Type Course', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'Emergency & Survival Training', authority: 'Training Department', reminderDays: 45 },
+    { name: 'Ditching Training', authority: 'Training Department', reminderDays: 45 },
+    { name: 'Fire Fighting Training', authority: 'Training Department', reminderDays: 45 },
+    { name: 'First Aid Training', authority: 'Training Department', reminderDays: 45 },
+    { name: 'FRMS / Fatigue Risk Management', authority: 'Training Department', reminderDays: 45 },
+    { name: 'TEM / Threat & Error Management', authority: 'Training Department', reminderDays: 45 },
+    { name: 'Monsoon Ops Training', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'Winter Ops Training', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'LVO Training', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'UPRT Training', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'GRF / Runway Condition Reporting', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'Navigation Procedures Training', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'TCAS Training', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'EGPWS / TAWS Training', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'GPWS Training', authority: 'Operator Training Department', reminderDays: 45 },
+    { name: 'Route Qualification', authority: 'Flight Operations', reminderDays: 30 },
+    { name: 'Aerodrome Qualification', authority: 'Flight Operations', reminderDays: 30 },
+    { name: 'Special Airport Qualification', authority: 'Flight Operations', reminderDays: 30 },
+    { name: 'Simulator Training Record', authority: 'Operator Training Department', reminderDays: 30 },
+    { name: 'Line Training Completion', authority: 'Flight Operations', reminderDays: 30 },
+    { name: 'Supervised Line Flying (SLF)', authority: 'Flight Operations', reminderDays: 30 },
+    { name: 'EFB Training', authority: 'Operator Training Department', reminderDays: 45 }
+  ],
+  IDENTITY: [
+    { name: 'Authorized Examiner Permit (AEP)', authority: 'DGCA', reminderDays: 60 },
+    { name: 'Company ID Card', authority: 'Operator HR', reminderDays: 120 },
+    { name: 'Passport', authority: 'Passport Authority', reminderDays: 120 },
+    { name: 'Visa', authority: 'Immigration Authority', reminderDays: 90 },
+    { name: 'Aadhaar Card', authority: 'UIDAI', reminderDays: 180 },
+    { name: 'PAN Card', authority: 'Income Tax Department', reminderDays: 180 }
+  ],
+  GENERAL: [
+    { name: 'Pilot Logbook', authority: 'Pilot', reminderDays: 180 },
+    { name: 'Flying Experience Certificate', authority: 'DGCA', reminderDays: 60 },
+    { name: 'No Objection Certificate (NOC)', authority: 'DGCA', reminderDays: 90 },
+    { name: 'Insurance Documents', authority: 'Operator / Insurer', reminderDays: 90 },
+    { name: 'DGCA Approval Letters', authority: 'DGCA', reminderDays: 90 },
+    { name: 'Operator Documents', authority: 'Operator', reminderDays: 60 }
+  ],
+  CUSTOM: []
 };
 
 function query(selector) {
@@ -1612,23 +1655,59 @@ function renderPilotDocuments() {
     .join('');
 }
 
-function applyDocumentTemplate(templateKey) {
-  if (!templateKey || templateKey === 'CUSTOM') return;
-  const template = DOC_TEMPLATE_PRESETS[templateKey];
-  if (!template) return;
+function getDocumentCategoryKey() {
+  return `${query('#cm-doc-category-input')?.value || 'LICENCE'}`.toUpperCase();
+}
 
-  setFormField('#cm-doc-name', template.documentName);
-  setFormField('#cm-doc-category-input', template.documentCategory);
-  setFormField('#cm-doc-reminder', `${template.reminderLeadTimeDays}`);
-  if (!query('#cm-doc-authority')?.value.trim()) {
-    setFormField('#cm-doc-authority', template.issuingAuthorityOrBody);
+function populateDocumentNames(categoryKey) {
+  const select = query('#cm-doc-name');
+  const customInput = query('#cm-doc-name-custom');
+  if (!select || !(select instanceof HTMLSelectElement)) return;
+  const key = `${categoryKey || 'LICENCE'}`.toUpperCase();
+  const isCustom = key === 'CUSTOM';
+  const presets = DOCUMENT_MASTER_LIST[key] || [];
+
+  select.innerHTML = isCustom
+    ? ''
+    : `<option value="">Select document...</option>${presets
+        .map((item) => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)}</option>`)
+        .join('')}`;
+
+  if (customInput instanceof HTMLInputElement) {
+    customInput.classList.toggle('hidden', !isCustom);
+    if (!isCustom) customInput.value = '';
+  }
+
+  if (isCustom) {
+    setFormField('#cm-doc-reminder', '30');
+    if (customInput instanceof HTMLInputElement) customInput.focus();
+  }
+}
+
+function onDocumentCategoryChange(categoryKey) {
+  populateDocumentNames(categoryKey);
+  const key = `${categoryKey || ''}`.toUpperCase();
+  const presets = DOCUMENT_MASTER_LIST[key] || [];
+  const first = key !== 'CUSTOM' ? presets[0] : null;
+
+  if (first) {
+    setFormField('#cm-doc-authority', first.authority || '');
+    setFormField('#cm-doc-reminder', `${first.reminderDays ?? 30}`);
   }
 
   const status = query('#cm-doc-upload-status');
   if (status) {
-    status.textContent = `Applied template: ${template.documentName}`;
+    status.textContent = '';
     status.classList.remove('is-success', 'is-error');
   }
+}
+
+function onDocumentNameChange(name) {
+  const presets = DOCUMENT_MASTER_LIST[getDocumentCategoryKey()] || [];
+  const preset = presets.find((item) => item.name === name);
+  if (!preset) return;
+  setFormField('#cm-doc-authority', preset.authority || '');
+  setFormField('#cm-doc-reminder', `${preset.reminderDays ?? 30}`);
 }
 
 function toggleUploadCard(show) {
@@ -1636,6 +1715,7 @@ function toggleUploadCard(show) {
   if (!card) return;
   card.classList.toggle('hidden', !show);
   if (show) {
+    populateDocumentNames(getDocumentCategoryKey());
     const caption = query('#cm-doc-upload-caption');
     const pilotUid = selectedPilotUid || activeCurrentUser?.uid;
     const pilot = pilotsCache.find((item) => item.uid === pilotUid);
@@ -1681,12 +1761,16 @@ async function submitDocumentUpload(form) {
     return;
   }
 
-  const documentName = form.documentName?.value?.trim();
   const documentCategory = form.documentCategory?.value?.trim() || 'GENERAL';
+  const isCustomCategory = `${documentCategory}`.toUpperCase() === 'CUSTOM';
+  const documentName = isCustomCategory
+    ? form.documentNameCustom?.value?.trim()
+    : form.documentName?.value?.trim();
   const licenseOrCertificateNumber = form.licenseNumber?.value?.trim() || null;
   const issueDate = toTimestampCandidate(form.issueDate?.value || null);
   const expiryDate = toTimestampCandidate(form.expiryDate?.value || null);
   const issuingAuthorityOrBody = form.authority?.value?.trim() || null;
+  const notesOrRemarks = form.notesOrRemarks?.value?.trim() || null;
   const reminderLeadTimeDays = Number.parseInt(form.reminderDays?.value || '30', 10);
   const file = form.documentFile?.files?.[0] || null;
   const submit = query('#cm-doc-upload-submit');
@@ -1730,6 +1814,7 @@ async function submitDocumentUpload(form) {
       expiryDate,
       issuingAuthorityOrBody,
       licenseOrCertificateNumber,
+      notesOrRemarks,
       operatorId,
       readers,
       reminderLeadTimeDays: Number.isNaN(reminderLeadTimeDays) ? 30 : reminderLeadTimeDays,
@@ -1739,8 +1824,7 @@ async function submitDocumentUpload(form) {
     });
 
     form.reset();
-    const templateSelect = query('#cm-doc-template');
-    if (templateSelect instanceof HTMLSelectElement) templateSelect.value = 'CUSTOM';
+    populateDocumentNames(getDocumentCategoryKey());
     if (status) {
       status.textContent = `Uploaded to ${uploadResult.storagePath}.`;
       status.classList.add('is-success');
@@ -1763,6 +1847,7 @@ async function submitDocumentUpload(form) {
         expiryDate,
         issuingAuthorityOrBody,
         licenseOrCertificateNumber,
+        notesOrRemarks,
         operatorId,
         readers,
         reminderLeadTimeDays: Number.isNaN(reminderLeadTimeDays) ? 30 : reminderLeadTimeDays,
@@ -1782,6 +1867,7 @@ async function submitDocumentUpload(form) {
         expiryDate,
         issuingAuthorityOrBody,
         licenseOrCertificateNumber,
+        notesOrRemarks,
         operatorId,
         readers,
         reminderLeadTimeDays: Number.isNaN(reminderLeadTimeDays) ? 30 : reminderLeadTimeDays,
@@ -1796,7 +1882,7 @@ async function submitDocumentUpload(form) {
       renderPilotDocuments();
       renderQueueSyncState();
       if (status) {
-        status.textContent = 'Network unavailable. Document edit queued and marked dirty.';
+        status.textContent = 'Network unavailable. Document upload queued and marked dirty.';
         status.classList.add('is-warning');
       }
       showToast('Network unavailable. Upload queued.', 'warning');
@@ -1842,6 +1928,10 @@ async function editDocumentWithForm(documentId) {
           <span>Issuing authority</span>
           <input type="text" id="cm-doc-edit-authority" value="${escapeHtml(targetDoc.issuingAuthorityOrBody || '')}" placeholder="DGCA / Organization" />
         </label>
+        <label class="cm-field">
+          <span>Notes / Remarks</span>
+          <textarea id="cm-doc-edit-notes" rows="3" placeholder="Optional remarks about this document">${escapeHtml(targetDoc.notesOrRemarks || '')}</textarea>
+        </label>
       </div>
       <div class="cm-modal-actions">
         <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" id="cm-doc-edit-cancel">Cancel</button>
@@ -1860,6 +1950,7 @@ async function editDocumentWithForm(documentId) {
       expiryDate: toTimestampCandidate(query('#cm-doc-edit-expiry')?.value) || targetDoc.expiryDate || null,
       licenseOrCertificateNumber: query('#cm-doc-edit-number')?.value?.trim() || null,
       issuingAuthorityOrBody: query('#cm-doc-edit-authority')?.value?.trim() || null,
+      notesOrRemarks: query('#cm-doc-edit-notes')?.value?.trim() || null,
       isDirty: false
     };
 
@@ -2663,8 +2754,12 @@ function bindDocumentControls() {
     toggleUploadCard(card.classList.contains('hidden'));
   });
 
-  query('#cm-doc-template')?.addEventListener('change', (event) => {
-    applyDocumentTemplate(event.target?.value || 'CUSTOM');
+  query('#cm-doc-category-input')?.addEventListener('change', (event) => {
+    onDocumentCategoryChange(event.target?.value || 'LICENCE');
+  });
+
+  query('#cm-doc-name')?.addEventListener('change', (event) => {
+    onDocumentNameChange(event.target?.value || '');
   });
 
   query('#cm-doc-upload-form')?.addEventListener('submit', (event) => {
