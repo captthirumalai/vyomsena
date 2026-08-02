@@ -1,309 +1,684 @@
-<section class="card" id="crew-roster-card">
-  <div class="card-heading">
-    <h2>Crew Management</h2>
-    <p>Live pilot roster and license status from Firestore.</p>
+<section class="cm-shell" id="cm-shell" aria-label="Crew Management module">
+  <header class="cm-header">
+    <div class="cm-header-left">
+      <nav class="cm-breadcrumb" aria-label="Breadcrumb">
+        <span>VAMS Portal</span>
+        <span class="cm-breadcrumb-sep">/</span>
+        <span class="cm-breadcrumb-current">Crew Management</span>
+      </nav>
+      <h1 class="cm-title">Crew Management</h1>
+      <p class="cm-subtitle">Manage crew roster, licences, medicals and compliance.</p>
+    </div>
+    <div class="cm-header-right">
+      <div class="cm-search-wrap">
+        <svg class="cm-icon cm-icon-search" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
+        <input type="search" id="cm-global-search" class="cm-search-input" placeholder="Search pilot, email, licence, employee ID..." autocomplete="off" aria-label="Global crew search" />
+      </div>
+      <button type="button" class="cm-icon-btn" id="cm-btn-notifications" aria-label="Notifications" title="Notifications">
+        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="cm-notif-dot" id="cm-notif-dot" hidden></span>
+      </button>
+      <div class="cm-user-chip">
+        <div class="cm-avatar" id="cm-user-avatar">U</div>
+        <div class="cm-user-meta">
+          <strong id="cm-user-name">User</strong>
+          <span id="cm-user-role">OPERATIONS</span>
+        </div>
+      </div>
+      <button type="button" class="cm-btn cm-btn-primary cm-btn-md" id="cm-btn-add-crew">
+        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
+        <span>Add Crew</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="cm-kpi-row" id="cm-kpi-row" role="list" aria-label="Crew compliance summary">
+    <button type="button" class="cm-kpi" data-kpi-filter="ALL" role="listitem" aria-label="View all crew">
+      <span class="cm-kpi-icon cm-kpi-icon-navy">
+        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </span>
+      <span class="cm-kpi-body">
+        <strong id="cm-kpi-total">0</strong>
+        <span class="cm-kpi-label">Total Crew</span>
+      </span>
+      <span class="cm-kpi-sub">Across roster</span>
+    </button>
+    <button type="button" class="cm-kpi" data-kpi-filter="VALID" role="listitem" aria-label="Filter to valid crew">
+      <span class="cm-kpi-icon cm-kpi-icon-green">
+        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 6L9 17l-5-5"/></svg>
+      </span>
+      <span class="cm-kpi-body">
+        <strong id="cm-kpi-valid">0</strong>
+        <span class="cm-kpi-label">Valid</span>
+      </span>
+      <span class="cm-kpi-sub">Compliant now</span>
+    </button>
+    <button type="button" class="cm-kpi" data-kpi-filter="EXPIRING" role="listitem" aria-label="Filter to expiring crew">
+      <span class="cm-kpi-icon cm-kpi-icon-amber">
+        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 8v4l3 3M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/></svg>
+      </span>
+      <span class="cm-kpi-body">
+        <strong id="cm-kpi-expiring">0</strong>
+        <span class="cm-kpi-label">Expiring</span>
+      </span>
+      <span class="cm-kpi-sub">Within 30 days</span>
+    </button>
+    <button type="button" class="cm-kpi" data-kpi-filter="EXPIRED" role="listitem" aria-label="Filter to expired crew">
+      <span class="cm-kpi-icon cm-kpi-icon-red">
+        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/></svg>
+      </span>
+      <span class="cm-kpi-body">
+        <strong id="cm-kpi-expired">0</strong>
+        <span class="cm-kpi-label">Expired</span>
+      </span>
+      <span class="cm-kpi-sub">Action required</span>
+    </button>
+    <button type="button" class="cm-kpi" data-kpi-filter="PENDING" role="listitem" aria-label="View pending link requests">
+      <span class="cm-kpi-icon cm-kpi-icon-blue">
+        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      </span>
+      <span class="cm-kpi-body">
+        <strong id="cm-kpi-pending">0</strong>
+        <span class="cm-kpi-label">Pending Requests</span>
+      </span>
+      <span class="cm-kpi-sub">Awaiting response</span>
+    </button>
   </div>
 
-  <div class="crew-summary" id="crew-summary">
-    <div class="crew-stat">
-      <strong id="crew-total">0</strong>
-      <span>Total Pilots</span>
-    </div>
-    <div class="crew-stat">
-      <strong id="crew-valid">0</strong>
-      <span>Valid</span>
-    </div>
-    <div class="crew-stat">
-      <strong id="crew-expiring">0</strong>
-      <span>Expiring</span>
-    </div>
-    <div class="crew-stat">
-      <strong id="crew-expired">0</strong>
-      <span>Expired</span>
+  <nav class="cm-tabs" id="cm-tabs" role="tablist" aria-label="Crew management sections">
+    <button type="button" class="cm-tab is-active" id="cm-tab-directory" role="tab" aria-selected="true" aria-controls="cm-panel-directory" data-tab="directory">Crew Directory</button>
+    <button type="button" class="cm-tab" id="cm-tab-profile" role="tab" aria-selected="false" aria-controls="cm-panel-profile" data-tab="profile">Crew Profile</button>
+    <button type="button" class="cm-tab" id="cm-tab-linking" role="tab" aria-selected="false" aria-controls="cm-panel-linking" data-tab="linking">Pilot Linking</button>
+    <button type="button" class="cm-tab" id="cm-tab-documents" role="tab" aria-selected="false" aria-controls="cm-panel-documents" data-tab="documents">Documents</button>
+    <button type="button" class="cm-tab" id="cm-tab-compliance" role="tab" aria-selected="false" aria-controls="cm-panel-compliance" data-tab="compliance">Compliance</button>
+    <button type="button" class="cm-tab" id="cm-tab-bulk" role="tab" aria-selected="false" aria-controls="cm-panel-bulk" data-tab="bulk">Bulk Actions</button>
+    <span class="cm-tab-underline" id="cm-tab-underline" aria-hidden="true"></span>
+  </nav>
+
+  <main class="cm-content">
+    <!-- ============ TAB: CREW DIRECTORY ============ -->
+    <section class="cm-panel is-active" id="cm-panel-directory" role="tabpanel" aria-labelledby="cm-tab-directory">
+      <div class="cm-toolbar">
+        <div class="cm-search-wrap cm-toolbar-search">
+          <svg class="cm-icon cm-icon-search" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
+          <input type="search" id="cm-search" class="cm-search-input" placeholder="Search name, email, licence, employee ID" aria-label="Search crew" autocomplete="off" />
+        </div>
+        <label class="cm-field">
+          <span>Compliance</span>
+          <select id="cm-filter-compliance" aria-label="Filter by compliance">
+            <option value="ALL">All</option>
+            <option value="VALID">Valid</option>
+            <option value="EXPIRING">Expiring</option>
+            <option value="EXPIRED">Expired</option>
+          </select>
+        </label>
+        <label class="cm-field">
+          <span>Role</span>
+          <select id="cm-filter-role" aria-label="Filter by role">
+            <option value="ALL">All</option>
+            <option value="PILOT">Pilot</option>
+            <option value="AME">AME</option>
+            <option value="OPERATIONS">Operations</option>
+            <option value="TRAINING">Training</option>
+          </select>
+        </label>
+        <label class="cm-field">
+          <span>Status</span>
+          <select id="cm-filter-status" aria-label="Filter by status">
+            <option value="ALL">All</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="Suspended">Suspended</option>
+            <option value="On Leave">On Leave</option>
+          </select>
+        </label>
+        <label class="cm-field">
+          <span>Sort by</span>
+          <select id="cm-sort-field" aria-label="Sort column">
+            <option value="name">Name</option>
+            <option value="compliance">Compliance</option>
+            <option value="documents">Documents</option>
+            <option value="medicalExpiry">Medical Expiry</option>
+            <option value="licenceExpiry">Licence Expiry</option>
+          </select>
+        </label>
+        <div class="cm-toolbar-actions">
+          <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-refresh" title="Refresh data">
+            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+            <span>Refresh</span>
+          </button>
+          <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-sync-retry" title="Retry pending sync" disabled>
+            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 6v6l4 2M12 3a9 9 0 1 0 9 9"/></svg>
+            <span id="cm-sync-retry-label">Retry Sync</span>
+          </button>
+          <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-export" title="Export visible crew to CSV">
+            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            <span>Export</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="cm-sync-strip" aria-live="polite">
+        <span class="cm-sync-pill" id="cm-sync-count">Pending Sync: 0</span>
+        <span class="cm-sync-pill cm-sync-pill-blue" id="cm-last-sync">Last sync: —</span>
+        <span class="cm-sync-flash hidden" id="cm-sync-flash"></span>
+        <span class="cm-sync-error" id="cm-sync-error">No retry errors yet.</span>
+        <span class="cm-status" id="cm-status">Loading crew data...</span>
+      </div>
+
+      <div class="cm-table-card" id="cm-directory-card">
+        <div class="cm-table-scroll">
+          <table class="cm-table" id="cm-crew-table">
+            <thead>
+              <tr>
+                <th class="cm-col-check"><input type="checkbox" id="cm-select-all" aria-label="Select all visible crew" /></th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Licence Number</th>
+                <th>Medical Expiry</th>
+                <th>Licence Expiry</th>
+                <th>Compliance</th>
+                <th>Status</th>
+                <th class="cm-col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cm-table-body"></tbody>
+          </table>
+        </div>
+        <div class="cm-table-footer">
+          <span id="cm-table-summary">Loading crew...</span>
+          <div class="cm-pagination">
+            <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-prev" disabled>Prev</button>
+            <span id="cm-page-info">1</span>
+            <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-next" disabled>Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TAB: CREW PROFILE (create / edit) ============ -->
+    <section class="cm-panel" id="cm-panel-profile" role="tabpanel" aria-labelledby="cm-tab-profile">
+      <div class="cm-card cm-form-card">
+        <div class="cm-card-head">
+          <div>
+            <h2 id="cm-profile-heading">Create Crew Profile</h2>
+            <p id="cm-profile-sub">Add a new crew member or update their operator-level record.</p>
+          </div>
+          <span class="cm-badge cm-badge-navy" id="cm-profile-mode">NEW</span>
+        </div>
+        <form id="cm-profile-form" novalidate>
+          <div class="cm-form-grid">
+            <label class="cm-field">
+              <span>Captain Name</span>
+              <input type="text" id="cm-field-name" name="name" placeholder="Captain Name" required />
+              <small class="cm-error" id="cm-error-name"></small>
+            </label>
+            <label class="cm-field">
+              <span>Email</span>
+              <input type="email" id="cm-field-email" name="email" placeholder="pilot@operator.com" required />
+              <small class="cm-error" id="cm-error-email"></small>
+            </label>
+            <label class="cm-field">
+              <span>Phone</span>
+              <input type="tel" id="cm-field-phone" name="phone" placeholder="+91 90000 00000" />
+              <small class="cm-error" id="cm-error-phone"></small>
+            </label>
+            <label class="cm-field">
+              <span>Employee ID</span>
+              <input type="text" id="cm-field-employeeId" name="employeeId" placeholder="EMP-00123" />
+              <small class="cm-error" id="cm-error-employeeId"></small>
+            </label>
+            <label class="cm-field">
+              <span>Role</span>
+              <select id="cm-field-role" name="role">
+                <option value="PILOT">Pilot</option>
+                <option value="AME">AME</option>
+                <option value="OPERATIONS">Operations</option>
+                <option value="TRAINING">Training</option>
+              </select>
+            </label>
+            <label class="cm-field">
+              <span>Licence Number</span>
+              <input type="text" id="cm-field-license" name="license" placeholder="CPL-XXXXX" />
+              <small class="cm-error" id="cm-error-license"></small>
+            </label>
+            <label class="cm-field">
+              <span>Medical Expiry</span>
+              <input type="date" id="cm-field-medicalExpiry" name="medicalExpiry" />
+              <small class="cm-error" id="cm-error-medicalExpiry"></small>
+            </label>
+            <label class="cm-field">
+              <span>Licence Expiry</span>
+              <input type="date" id="cm-field-licenseExpiry" name="licenseExpiry" />
+              <small class="cm-error" id="cm-error-licenseExpiry"></small>
+            </label>
+            <label class="cm-field">
+              <span>Operator</span>
+              <input type="text" id="cm-field-operator" name="operator" placeholder="Auto-filled operator" readonly />
+            </label>
+            <label class="cm-field">
+              <span>Status</span>
+              <select id="cm-field-status" name="status">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Suspended">Suspended</option>
+                <option value="On Leave">On Leave</option>
+              </select>
+            </label>
+            <label class="cm-field cm-field-photo">
+              <span>Photo</span>
+              <div class="cm-photo-upload">
+                <div class="cm-avatar cm-avatar-lg" id="cm-profile-photo-preview">P</div>
+                <input type="file" id="cm-field-photo" name="photo" accept="image/*" />
+              </div>
+            </label>
+          </div>
+          <div class="cm-form-actions">
+            <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" id="cm-profile-cancel">Cancel</button>
+            <button type="submit" class="cm-btn cm-btn-primary cm-btn-md" id="cm-profile-save">
+              <span class="cm-btn-spinner hidden" aria-hidden="true"></span>
+              <span id="cm-profile-save-label">Create Crew</span>
+            </button>
+          </div>
+          <p class="cm-form-status" id="cm-profile-status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- ============ TAB: PILOT LINKING ============ -->
+    <section class="cm-panel" id="cm-panel-linking" role="tabpanel" aria-labelledby="cm-tab-linking">
+      <div class="cm-linking-grid">
+        <div class="cm-card">
+          <div class="cm-card-head">
+            <div>
+              <h2>Generate Link Code</h2>
+              <p>Create a 6-digit code a pilot can use to link their profile.</p>
+            </div>
+          </div>
+          <div class="cm-form-stack">
+            <label class="cm-field">
+              <span>Crew member</span>
+              <select id="cm-link-pilot" aria-label="Select crew member"></select>
+            </label>
+            <div class="cm-code-box">
+              <strong id="cm-link-code">—</strong>
+              <div class="cm-code-actions">
+                <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-link-copy" title="Copy code">Copy</button>
+                <button type="button" class="cm-btn cm-btn-primary cm-btn-sm" id="cm-link-generate">Generate</button>
+              </div>
+            </div>
+            <div class="cm-code-timer">
+              <span class="cm-timer-dot" id="cm-link-timer-dot"></span>
+              <span id="cm-link-timer">No active code</span>
+            </div>
+            <p class="cm-form-status" id="cm-link-status" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="cm-card">
+          <div class="cm-card-head">
+            <div>
+              <h2>Send Invitation</h2>
+              <p>Request a link to a registered pilot account by email.</p>
+            </div>
+          </div>
+          <form id="cm-link-form" class="cm-form-stack" novalidate>
+            <label class="cm-field">
+              <span>Pilot email</span>
+              <input type="email" id="cm-link-email" name="pilotEmail" placeholder="pilot@operator.com" required />
+              <small class="cm-error" id="cm-error-link-email"></small>
+            </label>
+            <div class="cm-form-actions">
+              <button type="submit" class="cm-btn cm-btn-primary cm-btn-md" id="cm-link-send">
+                <span class="cm-btn-spinner hidden" aria-hidden="true"></span>
+                <span>Send Request</span>
+              </button>
+            </div>
+            <p class="cm-form-status" id="cm-link-send-status" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+
+      <div class="cm-card">
+        <div class="cm-card-head">
+          <div>
+            <h2>Outgoing Requests</h2>
+            <p>Invitations sent to pilots by this operator.</p>
+          </div>
+        </div>
+        <div class="cm-table-scroll">
+          <table class="cm-table">
+            <thead>
+              <tr>
+                <th>Pilot</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Accepted</th>
+                <th>Expired</th>
+                <th class="cm-col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cm-link-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="cm-card">
+        <div class="cm-card-head">
+          <div>
+            <h2>Linked Pilots</h2>
+            <p>Pilots currently linked to this operator's roster.</p>
+          </div>
+          <div class="cm-search-wrap cm-search-sm">
+            <input type="search" id="cm-linked-search" class="cm-search-input" placeholder="Search linked pilots..." aria-label="Search linked pilots" />
+          </div>
+        </div>
+        <div class="cm-table-scroll">
+          <table class="cm-table">
+            <thead>
+              <tr>
+                <th>Pilot</th>
+                <th>Email</th>
+                <th>Link State</th>
+                <th class="cm-col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cm-linked-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="cm-card hidden" id="cm-incoming-card">
+        <div class="cm-card-head">
+          <div>
+            <h2>Incoming Connection Requests</h2>
+            <p>Operators requesting to link with your pilot profile.</p>
+          </div>
+        </div>
+        <div class="cm-table-scroll">
+          <table class="cm-table">
+            <thead>
+              <tr>
+                <th>Operator</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th class="cm-col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cm-incoming-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TAB: DOCUMENTS ============ -->
+    <section class="cm-panel" id="cm-panel-documents" role="tabpanel" aria-labelledby="cm-tab-documents">
+      <div class="cm-toolbar">
+        <label class="cm-field cm-field-grow">
+          <span>Pilot</span>
+          <select id="cm-doc-pilot" aria-label="Select pilot for documents"></select>
+        </label>
+        <div class="cm-search-wrap cm-toolbar-search">
+          <svg class="cm-icon cm-icon-search" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
+          <input type="search" id="cm-doc-search" class="cm-search-input" placeholder="Search documents..." aria-label="Search documents" autocomplete="off" />
+        </div>
+        <label class="cm-field">
+          <span>Category</span>
+          <select id="cm-doc-category" aria-label="Filter documents by category">
+            <option value="ALL">All</option>
+            <option value="LICENCE">Licence</option>
+            <option value="MEDICAL">Medical</option>
+            <option value="TRAINING">Training</option>
+            <option value="RTR">RTR</option>
+            <option value="PASSPORT">Passport</option>
+            <option value="VISA">Visa</option>
+            <option value="GENERAL">General</option>
+          </select>
+        </label>
+        <label class="cm-field">
+          <span>Status</span>
+          <select id="cm-doc-status" aria-label="Filter documents by expiry status">
+            <option value="ALL">All</option>
+            <option value="VALID">Valid</option>
+            <option value="EXPIRING">Expiring</option>
+            <option value="EXPIRED">Expired</option>
+          </select>
+        </label>
+        <button type="button" class="cm-btn cm-btn-primary cm-btn-sm" id="cm-doc-upload-toggle">
+          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
+          <span>Upload</span>
+        </button>
+      </div>
+
+      <div class="cm-card hidden" id="cm-doc-upload-card">
+        <div class="cm-card-head">
+          <div>
+            <h2>Upload Document</h2>
+            <p id="cm-doc-upload-caption">Select a pilot, then fill the document details.</p>
+          </div>
+        </div>
+        <form id="cm-doc-upload-form" class="cm-form-grid" novalidate>
+          <label class="cm-field">
+            <span>Template</span>
+            <select id="cm-doc-template" name="documentTemplate" aria-label="Document template">
+              <option value="CUSTOM">Custom</option>
+              <option value="MEDICAL_CLASS1">Medical - Class 1</option>
+              <option value="LICENCE_CPL">Licence - CPL</option>
+              <option value="RTR">RTR</option>
+              <option value="PASSPORT">Passport</option>
+              <option value="VISA">Visa</option>
+              <option value="PPC">Training - PPC</option>
+              <option value="OPC">Training - OPC</option>
+              <option value="CRM">Training - CRM</option>
+              <option value="DG">Training - Dangerous Goods</option>
+              <option value="LINE_CHECK">Training - Line Check</option>
+            </select>
+          </label>
+          <label class="cm-field">
+            <span>Document name</span>
+            <input type="text" id="cm-doc-name" name="documentName" placeholder="Class 1 Medical" required />
+          </label>
+          <label class="cm-field">
+            <span>Category</span>
+            <input type="text" id="cm-doc-category-input" name="documentCategory" placeholder="MEDICAL / LICENCE" />
+          </label>
+          <label class="cm-field">
+            <span>Number</span>
+            <input type="text" id="cm-doc-number" name="licenseNumber" placeholder="Optional reference number" />
+          </label>
+          <label class="cm-field">
+            <span>Authority</span>
+            <input type="text" id="cm-doc-authority" name="authority" placeholder="DGCA / Organization" />
+          </label>
+          <label class="cm-field">
+            <span>Issue date</span>
+            <input type="date" id="cm-doc-issue" name="issueDate" />
+          </label>
+          <label class="cm-field">
+            <span>Expiry date</span>
+            <input type="date" id="cm-doc-expiry" name="expiryDate" />
+          </label>
+          <label class="cm-field">
+            <span>Reminder (days)</span>
+            <input type="number" id="cm-doc-reminder" name="reminderDays" min="0" value="30" />
+          </label>
+          <label class="cm-field cm-field-file">
+            <span>File</span>
+            <input type="file" id="cm-doc-file" name="documentFile" required />
+          </label>
+          <div class="cm-form-actions cm-form-actions-upload">
+            <button type="submit" class="cm-btn cm-btn-primary cm-btn-md" id="cm-doc-upload-submit">
+              <span class="cm-btn-spinner hidden" aria-hidden="true"></span>
+              <span>Upload Document</span>
+            </button>
+          </div>
+          <p class="cm-form-status" id="cm-doc-upload-status" aria-live="polite"></p>
+        </form>
+      </div>
+
+      <div class="cm-card">
+        <div class="cm-card-head">
+          <div>
+            <h2 id="cm-doc-caption">Documents</h2>
+            <p>Select a pilot to view their document register.</p>
+          </div>
+        </div>
+        <div class="cm-table-scroll">
+          <table class="cm-table">
+            <thead>
+              <tr>
+                <th>Document</th>
+                <th>Category</th>
+                <th>Number</th>
+                <th>Authority</th>
+                <th>Issue Date</th>
+                <th>Expiry</th>
+                <th>Reminder</th>
+                <th class="cm-col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cm-doc-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TAB: COMPLIANCE ============ -->
+    <section class="cm-panel" id="cm-panel-compliance" role="tabpanel" aria-labelledby="cm-tab-compliance">
+      <div class="cm-comp-grid">
+        <div class="cm-card cm-comp-card" data-comp-type="LICENCE">
+          <div class="cm-comp-ring" data-ring="0" aria-hidden="true">
+            <svg viewBox="0 0 120 120">
+              <circle class="cm-ring-track" cx="60" cy="60" r="52"></circle>
+              <circle class="cm-ring-bar" cx="60" cy="60" r="52" data-ring-bar></circle>
+            </svg>
+            <strong>0%</strong>
+          </div>
+          <div class="cm-comp-meta">
+            <h3>Licence Compliance</h3>
+            <p id="cm-comp-licence-detail">0 of 0 valid</p>
+          </div>
+        </div>
+        <div class="cm-card cm-comp-card" data-comp-type="MEDICAL">
+          <div class="cm-comp-ring" data-ring="0" aria-hidden="true">
+            <svg viewBox="0 0 120 120">
+              <circle class="cm-ring-track" cx="60" cy="60" r="52"></circle>
+              <circle class="cm-ring-bar" cx="60" cy="60" r="52" data-ring-bar></circle>
+            </svg>
+            <strong>0%</strong>
+          </div>
+          <div class="cm-comp-meta">
+            <h3>Medical Compliance</h3>
+            <p id="cm-comp-medical-detail">0 of 0 valid</p>
+          </div>
+        </div>
+        <div class="cm-card cm-comp-card" data-comp-type="TRAINING">
+          <div class="cm-comp-ring" data-ring="0" aria-hidden="true">
+            <svg viewBox="0 0 120 120">
+              <circle class="cm-ring-track" cx="60" cy="60" r="52"></circle>
+              <circle class="cm-ring-bar" cx="60" cy="60" r="52" data-ring-bar></circle>
+            </svg>
+            <strong>0%</strong>
+          </div>
+          <div class="cm-comp-meta">
+            <h3>Training Compliance</h3>
+            <p id="cm-comp-training-detail">0 of 0 valid</p>
+          </div>
+        </div>
+        <div class="cm-card cm-comp-card" data-comp-type="DOCUMENT">
+          <div class="cm-comp-ring" data-ring="0" aria-hidden="true">
+            <svg viewBox="0 0 120 120">
+              <circle class="cm-ring-track" cx="60" cy="60" r="52"></circle>
+              <circle class="cm-ring-bar" cx="60" cy="60" r="52" data-ring-bar></circle>
+            </svg>
+            <strong>0%</strong>
+          </div>
+          <div class="cm-comp-meta">
+            <h3>Document Compliance</h3>
+            <p id="cm-comp-document-detail">0 of 0 valid</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="cm-comp-lower">
+        <div class="cm-card">
+          <div class="cm-card-head">
+            <div>
+              <h2>Upcoming Expiries</h2>
+              <p>Documents expiring in the next windows.</p>
+            </div>
+          </div>
+          <div class="cm-comp-windows">
+            <div class="cm-comp-window">
+              <strong id="cm-comp-window-30">0</strong>
+              <span>Next 30 days</span>
+              <div class="cm-progress"><span id="cm-comp-bar-30" class="cm-progress-bar cm-progress-amber"></span></div>
+            </div>
+            <div class="cm-comp-window">
+              <strong id="cm-comp-window-60">0</strong>
+              <span>Next 60 days</span>
+              <div class="cm-progress"><span id="cm-comp-bar-60" class="cm-progress-bar cm-progress-blue"></span></div>
+            </div>
+            <div class="cm-comp-window">
+              <strong id="cm-comp-window-expired">0</strong>
+              <span>Expired</span>
+              <div class="cm-progress"><span id="cm-comp-bar-expired" class="cm-progress-bar cm-progress-red"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cm-card">
+          <div class="cm-card-head">
+            <div>
+              <h2>Recent Alerts</h2>
+              <p>Latest compliance exceptions across the roster.</p>
+            </div>
+          </div>
+          <ul class="cm-alerts" id="cm-comp-alerts"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TAB: BULK ACTIONS ============ -->
+    <section class="cm-panel" id="cm-panel-bulk" role="tabpanel" aria-labelledby="cm-tab-bulk">
+      <div class="cm-card">
+        <div class="cm-card-head">
+          <div>
+            <h2>Bulk Actions</h2>
+            <p>Select crew members in the directory or use the selector below, then apply a bulk operation.</p>
+          </div>
+          <span class="cm-badge cm-badge-blue" id="cm-bulk-count">0 selected</span>
+        </div>
+        <div class="cm-bulk-toolbar">
+          <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" data-bulk-action="active">Set Active</button>
+          <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" data-bulk-action="inactive">Set Inactive</button>
+          <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" data-bulk-action="assign-operator">Assign Operator</button>
+          <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" data-bulk-action="reminder">Send Reminder</button>
+          <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" data-bulk-action="reports">Generate Reports</button>
+          <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" data-bulk-action="export">Export CSV</button>
+          <button type="button" class="cm-btn cm-btn-danger cm-btn-md" data-bulk-action="delete">Delete</button>
+        </div>
+        <p class="cm-form-status" id="cm-bulk-status" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Right quick-view drawer -->
+  <div class="cm-drawer-backdrop hidden" id="cm-drawer-backdrop" aria-hidden="true"></div>
+  <aside class="cm-drawer" id="cm-drawer" role="dialog" aria-modal="true" aria-label="Crew quick view" aria-hidden="true">
+    <div class="cm-drawer-body" id="cm-drawer-body"></div>
+  </aside>
+
+  <!-- Generic modal -->
+  <div class="cm-modal-backdrop hidden" id="cm-modal-backdrop" aria-hidden="true">
+    <div class="cm-modal" id="cm-modal" role="dialog" aria-modal="true">
+      <button type="button" class="cm-modal-close" id="cm-modal-close" aria-label="Close modal">
+        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/></svg>
+      </button>
+      <div class="cm-modal-content" id="cm-modal-content"></div>
     </div>
   </div>
 
-  <div class="crew-toolbar">
-    <button type="button" id="crew-refresh" class="crew-btn crew-btn-secondary">Refresh</button>
-    <div class="crew-selection-tools">
-      <button type="button" id="crew-prev" class="crew-btn crew-btn-secondary">Prev Crew</button>
-      <button type="button" id="crew-next" class="crew-btn crew-btn-secondary">Next Crew</button>
-      <button type="button" id="crew-clear-selection" class="crew-btn crew-btn-secondary">Clear</button>
-      <span id="crew-selected-label" class="muted">No crew selected</span>
-    </div>
-    <span id="crew-status" class="muted">Loading crew data...</span>
-    <div class="crew-sync-tools">
-      <span id="crew-sync-count" class="crew-sync-pill">Pending Sync: 0</span>
-      <button type="button" id="crew-sync-retry" class="crew-btn crew-btn-secondary" disabled>Retry Sync</button>
-      <span id="crew-sync-flash" class="crew-sync-flash hidden" aria-live="polite"></span>
-      <span id="crew-sync-error" class="muted">No retry errors yet.</span>
-    </div>
-  </div>
-
-  <div class="crew-list-controls" aria-label="Crew list controls">
-    <label>
-      Search
-      <input id="crew-search" type="search" placeholder="Name, email, license" />
-    </label>
-    <label>
-      Compliance
-      <select id="crew-filter-compliance">
-        <option value="ALL" selected>All</option>
-        <option value="VALID">Valid</option>
-        <option value="EXPIRING">Expiring</option>
-        <option value="EXPIRED">Expired</option>
-      </select>
-    </label>
-    <label>
-      Role
-      <select id="crew-filter-role">
-        <option value="ALL" selected>All</option>
-        <option value="PILOT">Pilot</option>
-        <option value="AME">AME</option>
-        <option value="OPERATIONS">Operations</option>
-        <option value="TRAINING">Training</option>
-      </select>
-    </label>
-    <label>
-      Sort By
-      <select id="crew-sort-field">
-        <option value="name" selected>Name</option>
-        <option value="compliance">Compliance</option>
-        <option value="documents">Documents</option>
-        <option value="medicalExpiry">Medical Expiry</option>
-      </select>
-    </label>
-    <label>
-      Direction
-      <select id="crew-sort-direction">
-        <option value="asc" selected>Ascending</option>
-        <option value="desc">Descending</option>
-      </select>
-    </label>
-    <label>
-      Bulk Status (Visible Crew)
-      <select id="crew-bulk-status">
-        <option value="">Select status</option>
-        <option value="Active">Active</option>
-        <option value="Inactive">Inactive</option>
-        <option value="Suspended">Suspended</option>
-        <option value="On Leave">On Leave</option>
-      </select>
-    </label>
-    <label>
-      Bulk Apply
-      <button type="button" id="crew-bulk-apply" class="crew-btn crew-btn-secondary">Apply to Visible</button>
-    </label>
-  </div>
-
-  <div class="crew-list" id="crew-list">
-    <table class="crew-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Role</th>
-          <th>Compliance</th>
-          <th>Documents</th>
-          <th>License #</th>
-          <th>Medical Expiry</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="crew-table-body"></tbody>
-    </table>
-  </div>
-</section>
-
-<section class="card" id="crew-add-card">
-  <div class="card-heading">
-    <h3>Create Crew Profile</h3>
-    <p>Create an operator-owned crew profile and seed baseline licence/medical records before pilot app linking.</p>
-  </div>
-
-  <form id="crew-add-form" class="crew-form">
-    <div class="crew-grid">
-      <label>
-        Pilot Name
-        <input id="crew-add-name" name="name" type="text" required placeholder="Captain Name" />
-      </label>
-      <label>
-        Pilot Email
-        <input id="crew-add-email" name="email" type="email" required placeholder="pilot@operator.com" />
-      </label>
-      <label>
-        License Number
-        <input id="crew-add-license" name="license" type="text" required placeholder="CPL-XXXXX" />
-      </label>
-      <label>
-        Medical Expiry
-        <input id="crew-add-medical-expiry" name="medicalExpiry" type="date" />
-      </label>
-      <label>
-        License Expiry
-        <input id="crew-add-license-expiry" name="licenseExpiry" type="date" />
-      </label>
-    </div>
-
-    <div class="crew-form-actions">
-      <button id="crew-add-submit" type="submit" class="crew-btn crew-btn-primary">Create Crew Profile</button>
-      <span id="crew-add-status" class="muted"></span>
-    </div>
-  </form>
-</section>
-
-<section class="card" id="crew-link-card">
-  <div class="card-heading">
-    <h3>Pilot Linking Requests</h3>
-    <p>Send connection requests to pilot accounts by email and track real-time status.</p>
-  </div>
-
-  <form id="crew-link-form" class="crew-form">
-    <div class="crew-grid">
-      <label>
-        Pilot Email
-        <input id="crew-link-email" name="pilotEmail" type="email" required placeholder="pilot@operator.com" />
-      </label>
-    </div>
-
-    <div class="crew-form-actions">
-      <button id="crew-link-submit" type="submit" class="crew-btn crew-btn-primary">Send Request</button>
-      <span id="crew-link-status" class="muted"></span>
-    </div>
-  </form>
-
-  <div class="crew-link-list">
-    <table class="crew-table">
-      <thead>
-        <tr>
-          <th>Pilot Email</th>
-          <th>Status</th>
-          <th>Created</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="crew-link-table-body">
-        <tr>
-          <td colspan="4">No outgoing requests.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section class="card" id="crew-incoming-card">
-  <div class="card-heading">
-    <h3>Incoming Connection Requests</h3>
-    <p>Accept or decline requests from operators in real time.</p>
-  </div>
-
-  <div class="crew-link-list">
-    <table class="crew-table">
-      <thead>
-        <tr>
-          <th>Operator</th>
-          <th>Email</th>
-          <th>Status</th>
-          <th>Created</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="crew-incoming-table-body">
-        <tr>
-          <td colspan="5">No incoming requests.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</section>
-
-<section class="card" id="crew-doc-card">
-  <div class="card-heading">
-    <h3>Pilot Documents</h3>
-    <p id="crew-doc-caption" class="muted">Select a pilot row to inspect Firestore document fields.</p>
-  </div>
-
-  <form id="crew-doc-upload-form" class="crew-form">
-    <div class="crew-grid">
-      <label>
-        Template
-        <select id="crew-doc-template" name="documentTemplate">
-          <option value="CUSTOM" selected>Custom</option>
-          <option value="MEDICAL_CLASS1">Medical - Class 1</option>
-          <option value="LICENCE_CPL">Licence - CPL</option>
-          <option value="RTR">RTR</option>
-          <option value="PASSPORT">Passport</option>
-          <option value="VISA">Visa</option>
-          <option value="PPC">Training - PPC</option>
-          <option value="OPC">Training - OPC</option>
-          <option value="CRM">Training - CRM</option>
-          <option value="DG">Training - Dangerous Goods</option>
-          <option value="LINE_CHECK">Training - Line Check</option>
-        </select>
-      </label>
-      <label>
-        Document Name
-        <input id="crew-doc-name" name="documentName" type="text" required placeholder="Class 1 Medical" />
-      </label>
-      <label>
-        Category
-        <input id="crew-doc-category" name="documentCategory" type="text" placeholder="MEDICAL / LICENCE / CERTIFICATE" />
-      </label>
-      <label>
-        Certificate/License Number
-        <input id="crew-doc-number" name="licenseNumber" type="text" placeholder="Optional reference number" />
-      </label>
-      <label>
-        Issue Date
-        <input id="crew-doc-issue" name="issueDate" type="date" />
-      </label>
-      <label>
-        Expiry Date
-        <input id="crew-doc-expiry" name="expiryDate" type="date" />
-      </label>
-      <label>
-        Issuing Authority
-        <input id="crew-doc-authority" name="authority" type="text" placeholder="DGCA / Organization" />
-      </label>
-      <label>
-        Reminder Lead Time (days)
-        <input id="crew-doc-reminder" name="reminderDays" type="number" min="0" value="30" />
-      </label>
-      <label>
-        File
-        <input id="crew-doc-file" name="documentFile" type="file" required />
-      </label>
-    </div>
-
-    <div class="crew-form-actions">
-      <button id="crew-doc-upload-submit" type="submit" class="crew-btn crew-btn-primary">Upload Document</button>
-      <span id="crew-doc-upload-status" class="muted"></span>
-    </div>
-  </form>
-
-  <div class="crew-doc-list">
-    <table class="crew-table">
-      <thead>
-        <tr>
-          <th>Category</th>
-          <th>Document Name</th>
-          <th>Number</th>
-          <th>Issue Date</th>
-          <th>Expiry Date</th>
-          <th>Authority</th>
-          <th>Reminder</th>
-          <th>Reader Count</th>
-          <th>Storage Path</th>
-          <th>Document URI</th>
-          <th>Last Edited By</th>
-          <th>Last Modified</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="crew-doc-table-body">
-        <tr>
-          <td colspan="13">No pilot selected.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  <div class="cm-toast hidden" id="cm-toast" role="status" aria-live="polite"></div>
 </section>
