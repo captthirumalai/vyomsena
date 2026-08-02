@@ -312,7 +312,7 @@ function bindLinkingControls() {
     if (!pilot) return;
     try {
       const result = await generateCrewProfileLinkCode({
-        crewProfileId: pilotUid,
+        crewProfileId: pilot.crewProfileId || pilotUid,
         operatorId: crewState.activeOperatorUid
       });
       setActiveLinkCode(result.code, result.expiresAt, pilotUid);

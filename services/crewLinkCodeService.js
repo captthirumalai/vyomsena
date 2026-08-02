@@ -34,24 +34,28 @@ export async function createCrewLinkCode({ crewProfileId, operatorId, validityMs
     where('crewProfileId', '==', crewProfileId),
     where('used', '==', false)
   );
-  const activeSnapshot = await getDocs(activeCodesQuery);
 
-  const now = Date.now();
-  await Promise.all(
-    activeSnapshot.docs
-      .map((item) => ({ id: item.id, ...item.data() }))
-      .filter((item) => {
-        const expiresAt = toDateValue(item.expiresAt);
-        return expiresAt && expiresAt.getTime() > now;
-      })
-      .map((item) =>
-        updateDoc(doc(CREW_LINK_CODES, item.id), {
-          used: true,
-          status: 'SUPERSEDED',
-          lastModified: serverTimestamp()
+  try {
+    const activeSnapshot = await getDocs(activeCodesQuery);
+    const now = Date.now();
+    await Promise.all(
+      activeSnapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }))
+        .filter((item) => {
+          const expiresAt = toDateValue(item.expiresAt);
+          return expiresAt && expiresAt.getTime() > now;
         })
-      )
-  );
+        .map((item) =>
+          updateDoc(doc(CREW_LINK_CODES, item.id), {
+            used: true,
+            status: 'SUPERSEDED',
+            lastModified: serverTimestamp()
+          })
+        )
+    );
+  } catch (error) {
+    console.warn('createCrewLinkCode: supersede of previous codes skipped.', error);
+  }
 
   const code = generateCode();
   const expiresAt = new Date(Date.now() + validityMs);

@@ -299,7 +299,7 @@ export async function issueCrewLinkCode(pilotUid) {
 
   try {
     const result = await generateCrewProfileLinkCode({
-      crewProfileId: pilotUid,
+      crewProfileId: pilot.crewProfileId || pilotUid,
       operatorId: crewState.activeOperatorUid
     });
     const expiry = toDateValue(result.expiresAt);
