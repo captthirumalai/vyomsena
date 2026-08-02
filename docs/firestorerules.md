@@ -9,6 +9,7 @@ service cloud.firestore {
 
     function isLinkedOperator(docOwnerId) {
       return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(docOwnerId))
         && request.auth.uid == get(/databases/$(database)/documents/users/$(docOwnerId)).data.linkedOperator;
     }
 
@@ -18,11 +19,13 @@ service cloud.firestore {
 
     function isCrewProfileOwnerById(crewProfileId) {
       return request.auth != null
+        && exists(/databases/$(database)/documents/crew_profiles/$(crewProfileId))
         && request.auth.uid == get(/databases/$(database)/documents/crew_profiles/$(crewProfileId)).data.operatorId;
     }
 
     function isCrewProfileLinkedPilot(crewProfileId) {
       return request.auth != null
+        && exists(/databases/$(database)/documents/crew_profiles/$(crewProfileId))
         && request.auth.uid == get(/databases/$(database)/documents/crew_profiles/$(crewProfileId)).data.pilotUid;
     }
 
