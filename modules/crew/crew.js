@@ -9,7 +9,7 @@ import {
   onIncomingLinkRequests,
   onOutgoingLinkRequests,
   generateCrewProfileLinkCode,
-  requestPilotLinkByEmail,
+  assignPilotByEmail,
   withdrawConnectionRequest,
   acceptIncomingLinkRequest,
   declineConnectionRequest,
@@ -348,16 +348,14 @@ function bindLinkingControls() {
       const pilotEmail = request?.recipientEmail;
       if (!pilotEmail || !crewState.activeOperatorUid) return;
       try {
-        await requestPilotLinkByEmail({
-          requesterId: crewState.activeOperatorUid,
-          requesterName: toProfileName(crewState.activeCurrentUser),
-          requesterEmail: crewState.activeCurrentUser?.email || '',
+        await assignPilotByEmail({
+          operatorUid: crewState.activeOperatorUid,
           pilotEmail
         });
-        showToast('Invitation resent.', 'success');
+        showToast('Pilot assigned and linked.', 'success');
         await refreshCrew();
       } catch (error) {
-        showToast(error.message || 'Unable to resend invitation.', 'error');
+        showToast(error.message || 'Unable to assign pilot.', 'error');
       }
       return;
     }

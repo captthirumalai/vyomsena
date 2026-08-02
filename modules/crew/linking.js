@@ -14,7 +14,7 @@ import {
 import { normalizeRequestStatus } from './directory.js';
 import {
   generateCrewProfileLinkCode,
-  requestPilotLinkByEmail,
+  assignPilotByEmail,
   withdrawConnectionRequest,
   acceptIncomingLinkRequest,
   declineConnectionRequest
@@ -262,29 +262,27 @@ export async function sendPilotLinkRequest(form) {
       const spinner = submit.querySelector('.cm-btn-spinner');
       if (spinner) spinner.classList.remove('hidden');
     }
-    if (statusEl) statusEl.textContent = 'Sending connection request...';
+    if (statusEl) statusEl.textContent = 'Assigning pilot...';
 
-    await requestPilotLinkByEmail({
-      requesterId: crewState.activeOperatorUid,
-      requesterName: toProfileName(crewState.activeCurrentUser),
-      requesterEmail: crewState.activeCurrentUser?.email || '',
+    await assignPilotByEmail({
+      operatorUid: crewState.activeOperatorUid,
       pilotEmail
     });
 
     form.reset();
     if (statusEl) {
-      statusEl.textContent = `Connection request sent to ${pilotEmail}.`;
+      statusEl.textContent = `Pilot assigned and linked to your roster (${pilotEmail}).`;
       statusEl.classList.add('is-success');
     }
-    showToast('Connection request sent.', 'success');
+    showToast('Pilot assigned and linked.', 'success');
     await refreshCrew();
   } catch (error) {
-    console.error('Pilot link request failed:', error);
+    console.error('Pilot assignment failed:', error);
     if (statusEl) {
-      statusEl.textContent = error.message || 'Unable to send connection request.';
+      statusEl.textContent = error.message || 'Unable to assign pilot.';
       statusEl.classList.add('is-error');
     }
-    showToast(error.message || 'Unable to send connection request.', 'error');
+    showToast(error.message || 'Unable to assign pilot.', 'error');
   } finally {
     if (submit) {
       submit.disabled = false;
