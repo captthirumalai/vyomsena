@@ -2,7 +2,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ══════════════════════════════════════════════
     // Helper functions
+    // ══════════════════════════════════════════════
+
     function isOwner(doc) {
       return request.auth != null && request.auth.uid == doc.userId;
     }
@@ -29,7 +32,31 @@ service cloud.firestore {
         && request.auth.uid == get(/databases/$(database)/documents/crew_profiles/$(crewProfileId)).data.pilotUid;
     }
 
+    // Webapp admin of a specific company (admin_users/{uid} has a companyId field).
+    function isCompanyAdmin(companyId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    // A real account (company_accounts/{uid}) that belongs to the given company.
+    function isCompanyAccountMember(companyId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/company_accounts/$(request.auth.uid))
+        && get(/databases/$(database)/documents/company_accounts/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    // Android device linked to a company via an anonymous company session
+    // (company_members/{uid} is written when an invite is redeemed).
+    function isCompanyMember(companyId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/company_members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/company_members/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    // ══════════════════════════════════════════════
     // USERS COLLECTION
+    // ══════════════════════════════════════════════
     match /users/{userId} {
       allow read: if request.auth != null;
       allow create, delete: if request.auth != null && request.auth.uid == userId;
@@ -164,20 +191,28 @@ service cloud.firestore {
     }
 
     // ACCESS CODES
+    // Android writes access_codes/{pilotId} = {code, expiresAt}; webapp writes
+    // access_codes/{codeId} = {pilotId, code, expiresAt}. Both are supported here.
     match /access_codes/{codeId} {
       allow read: if request.auth != null && (
+        request.auth.uid == codeId ||
         request.auth.uid == resource.data.pilotId ||
         isLinkedOperator(resource.data.pilotId)
       );
 
       allow create: if request.auth != null && (
+        request.auth.uid == codeId ||
         request.auth.uid == request.resource.data.pilotId ||
         isLinkedOperator(request.resource.data.pilotId)
       );
 
-      allow update: if false;
+      allow update: if request.auth != null && (
+        request.auth.uid == codeId ||
+        request.auth.uid == resource.data.pilotId
+      );
 
       allow delete: if request.auth != null && (
+        request.auth.uid == codeId ||
         request.auth.uid == resource.data.pilotId ||
         isLinkedOperator(resource.data.pilotId)
       );
@@ -188,20 +223,9 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
-    // ================= COMPANY WORKSPACE MODEL =================
-
-    // Helpers
-    function isCompanyAdmin(companyId) {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.companyId == companyId;
-    }
-
-    function isCompanyAccountMember(companyId) {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/company_accounts/$(request.auth.uid))
-        && get(/databases/$(database)/documents/company_accounts/$(request.auth.uid)).data.companyId == companyId;
-    }
+    // ══════════════════════════════════════════════
+    // COMPANY WORKSPACE (webapp manages, Android links)
+    // ══════════════════════════════════════════════
 
     // ADMIN USERS (web write grant, seeded once)
     match /admin_users/{uid} {
@@ -240,10 +264,20 @@ service cloud.firestore {
       allow delete: if request.auth != null && isCompanyAdmin(resource.data.companyId);
     }
 
+    // COMPANY MEMBERSHIPS (Android link record, keyed by the anonymous company-session uid).
+    // Created during invite redemption and immutable afterwards.
+    match /company_members/{memberUid} {
+      allow read: if request.auth != null && request.auth.uid == memberUid;
+      allow create: if request.auth != null && request.auth.uid == memberUid;
+      allow update, delete: if false;
+    }
+
     // COMPANY MODULE SUBCOLLECTIONS: companies/{companyId}/{module}/{docId}
     match /companies/{companyId}/{module}/{docId} {
       allow read: if request.auth != null && (
-        isCompanyAdmin(companyId) || isCompanyAccountMember(companyId)
+        isCompanyAdmin(companyId) ||
+        isCompanyAccountMember(companyId) ||
+        isCompanyMember(companyId)
       );
       allow create, update, delete: if request.auth != null && isCompanyAdmin(companyId);
     }

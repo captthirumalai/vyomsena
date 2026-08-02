@@ -27,6 +27,7 @@ Treat Firestore schema as an API contract.
 - `companies` (web-only, operator owned)
 - `company_accounts` (web-only, operator managed)
 - `company_invites` (web-only, short-lived 6-digit invite codes)
+- `company_members` (Android-only, anonymous company-session link record created on invite redemption)
 
 ## users
 

@@ -136,7 +136,8 @@ export async function bootstrapCompanyWorkspace({ uid, email, fullName, companyN
     uid,
     email,
     displayName: fullName,
-    role: 'OWNER'
+    role: 'OWNER',
+    companyId: uid
   });
 
   const normalizedCompanyName = `${companyName || ''}`.trim();
