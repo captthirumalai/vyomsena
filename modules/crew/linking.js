@@ -13,12 +13,17 @@ import {
 } from './utils.js';
 import { normalizeRequestStatus } from './directory.js';
 import {
-  generateCrewProfileLinkCode,
   assignPilotByEmail,
   withdrawConnectionRequest,
   acceptIncomingLinkRequest,
   declineConnectionRequest
 } from '../../services/crewService.js';
+import {
+  getCompanyAccount,
+  listCompanyAccounts,
+  createCompanyAccount,
+  generateCompanyInvite
+} from '../../services/companyService.js';
 import { refreshCrew } from './crew.js';
 
 export function setLinkSelectValue(pilotUid) {
@@ -292,26 +297,54 @@ export async function sendPilotLinkRequest(form) {
   }
 }
 
-export async function issueCrewLinkCode(pilotUid) {
+export async function issueCompanyInvite(pilotUid) {
   if (!crewState.activeOperatorUid) return;
   const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
   if (!pilot) return;
 
+  const companyId = crewState.activeOperatorUid;
+  const pilotEmail = `${pilot.email || ''}`.trim().toLowerCase();
+  if (!pilotEmail) {
+    setStatus('Selected crew member has no email. Add an email to generate an invite.');
+    showToast('Crew member email is required for an invite.', 'error');
+    return;
+  }
+
   try {
-    const result = await generateCrewProfileLinkCode({
-      crewProfileId: pilot.crewProfileId || pilotUid,
-      operatorId: crewState.activeOperatorUid
+    let account = null;
+    const existingAccounts = await listCompanyAccounts(companyId);
+    account = existingAccounts.find((item) => `${item.email || ''}`.trim().toLowerCase() === pilotEmail) || null;
+    if (!account) {
+      account = await getCompanyAccount(pilotUid);
+    }
+    if (!account) {
+      account = await createCompanyAccount({
+        companyId,
+        accountId: pilotUid,
+        role: 'PILOT',
+        displayName: toProfileName(pilot),
+        email: pilotEmail,
+        uid: pilotUid
+      });
+    }
+
+    const invite = await generateCompanyInvite({
+      companyId,
+      accountId: account.accountId,
+      email: pilotEmail,
+      role: 'PILOT'
     });
-    const expiry = toDateValue(result.expiresAt);
+
+    const expiry = toDateValue(invite.expiresAt);
     const expiryText = expiry ? expiry.toLocaleTimeString() : 'in 5 minutes';
-    setStatus(`Link ready for ${toProfileName(pilot)} | Profile ID: ${pilotUid} | Code: ${result.code} | Expires: ${expiryText}`);
-    showToast(`Link code generated for ${toProfileName(pilot)}.`);
+    setStatus(`Invite ready for ${toProfileName(pilot)} | Code: ${invite.code} | Expires: ${expiryText}`);
+    showToast(`Invite generated for ${toProfileName(pilot)}.`);
 
     setLinkSelectValue(pilotUid);
-    setActiveLinkCode(result.code, result.expiresAt, pilotUid);
+    setActiveLinkCode(invite.code, invite.expiresAt, pilotUid);
   } catch (error) {
-    console.error('Generate link code failed:', error);
-    setStatus(error.message || 'Unable to generate link code.');
-    showToast(error.message || 'Unable to generate link code.', 'error');
+    console.error('Generate invite failed:', error);
+    setStatus(error.message || 'Unable to generate invite.');
+    showToast(error.message || 'Unable to generate invite.', 'error');
   }
 }

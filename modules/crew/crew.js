@@ -8,7 +8,6 @@ import {
   getOutgoingLinkRequests,
   onIncomingLinkRequests,
   onOutgoingLinkRequests,
-  generateCrewProfileLinkCode,
   assignPilotByEmail,
   withdrawConnectionRequest,
   acceptIncomingLinkRequest,
@@ -26,14 +25,12 @@ import {
   queryAll,
   normalizeRole,
   getInitials,
-  toProfileName,
   setStatus,
   showToast,
   closeModal,
   confirmModal,
   isPilotRole,
-  getSortedAndFilteredPilots,
-  toDateValue
+  getSortedAndFilteredPilots
 } from './utils.js';
 import {
   setActiveTab,
@@ -56,8 +53,8 @@ import {
   renderLinkedPilots,
   renderIncomingRequests,
   sendPilotLinkRequest,
-  setActiveLinkCode,
-  stopLinkCodeTimer
+  stopLinkCodeTimer,
+  issueCompanyInvite
 } from './linking.js';
 import { renderBulkTab, applyBulkAction, exportCrewCsv } from './bulk.js';
 import { runQueueSync, renderQueueSyncState } from './queue.js';
@@ -310,20 +307,7 @@ function bindLinkingControls() {
     if (!crewState.activeOperatorUid) return;
     const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
     if (!pilot) return;
-    try {
-      const result = await generateCrewProfileLinkCode({
-        crewProfileId: pilot.crewProfileId || pilotUid,
-        operatorId: crewState.activeOperatorUid
-      });
-      setActiveLinkCode(result.code, result.expiresAt, pilotUid);
-      const expiry = toDateValue(result.expiresAt);
-      setStatus(`Link ready for ${toProfileName(pilot)} | Profile ID: ${pilotUid} | Code: ${result.code} | Expires: ${expiry ? expiry.toLocaleTimeString() : 'in 5 minutes'}`);
-      showToast(`Link code generated for ${toProfileName(pilot)}.`);
-    } catch (error) {
-      console.error('Generate link code failed:', error);
-      setStatus(error.message || 'Unable to generate link code.');
-      showToast(error.message || 'Unable to generate link code.', 'error');
-    }
+    issueCompanyInvite(pilotUid);
   });
 
   query('#cm-link-copy')?.addEventListener('click', async () => {
@@ -333,7 +317,7 @@ function bindLinkingControls() {
     }
     try {
       await navigator.clipboard.writeText(crewState.activeLinkCode);
-      showToast('Link code copied to clipboard.', 'success');
+      showToast('Invite code copied to clipboard.', 'success');
     } catch (error) {
       console.error('Clipboard copy failed:', error);
       showToast('Unable to copy code.', 'error');

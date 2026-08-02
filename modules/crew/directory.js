@@ -28,7 +28,7 @@ import { canPerformCrewAction } from '../../services/permissionService.js';
 import { updatePilotProfile, delinkPilot } from '../../services/crewService.js';
 import { refreshCrew } from './crew.js';
 import { openProfileForm } from './profile.js';
-import { issueCrewLinkCode } from './linking.js';
+import { issueCompanyInvite } from './linking.js';
 import { renderLinkingTab } from './linking.js';
 import { renderDocumentsTab } from './documents.js';
 import { renderComplianceTab } from './compliance.js';
@@ -237,9 +237,9 @@ export function openDrawer(pilotUid) {
       <span>Documents</span>
     </button>`,
     ...(!isPilotRole()
-      ? [`<button type="button" class="cm-drawer-action" data-drawer-action="link-code" data-pilot-uid="${escapeHtml(pilot.uid)}" title="Generate link code">
+      ? [`<button type="button" class="cm-drawer-action" data-drawer-action="link-code" data-pilot-uid="${escapeHtml(pilot.uid)}" title="Generate invite code">
           <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10 14l4-4M15 9l2-2a2.83 2.83 0 0 1 4 4l-2 2M9 15l-2 2a2.83 2.83 0 0 1-4-4l2-2M7 17l4-4"/></svg>
-          <span>Link Code</span>
+          <span>Invite Code</span>
         </button>`]
       : []),
     ...(canEdit
@@ -403,7 +403,7 @@ export function openDrawer(pilotUid) {
         if (docSelect) docSelect.value = targetUid;
         setActiveTab('documents');
       } else if (action === 'link-code') {
-        issueCrewLinkCode(targetUid);
+        issueCompanyInvite(targetUid);
       } else if (action === 'toggle-status') {
         togglePilotStatus(targetUid);
       } else if (action === 'delink') {
