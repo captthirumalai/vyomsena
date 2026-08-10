@@ -99,12 +99,27 @@ export async function updateCrewProfile(crewProfileId, updates) {
   });
 }
 
+function isPermissionDenied(error) {
+  return Boolean(
+    error &&
+      (error.code === 'permission-denied' ||
+        error.code === 'PERMISSION_DENIED' ||
+        /missing or insufficient permissions|permission/i.test(`${error.message || ''}`))
+  );
+}
+
 export async function ensureCrewProfileForUser({ crewProfileId, operatorId, user }) {
   if (!crewProfileId || !operatorId || !user) {
     throw new Error('crewProfileId, operatorId, and user are required.');
   }
 
-  const existing = await getCrewProfileById(crewProfileId);
+  let existing = null;
+  try {
+    existing = await getCrewProfileById(crewProfileId);
+  } catch (error) {
+    if (isPermissionDenied(error)) return null;
+    throw error;
+  }
   if (existing) return existing;
 
   const fullName = user.fullName || user.name || 'Unnamed Crew';
@@ -128,7 +143,12 @@ export async function ensureCrewProfileForUser({ crewProfileId, operatorId, user
   };
 
   validateContract('crew_profiles', nextPayload, 'ensureCrewProfileForUser', 'write');
-  await setDoc(doc(CREW_PROFILES, crewProfileId), nextPayload);
+  try {
+    await setDoc(doc(CREW_PROFILES, crewProfileId), nextPayload);
+  } catch (error) {
+    if (isPermissionDenied(error)) return null;
+    throw error;
+  }
   return nextPayload;
 }
 

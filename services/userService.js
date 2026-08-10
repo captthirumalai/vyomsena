@@ -15,6 +15,15 @@ import { validateContract } from './schemaContract.js';
 
 const ROLE_PILOT = 'PILOT';
 
+function isPermissionDenied(error) {
+  return Boolean(
+    error &&
+      (error.code === 'permission-denied' ||
+        error.code === 'PERMISSION_DENIED' ||
+        /missing or insufficient permissions|permission/i.test(`${error.message || ''}`))
+  );
+}
+
 function normalizeProfileShape(data) {
   if (!data) return data;
   const fullName = data.fullName || data.name || '';
@@ -34,7 +43,13 @@ export async function getUserByUid(uid) {
     return data;
   }
 
-  const crewProfileSnapshot = await getDoc(doc('crew_profiles', uid));
+  let crewProfileSnapshot = null;
+  try {
+    crewProfileSnapshot = await getDoc(doc('crew_profiles', uid));
+  } catch (error) {
+    if (isPermissionDenied(error)) return null;
+    throw error;
+  }
   if (!crewProfileSnapshot.exists()) return null;
 
   const crewRaw = crewProfileSnapshot.data();
