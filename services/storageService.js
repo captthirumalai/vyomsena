@@ -5,6 +5,7 @@ import {
   deleteObject
 } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js';
 import { getStorageInstance } from './firebaseService.js';
+import { prepareDocumentFile, prepareProfilePhoto } from './uploadLimits.js';
 
 function sanitizeFileName(fileName) {
   return `${fileName || 'document.bin'}`.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -35,9 +36,11 @@ export async function uploadUserDocumentFile({ userId, documentId, file }) {
     throw new Error('No file selected for upload.');
   }
 
-  const path = buildUserDocumentStoragePath(userId, documentId, file.name);
+  const preparedFile = await prepareDocumentFile(file);
+
+  const path = buildUserDocumentStoragePath(userId, documentId, preparedFile.name);
   const targetRef = storageRef(getStorageInstance(), path);
-  const snapshot = await uploadBytes(targetRef, file);
+  const snapshot = await uploadBytes(targetRef, preparedFile);
 
   const downloadToken = snapshot.metadata?.downloadTokens?.[0];
   const downloadUrl = buildTokenDownloadUrl(path, downloadToken) || (await getDownloadURL(targetRef));
@@ -53,9 +56,11 @@ export async function uploadCrewProfilePhoto({ pilotUid, file }) {
     throw new Error('No photo selected for upload.');
   }
 
-  const path = buildCrewPhotoStoragePath(pilotUid, file.name);
+  const preparedFile = await prepareProfilePhoto(file);
+
+  const path = buildCrewPhotoStoragePath(pilotUid, preparedFile.name);
   const targetRef = storageRef(getStorageInstance(), path);
-  const snapshot = await uploadBytes(targetRef, file);
+  const snapshot = await uploadBytes(targetRef, preparedFile);
 
   const downloadToken = snapshot.metadata?.downloadTokens?.[0];
   const downloadUrl = buildTokenDownloadUrl(path, downloadToken) || (await getDownloadURL(targetRef));

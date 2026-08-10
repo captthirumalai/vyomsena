@@ -21,6 +21,7 @@ import {
 import { getDocumentComplianceState } from '../../services/documentService.js';
 import { createPilotDocument, updatePilotDocumentWithAudit, removePilotDocument } from '../../services/crewService.js';
 import { uploadUserDocumentFile, deleteUserDocumentFile } from '../../services/storageService.js';
+import { validateDocumentFile, DOCUMENT_MAX_SIZE_BYTES } from '../../services/uploadLimits.js';
 import { canPerformCrewAction } from '../../services/permissionService.js';
 import {
   enqueueCrewDocumentCreate,
@@ -101,7 +102,7 @@ export function openDocumentUploadModal() {
         <label class="cm-field"><span>Issuing authority</span><input type="text" name="authority" id="cm-doc-authority" placeholder="DGCA / Organization" /></label>
         <label class="cm-field"><span>Reminder lead (days)</span><input type="number" name="reminderDays" id="cm-doc-reminder" value="30" min="0" /></label>
         <label class="cm-field"><span>Notes / Remarks</span><textarea name="notesOrRemarks" rows="2" placeholder="Optional"></textarea></label>
-        <label class="cm-field"><span>File (PDF, image)</span><input type="file" name="documentFile" id="cm-doc-file" accept="application/pdf,image/*,.pdf" required /></label>
+        <label class="cm-field"><span>File (PDF or image)</span><input type="file" name="documentFile" id="cm-doc-file" accept="application/pdf,image/jpeg,image/png,image/webp,.pdf" required /><small class="cm-field-hint">PDF, JPG, PNG or WebP · max 10 MB (images are auto-compressed)</small></label>
       </div>
       <p class="cm-form-status" id="cm-doc-upload-status"></p>
       <div class="cm-modal-actions">
@@ -116,6 +117,26 @@ export function openDocumentUploadModal() {
   populateDocumentNames(getDocumentCategoryKey());
   query('#cm-doc-category-input')?.addEventListener('change', (event) => onDocumentCategoryChange(event.target?.value || 'LICENCE'));
   query('#cm-doc-name')?.addEventListener('change', (event) => onDocumentNameChange(event.target?.value || ''));
+  query('#cm-doc-file')?.addEventListener('change', (event) => {
+    const file = event.target?.files?.[0];
+    const status = query('#cm-doc-upload-status');
+    if (!status) return;
+    status.classList.remove('is-success');
+    if (!file) {
+      status.textContent = '';
+      return;
+    }
+    const check = validateDocumentFile(file);
+    if (!check.ok) {
+      status.textContent = check.error;
+      status.classList.add('is-error');
+      event.target.value = '';
+    } else {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      status.textContent = `${file.name} · ${mb} MB (max ${DOCUMENT_MAX_SIZE_BYTES / (1024 * 1024)} MB)`;
+      status.classList.remove('is-error');
+    }
+  });
   query('#cm-doc-upload-cancel')?.addEventListener('click', closeModal);
   query('#cm-doc-upload-form')?.addEventListener('submit', (event) => {
     event.preventDefault();

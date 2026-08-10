@@ -24,16 +24,30 @@ service firebase.storage {
 
     // Shared Android + Web document path
     // documents/{userId}/{documentId}/{fileName}
+    // Client compresses images before upload; rules enforce format + size as a backstop.
     match /documents/{userId}/{documentId}/{fileName} {
+      function isAllowedDocumentUpload() {
+        return request.resource.size <= 10 * 1024 * 1024 &&
+               (request.resource.contentType == 'application/pdf' ||
+                request.resource.contentType.matches('image/(jpeg|png|webp)'));
+      }
       allow read: if isOwner(userId) || isLinkedOperator(userId) || isCrewProfileOperator(userId);
-      allow write: if isOwner(userId) || isLinkedOperator(userId) || isCrewProfileOperator(userId);
+      allow delete: if isOwner(userId) || isLinkedOperator(userId) || isCrewProfileOperator(userId);
+      allow create, update: if (isOwner(userId) || isLinkedOperator(userId) || isCrewProfileOperator(userId))
+                             && isAllowedDocumentUpload();
     }
 
     // Crew profile photos
     // crew_photos/{pilotUid}/{fileName}
     match /crew_photos/{pilotUid}/{fileName} {
+      function isAllowedPhotoUpload() {
+        return request.resource.size <= 5 * 1024 * 1024 &&
+               request.resource.contentType.matches('image/(jpeg|png|webp)');
+      }
       allow read: if isSignedIn();
-      allow write: if isOwner(pilotUid) || isLinkedOperator(pilotUid) || isCrewProfileOperator(pilotUid);
+      allow delete: if isOwner(pilotUid) || isLinkedOperator(pilotUid) || isCrewProfileOperator(pilotUid);
+      allow create, update: if (isOwner(pilotUid) || isLinkedOperator(pilotUid) || isCrewProfileOperator(pilotUid))
+                             && isAllowedPhotoUpload();
     }
 
     // Deny everything else

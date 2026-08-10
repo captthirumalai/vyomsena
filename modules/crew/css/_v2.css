@@ -1023,6 +1023,14 @@
   flex: 0 1 340px;
 }
 
+.cm-field-hint {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--cm-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 /* ============================ RESPONSIVE FOR NEW LAYOUT ============================ */
 
 @media (max-width: 900px) {
