@@ -859,3 +859,140 @@
     justify-content: flex-start;
   }
 }
+
+/* ============================ COMPACT LAYOUT ============================
+   Density pass: shrink the top chrome (header / sync strip / attention
+   strip / toolbar) so pilot cards are visible with minimal scrolling. */
+
+.cm-avatar-photo {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cm-avatar-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cm-header {
+  padding: 0.5rem 0 0.35rem;
+}
+
+.cm-breadcrumb {
+  margin-bottom: 0.15rem;
+  font-size: 0.7rem;
+}
+
+.cm-title {
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.cm-subtitle {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+}
+
+.cm-header-right {
+  gap: 0.5rem;
+}
+
+.cm-user-chip {
+  padding: 0.2rem 0.6rem 0.2rem 0.3rem;
+}
+
+.cm-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 0.72rem;
+}
+
+.cm-avatar-lg {
+  width: 48px;
+  height: 48px;
+  font-size: 1.05rem;
+}
+
+.cm-user-meta strong {
+  font-size: 0.78rem;
+}
+
+.cm-sync-strip {
+  margin-bottom: 0.4rem;
+  font-size: 0.72rem;
+  gap: 0.5rem;
+}
+
+.cm-sync-pill {
+  padding: 0.15rem 0.55rem;
+}
+
+.cm-sync-error {
+  max-width: 22rem;
+}
+
+.cm-pending-head {
+  padding: 0.45rem 0.7rem;
+}
+
+.cm-attention-strip {
+  gap: 0.6rem;
+  margin: 0.35rem 0 0.8rem;
+}
+
+.cm-attention-stat {
+  gap: 0.6rem;
+  padding: 0.55rem 0.8rem;
+}
+
+.cm-attention-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.cm-attention-body strong {
+  font-size: 1.1rem;
+}
+
+.cm-attention-label {
+  font-size: 0.7rem;
+}
+
+.cm-content {
+  padding: 0.6rem 0 1.5rem;
+}
+
+.cm-toolbar {
+  margin-bottom: 0.55rem;
+}
+
+.cm-search-input {
+  min-height: 34px;
+}
+
+.cm-section {
+  margin-bottom: 1rem;
+}
+
+.cm-section-head {
+  margin-bottom: 0.45rem;
+}
+
+.cm-pilot-grid {
+  gap: 0.8rem;
+}
+
+.cm-pilot-card {
+  padding: 0.85rem 0.95rem;
+}
+
+.cm-card-name {
+  font-size: 0.9rem;
+}
+
+.cm-doc-chips {
+  margin-top: 0.45rem;
+}

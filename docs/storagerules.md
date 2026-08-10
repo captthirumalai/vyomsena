@@ -29,6 +29,13 @@ service firebase.storage {
       allow write: if isOwner(userId) || isLinkedOperator(userId) || isCrewProfileOperator(userId);
     }
 
+    // Crew profile photos
+    // crew_photos/{pilotUid}/{fileName}
+    match /crew_photos/{pilotUid}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(pilotUid) || isLinkedOperator(pilotUid) || isCrewProfileOperator(pilotUid);
+    }
+
     // Deny everything else
     match /{allPaths=**} {
       allow read, write: if false;

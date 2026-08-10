@@ -43,6 +43,16 @@ export function updateNotifDot(pendingCount) {
   dot.hidden = pendingCount === 0;
 }
 
+function renderAvatarHtml(pilot, extraClass = '') {
+  const name = toProfileName(pilot);
+  const initials = escapeHtml(getInitials(name));
+  const photo = pilot?.photoUri || pilot?.photoUrl || null;
+  if (photo) {
+    return `<span class="cm-avatar cm-avatar-photo ${extraClass}"><img src="${escapeHtml(photo)}" alt="${initials}" loading="lazy" referrerpolicy="no-referrer" /></span>`;
+  }
+  return `<span class="cm-avatar ${extraClass}">${initials}</span>`;
+}
+
 export function normalizeRequestStatus(status) {
   const normalized = `${status || ''}`.trim().toUpperCase();
   if (normalized === 'REJECTED') return 'DECLINED';
@@ -279,7 +289,7 @@ function renderPilotCard(pilot) {
     <article class="cm-pilot-card ${selected ? 'is-selected' : ''}" data-pilot-uid="${escapeHtml(pilot.uid)}" role="button" tabindex="0" aria-label="Open ${escapeHtml(toProfileName(pilot))}">
       <div class="cm-card-main">
         <input type="checkbox" class="cm-card-check" data-check-pilot="${escapeHtml(pilot.uid)}" ${checked ? 'checked' : ''} aria-label="Select ${escapeHtml(toProfileName(pilot))}" />
-        <span class="cm-avatar">${escapeHtml(getInitials(toProfileName(pilot)))}</span>
+        ${renderAvatarHtml(pilot)}
         <div class="cm-card-identity">
           <div class="cm-card-name">${escapeHtml(toProfileName(pilot))}</div>
           <div class="cm-card-meta">
@@ -315,7 +325,7 @@ function renderPilotRow(pilot) {
     </td>
     <td data-label="Name">
       <div class="cm-cell-user">
-        <span class="cm-avatar">${escapeHtml(getInitials(toProfileName(pilot)))}</span>
+        ${renderAvatarHtml(pilot)}
         <span>
           <span class="cm-user-name">${escapeHtml(toProfileName(pilot))}</span>
           <span class="cm-user-email">${escapeHtml(pilot.email || 'No email')}</span>
@@ -420,7 +430,7 @@ function renderDrawerShell(pilot) {
       </button>
     </div>
     <div class="cm-drawer-profile">
-      <span class="cm-avatar">${escapeHtml(getInitials(toProfileName(pilot)))}</span>
+      ${renderAvatarHtml(pilot, 'cm-avatar-lg')}
       <div class="cm-drawer-identity">
         <strong>${escapeHtml(toProfileName(pilot))}</strong>
         <span>${escapeHtml(pilot.email || 'No email')}</span>

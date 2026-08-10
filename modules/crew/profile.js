@@ -13,6 +13,7 @@ import {
 } from './utils.js';
 import { canPerformCrewAction } from '../../services/permissionService.js';
 import { updatePilotProfile, createPilot } from '../../services/crewService.js';
+import { uploadCrewProfilePhoto, deleteUserDocumentFile } from '../../services/storageService.js';
 import { refreshCrew } from './crew.js';
 
 export function openProfileForm(pilotUid) {
@@ -24,6 +25,8 @@ export function openProfileForm(pilotUid) {
   const saveLabel = query('#cm-profile-save-label');
   const form = query('#cm-profile-form');
   const photoPreview = query('#cm-profile-photo-preview');
+  const photoInput = query('#cm-field-photo');
+  if (photoInput) photoInput.value = '';
   if (photoPreview) {
     photoPreview.style.backgroundImage = '';
     photoPreview.textContent = 'Add photo';
@@ -43,6 +46,13 @@ export function openProfileForm(pilotUid) {
       setFormValue('#cm-field-role', normalizeRole(pilot.role || 'PILOT'));
       setFormField('#cm-field-operator', crewState.activeOperatorUid || '');
       setFormValue('#cm-field-status', pilot.status || 'Active');
+      const photo = pilot.photoUri || pilot.photoUrl || null;
+      if (photo && photoPreview) {
+        photoPreview.style.backgroundImage = `url(${photo})`;
+        photoPreview.style.backgroundSize = 'cover';
+        photoPreview.style.backgroundPosition = 'center';
+        photoPreview.textContent = '';
+      }
     }
   } else {
     if (heading) heading.textContent = 'Create Crew Profile';
@@ -94,6 +104,7 @@ export async function saveProfileForm() {
   const spinner = submit?.querySelector('.cm-btn-spinner');
   const label = query('#cm-profile-save-label');
   const statusEl = query('#cm-profile-status');
+  const photoFile = query('#cm-field-photo')?.files?.[0] || null;
 
   try {
     if (submit) submit.disabled = true;
@@ -110,7 +121,29 @@ export async function saveProfileForm() {
       status: statusValue
     };
     if (crewState.profileEditUid) {
-      await updatePilotProfile(crewState.profileEditUid, profileUpdates);
+      const pilotUid = crewState.profileEditUid;
+      await updatePilotProfile(pilotUid, profileUpdates);
+
+      if (photoFile) {
+        try {
+          const currentPilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
+          const oldPhotoPath = currentPilot?.photoStoragePath || null;
+          const uploadResult = await uploadCrewProfilePhoto({ pilotUid, file: photoFile });
+          await updatePilotProfile(pilotUid, {
+            photoUri: uploadResult.photoUri,
+            photoStoragePath: uploadResult.storagePath
+          });
+          if (oldPhotoPath && oldPhotoPath !== uploadResult.storagePath) {
+            try {
+              await deleteUserDocumentFile(oldPhotoPath);
+            } catch (cleanupError) {
+              console.warn('Crew photo cleanup skipped:', cleanupError);
+            }
+          }
+        } catch (photoError) {
+          console.warn('Crew photo upload failed; profile still saved.', photoError);
+        }
+      }
 
       await refreshCrew();
       if (statusEl) {
@@ -121,11 +154,24 @@ export async function saveProfileForm() {
       closeModal();
     } else {
       if (!crewState.activeOperatorUid) throw new Error('Operator context missing.');
-      await createPilot({
+      const created = await createPilot({
         name,
         email,
         operatorUid: crewState.activeOperatorUid
       });
+
+      if (photoFile && created?.uid) {
+        try {
+          const uploadResult = await uploadCrewProfilePhoto({ pilotUid: created.uid, file: photoFile });
+          await updatePilotProfile(created.uid, {
+            photoUri: uploadResult.photoUri,
+            photoStoragePath: uploadResult.storagePath
+          });
+        } catch (photoError) {
+          console.warn('Crew photo upload failed; profile still created.', photoError);
+        }
+      }
+
       await refreshCrew();
       if (statusEl) {
         statusEl.textContent = `Crew profile created for ${name}.`;

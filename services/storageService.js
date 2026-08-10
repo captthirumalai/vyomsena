@@ -17,6 +17,12 @@ export function buildUserDocumentStoragePath(userId, documentId, fileName) {
   return `documents/${safeUserId}/${safeDocumentId}/${safeFileName}`;
 }
 
+export function buildCrewPhotoStoragePath(pilotUid, fileName) {
+  const safePilotUid = `${pilotUid || ''}`.trim();
+  const safeFileName = sanitizeFileName(fileName);
+  return `crew_photos/${safePilotUid}/${safeFileName}`;
+}
+
 function buildTokenDownloadUrl(storagePath, token) {
   if (!token) return null;
   const bucket = getStorageInstance().app?.options?.storageBucket;
@@ -39,6 +45,24 @@ export async function uploadUserDocumentFile({ userId, documentId, file }) {
   return {
     storagePath: path,
     documentUri: downloadUrl
+  };
+}
+
+export async function uploadCrewProfilePhoto({ pilotUid, file }) {
+  if (!file) {
+    throw new Error('No photo selected for upload.');
+  }
+
+  const path = buildCrewPhotoStoragePath(pilotUid, file.name);
+  const targetRef = storageRef(getStorageInstance(), path);
+  const snapshot = await uploadBytes(targetRef, file);
+
+  const downloadToken = snapshot.metadata?.downloadTokens?.[0];
+  const downloadUrl = buildTokenDownloadUrl(path, downloadToken) || (await getDownloadURL(targetRef));
+
+  return {
+    storagePath: path,
+    photoUri: downloadUrl
   };
 }
 
