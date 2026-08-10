@@ -522,6 +522,8 @@ function bindProfileForm() {
   });
 }
 
+const bindKeyboard = { handler: null };
+
 function bindGlobalOverlays() {
   query('#cm-modal-backdrop')?.addEventListener('click', (event) => {
     if (event.target === event.currentTarget) closeModal();

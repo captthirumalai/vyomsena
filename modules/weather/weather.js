@@ -146,7 +146,7 @@ export async function init(view, context) {
   crewUnsubscribe = onCrewSnapshot(
     operatorUid,
     async (snapshot) => {
-      latestCrew = snapshot.docs.map((item) => ({ uid: item.id, ...item.data() }));
+      latestCrew = snapshot.map((item) => ({ uid: item.uid || item.crewProfileId, ...item }));
       await renderWeather();
     },
     (error) => console.error('Weather crew snapshot error:', error)

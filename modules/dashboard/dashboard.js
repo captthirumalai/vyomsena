@@ -415,7 +415,7 @@ export async function init(view, context) {
   crewUnsubscribe = onCrewSnapshot(
     dashboardState.operatorUid,
     async (snapshot) => {
-      dashboardState.crewList = snapshot.docs.map((item) => ({ uid: item.id, ...item.data() }));
+      dashboardState.crewList = snapshot.map((item) => ({ uid: item.uid || item.crewProfileId, ...item }));
       dashboardState.lastSyncAt = new Date();
       renderDashboard();
       await refreshComplianceDocuments();
