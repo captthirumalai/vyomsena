@@ -3,22 +3,16 @@ import {
   query,
   setFormField,
   setFormValue,
-  toInputDate,
   clearFormErrors,
   setFieldError,
-  toTimestampCandidate,
   normalizeRole,
-  getLicenseNumber,
-  getMedicalExpiry,
-  getLicenceExpiry,
-  findPrimaryDoc,
   setStatus,
   showToast,
   closeModal,
   openProfileModal
 } from './utils.js';
 import { canPerformCrewAction } from '../../services/permissionService.js';
-import { updatePilotProfile, createPilot, updatePilotDocumentWithAudit } from '../../services/crewService.js';
+import { updatePilotProfile, createPilot } from '../../services/crewService.js';
 import { refreshCrew } from './crew.js';
 
 export function openProfileForm(pilotUid) {
@@ -37,7 +31,6 @@ export function openProfileForm(pilotUid) {
 
   if (pilotUid) {
     const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
-    const docs = crewState.docsByPilotCache.get(pilotUid) || [];
     if (pilot) {
       if (heading) heading.textContent = 'Edit Crew Profile';
       if (sub) sub.textContent = 'Update this crew member\'s operator-level record.';
@@ -48,9 +41,6 @@ export function openProfileForm(pilotUid) {
       setFormField('#cm-field-phone', pilot.mobile || pilot.companyPhone || '');
       setFormField('#cm-field-employeeId', pilot.employeeId || '');
       setFormValue('#cm-field-role', normalizeRole(pilot.role || 'PILOT'));
-      setFormField('#cm-field-license', getLicenseNumber(docs) === 'N/A' ? '' : getLicenseNumber(docs));
-      setFormField('#cm-field-medicalExpiry', toInputDate(getMedicalExpiry(docs)));
-      setFormField('#cm-field-licenseExpiry', toInputDate(getLicenceExpiry(docs)));
       setFormField('#cm-field-operator', crewState.activeOperatorUid || '');
       setFormValue('#cm-field-status', pilot.status || 'Active');
     }
@@ -84,9 +74,6 @@ export async function saveProfileForm() {
   const phone = form.phone?.value?.trim();
   const employeeId = form.employeeId?.value?.trim();
   const role = form.role?.value?.trim();
-  const license = form.license?.value?.trim();
-  const medicalExpiryDate = toTimestampCandidate(form.medicalExpiry?.value || null);
-  const licenseExpiryDate = toTimestampCandidate(form.licenseExpiry?.value || null);
   const statusValue = form.status?.value?.trim() || 'Active';
 
   let hasError = false;
@@ -96,10 +83,6 @@ export async function saveProfileForm() {
   }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     setFieldError('email', 'A valid email is required.');
-    hasError = true;
-  }
-  if (form.dataset.mode === 'create' && !license) {
-    setFieldError('license', 'Licence number is required for a new crew member.');
     hasError = true;
   }
   if (hasError) {
@@ -126,30 +109,8 @@ export async function saveProfileForm() {
       role: normalizeRole(role || 'PILOT'),
       status: statusValue
     };
-
     if (crewState.profileEditUid) {
       await updatePilotProfile(crewState.profileEditUid, profileUpdates);
-
-      const docs = crewState.docsByPilotCache.get(crewState.profileEditUid) || [];
-      const licenceDoc = findPrimaryDoc(
-        docs,
-        (doc) => `${doc.documentCategory || ''}`.toUpperCase() === 'LICENCE' || `${doc.documentName || ''}`.toLowerCase().includes('license')
-      );
-      const medicalDoc = findPrimaryDoc(
-        docs,
-        (doc) => `${doc.documentCategory || ''}`.toUpperCase() === 'MEDICAL' || `${doc.documentName || ''}`.toLowerCase().includes('medical')
-      );
-
-      if (licenceDoc) {
-        const next = {
-          licenseOrCertificateNumber: license ? license : licenceDoc.licenseOrCertificateNumber || null,
-          ...(licenseExpiryDate ? { expiryDate: licenseExpiryDate } : {})
-        };
-        await updatePilotDocumentWithAudit(licenceDoc.firestoreId, next, crewState.activeCurrentUser?.uid || null);
-      }
-      if (medicalDoc && medicalExpiryDate) {
-        await updatePilotDocumentWithAudit(medicalDoc.firestoreId, { expiryDate: medicalExpiryDate }, crewState.activeCurrentUser?.uid || null);
-      }
 
       await refreshCrew();
       if (statusEl) {
@@ -163,9 +124,6 @@ export async function saveProfileForm() {
       await createPilot({
         name,
         email,
-        licenseNum: license,
-        medicalExpiryDate,
-        licenseExpiryDate,
         operatorUid: crewState.activeOperatorUid
       });
       await refreshCrew();

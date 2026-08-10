@@ -1,7 +1,6 @@
 import {
   doc,
-  deleteDoc,
-  serverTimestamp
+  deleteDoc
 } from './firestoreService.js';
 import {
   findUserByEmail,
@@ -217,7 +216,7 @@ export function onCrewSnapshot(operatorUid, onNext, onError) {
   };
 }
 
-export async function createPilot({ name, email, licenseNum, medicalExpiryDate, licenseExpiryDate, operatorUid }) {
+export async function createPilot({ name, email, operatorUid }) {
   const profile = await createCrewProfile({
     name,
     email,
@@ -227,37 +226,9 @@ export async function createPilot({ name, email, licenseNum, medicalExpiryDate, 
     linkState: 'UNLINKED'
   });
 
-  const medicalDocument = await createUserDocument({
-    userId: profile.uid,
-    userName: name,
-    documentName: 'Class 1 Medical',
-    documentCategory: 'MEDICAL',
-    licenseOrCertificateNumber: `MED-${licenseNum}`,
-    issueDate: serverTimestamp(),
-    expiryDate: medicalExpiryDate || null,
-    reminderLeadTimeDays: 30,
-    operatorId: operatorUid,
-    readers: [profile.uid, operatorUid]
-  });
-
-  const licenseDocument = await createUserDocument({
-    userId: profile.uid,
-    userName: name,
-    documentName: 'Commercial Pilot License (CPL)',
-    documentCategory: 'LICENCE',
-    licenseOrCertificateNumber: licenseNum,
-    issueDate: serverTimestamp(),
-    expiryDate: licenseExpiryDate || null,
-    reminderLeadTimeDays: 30,
-    operatorId: operatorUid,
-    readers: [profile.uid, operatorUid]
-  });
-
   return {
     uid: profile.uid,
-    profile,
-    medicalDocumentId: medicalDocument.firestoreId,
-    licenseDocumentId: licenseDocument.firestoreId
+    profile
   };
 }
 
