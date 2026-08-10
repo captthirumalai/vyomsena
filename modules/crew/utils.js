@@ -328,6 +328,13 @@ export function getAttentionTone(level) {
   return 'is-green';
 }
 
+export function getMissingRequiredDocs(docs, requiredNames) {
+  const names = (requiredNames || []).map((name) => `${name}`.trim()).filter(Boolean);
+  if (!names.length) return [];
+  const present = new Set((docs || []).map((doc) => `${doc?.documentName || ''}`.trim().toLowerCase()));
+  return names.filter((name) => !present.has(`${name}`.toLowerCase()));
+}
+
 const CHIP_RULES = [
   { key: 'LICENCE', label: 'Licence' },
   { key: 'MEDICAL', label: 'Medical' },

@@ -50,6 +50,7 @@ import { openDocumentDetail } from './documents.js';
 import { issueCompanyInvite, stopLinkCodeTimer } from './linking.js';
 import { applyBulkAction } from './bulk.js';
 import { runQueueSync, renderQueueSyncState } from './queue.js';
+import { loadCrewPolicy, openCompanyPolicyModal } from './policy.js';
 
 /* ================= SELECTION ================= */
 
@@ -187,6 +188,8 @@ function scrollToPilots() {
 
 function bindScreenControls() {
   query('#cm-btn-add-crew')?.addEventListener('click', () => openProfileForm(null));
+
+  query('#cm-btn-policy')?.addEventListener('click', openCompanyPolicyModal);
 
   query('#cm-btn-notifications')?.addEventListener('click', () => {
     const banner = query('#cm-pending-banner');
@@ -542,6 +545,7 @@ bindKeyboard.handler = function handleKeyboard(event) {
 function applyRoleLayout() {
   if (isPilotRole()) {
     query('#cm-btn-add-crew')?.classList.add('hidden');
+    query('#cm-btn-policy')?.classList.add('hidden');
     queryAll('[data-bulk-action]').forEach((btn) => btn.classList.add('hidden'));
     query('#cm-bulk-toolbar')?.classList.add('hidden');
   }
@@ -596,6 +600,10 @@ export async function init(view, context) {
   }, 5000);
 
   setListView(crewListState.view);
+
+  if (!isPilotRole()) {
+    await loadCrewPolicy();
+  }
 
   await refreshCrew();
 
@@ -681,6 +689,7 @@ export async function init(view, context) {
       crewState.activeLinkCode = null;
       crewState.activeLinkCodeExpiresAt = null;
       crewState.activeLinkCodePilotUid = null;
+      crewState.requiredDocumentPolicy = null;
       if (crewState.queueMonitorTimer) {
         clearInterval(crewState.queueMonitorTimer);
         crewState.queueMonitorTimer = null;

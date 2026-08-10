@@ -31,7 +31,8 @@ export const crewState = {
   crewUnsubscribe: null,
   pilotDocUnsubscribe: null,
   outgoingRequestUnsubscribe: null,
-  incomingRequestUnsubscribe: null
+  incomingRequestUnsubscribe: null,
+  requiredDocumentPolicy: null
 };
 
 export const crewListState = {

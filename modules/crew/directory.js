@@ -22,7 +22,8 @@ import {
   getAttentionBadgeHtml,
   getAttentionTone,
   getPrimaryDocChips,
-  getPilotBase
+  getPilotBase,
+  getMissingRequiredDocs
 } from './utils.js';
 import { canPerformCrewAction } from '../../services/permissionService.js';
 import { updatePilotProfile, delinkPilot } from '../../services/crewService.js';
@@ -244,6 +245,7 @@ function renderPilotCard(pilot) {
   const expiries = getExpiryFooter(docs);
   const checked = crewState.selectedRows.has(pilot.uid);
   const selected = crewState.selectedPilotUid === pilot.uid;
+  const missingRequired = getMissingRequiredDocs(docs, crewState.requiredDocumentPolicy?.requiredDocumentNames);
 
   return `
     <article class="cm-pilot-card ${selected ? 'is-selected' : ''}" data-pilot-uid="${escapeHtml(pilot.uid)}" role="button" tabindex="0" aria-label="Open ${escapeHtml(toProfileName(pilot))}">
@@ -263,6 +265,7 @@ function renderPilotCard(pilot) {
       <div class="cm-doc-chips">
         ${chips.length ? chips.map((chip) => `<span class="cm-doc-chip ${chip.tone}">${chip.mark} ${escapeHtml(chip.label)}</span>`).join('') : '<span class="cm-doc-chip is-warn">No documents</span>'}
       </div>
+      ${missingRequired.length ? `<div class="cm-card-policy is-warn"><span>${missingRequired.length} licence/training info missing</span></div>` : ''}
       <div class="cm-card-expiry">
         <strong>${escapeHtml(summary.text)}</strong>
         <span>${expiries.length ? expiries.map((exp) => `<span class="${exp.tone}">${escapeHtml(exp.label)}: ${escapeHtml(exp.text)}</span>`).join(' · ') : 'No expiry dates on file'}</span>
@@ -437,6 +440,7 @@ function renderOverviewView(pilot) {
   const summary = getAttentionSummary(pilot, docs);
   const chips = getPrimaryDocChips(docs);
   const expiries = getExpiryFooter(docs);
+  const missingRequired = getMissingRequiredDocs(docs, crewState.requiredDocumentPolicy?.requiredDocumentNames);
   const canEdit = canPerformCrewAction(crewState.activeCurrentUser, 'edit');
   const canDelete = canPerformCrewAction(crewState.activeCurrentUser, 'delete');
   const pilotStatus = `${pilot.status || 'Active'}`;
@@ -454,6 +458,7 @@ function renderOverviewView(pilot) {
       <span>${escapeHtml(summary.text)}</span>
       ${getAttentionBadgeHtml(level)}
     </div>
+    ${missingRequired.length ? `<div class="cm-card-policy is-warn"><span>${missingRequired.length} licence/training info missing</span></div>` : ''}
     <div class="cm-doc-chips">
       ${chips.length ? chips.map((chip) => `<span class="cm-doc-chip ${chip.tone}">${chip.mark} ${escapeHtml(chip.label)}</span>`).join('') : ''}
     </div>
