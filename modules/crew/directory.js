@@ -18,7 +18,6 @@ import {
   showToast,
   confirmModal,
   getCrewAttentionLevel,
-  getAttentionReasons,
   getAttentionSummary,
   getAttentionBadgeHtml,
   getAttentionTone,
@@ -71,7 +70,7 @@ export function renderCrewScreen() {
   renderBulkBar();
 }
 
-/* ================= ATTENTION STRIP + SECTION ================= */
+/* ================= ATTENTION STRIP ================= */
 
 export function updateAttentionStrip() {
   const totals = { COMPLIANT: 0, ACTION: 0, NONCOMPLIANT: 0, NODOCS: 0 };
@@ -83,44 +82,6 @@ export function updateAttentionStrip() {
   setText('#cm-stat-total', `${crewState.pilotsCache.length}`);
   setText('#cm-stat-attention', `${totals.ACTION + totals.NONCOMPLIANT}`);
   setText('#cm-stat-noncompliant', `${totals.NONCOMPLIANT}`);
-
-  const section = query('#cm-attention-section');
-  const list = query('#cm-attention-list');
-  const sub = query('#cm-attention-sub');
-  const more = query('#cm-attention-more');
-  if (!section || !list) return;
-
-  const needsAttention = crewState.pilotsCache.filter((pilot) => {
-    const level = getCrewAttentionLevel(crewState.docsByPilotCache.get(pilot.uid) || []);
-    return level === 'ACTION' || level === 'NONCOMPLIANT';
-  });
-
-  const rows = needsAttention
-    .flatMap((pilot) =>
-      getAttentionReasons(pilot, crewState.docsByPilotCache.get(pilot.uid) || []).map((item) => ({ pilot, ...item }))
-    )
-    .filter((item) => item.days !== null)
-    .sort((a, b) => (a.days ?? 9999) - (b.days ?? 9999));
-
-  if (!rows.length) {
-    section.classList.add('hidden');
-    list.innerHTML = '';
-    return;
-  }
-
-  section.classList.remove('hidden');
-  if (sub) sub.textContent = `${needsAttention.length} pilot(s) need attention`;
-  list.innerHTML = rows
-    .map(
-      (item) => `
-      <button type="button" class="cm-attention-row ${item.days < 0 ? 'is-red' : 'is-amber'}" data-open-pilot="${escapeHtml(item.pilot.uid)}">
-        ${renderAvatarHtml(item.pilot)}
-        <span class="cm-attention-name">${escapeHtml(toProfileName(item.pilot))}</span>
-        <span class="cm-attention-reason">${escapeHtml(item.reason)}</span>
-      </button>`
-    )
-    .join('');
-  more.classList.toggle('hidden', needsAttention.length === 0);
 }
 
 /* ================= PENDING BANNER ================= */
