@@ -996,3 +996,113 @@
 .cm-doc-chips {
   margin-top: 0.45rem;
 }
+
+/* ============================ HEADER CENTER (SYNC STRIP) ============================
+   Three-region header: title left, sync strip center, actions right. Fills the gap. */
+
+.cm-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+}
+
+.cm-header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.cm-header-center .cm-sync-strip {
+  margin: 0;
+  justify-content: center;
+}
+
+/* ============================ TWO-COLUMN MAIN LAYOUT ============================
+   Left: toolbar + pilot list (cards stay where they are). Right: Needs Attention. */
+
+.cm-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(17rem, 21rem);
+  gap: 1.5rem;
+  align-items: start;
+  padding: 0.6rem 0 1.5rem;
+}
+
+.cm-content-main {
+  min-width: 0;
+}
+
+.cm-attention-panel {
+  min-width: 0;
+  position: sticky;
+  top: 1rem;
+}
+
+.cm-toolbar-search {
+  flex: 0 1 340px;
+}
+
+.cm-attention-panel .cm-attention-strip {
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  margin: 0 0 1.25rem;
+}
+
+.cm-attention-list {
+  max-height: min(45vh, 26rem);
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.cm-attention-row {
+  padding: 0.5rem 0.7rem;
+  gap: 0.6rem;
+}
+
+.cm-attention-row .cm-avatar {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+}
+
+.cm-attention-name {
+  font-size: 0.8rem;
+}
+
+.cm-attention-reason {
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================ RESPONSIVE FOR NEW LAYOUT ============================ */
+
+@media (max-width: 900px) {
+  .cm-header {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .cm-header-center {
+    justify-content: flex-start;
+  }
+
+  .cm-header-center .cm-sync-strip {
+    justify-content: flex-start;
+  }
+
+  .cm-content {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .cm-attention-panel {
+    position: static;
+  }
+}

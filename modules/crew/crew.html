@@ -26,19 +26,20 @@
         <span>Add Pilot</span>
       </button>
     </div>
+    <div class="cm-header-center">
+      <div class="cm-sync-strip" aria-live="polite">
+        <span class="cm-sync-pill" id="cm-sync-count">Pending Sync: 0</span>
+        <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-sync-retry" disabled>
+          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 6v6l4 2M12 3a9 9 0 1 0 9 9"/></svg>
+          <span id="cm-sync-retry-label">Retry Sync</span>
+        </button>
+        <span class="cm-sync-pill cm-sync-pill-blue" id="cm-last-sync">Last sync: —</span>
+        <span class="cm-sync-flash hidden" id="cm-sync-flash"></span>
+        <span class="cm-sync-error" id="cm-sync-error">No retry errors yet.</span>
+        <span class="cm-status" id="cm-status">Loading crew data...</span>
+      </div>
+    </div>
   </header>
-
-  <div class="cm-sync-strip" aria-live="polite">
-    <span class="cm-sync-pill" id="cm-sync-count">Pending Sync: 0</span>
-    <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-sync-retry" disabled>
-      <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 6v6l4 2M12 3a9 9 0 1 0 9 9"/></svg>
-      <span id="cm-sync-retry-label">Retry Sync</span>
-    </button>
-    <span class="cm-sync-pill cm-sync-pill-blue" id="cm-last-sync">Last sync: —</span>
-    <span class="cm-sync-flash hidden" id="cm-sync-flash"></span>
-    <span class="cm-sync-error" id="cm-sync-error">No retry errors yet.</span>
-    <span class="cm-status" id="cm-status">Loading crew data...</span>
-  </div>
 
   <div class="cm-pending-banner hidden" id="cm-pending-banner">
     <button type="button" class="cm-pending-head" id="cm-pending-toggle" aria-expanded="false">
@@ -50,156 +51,160 @@
     <div class="cm-pending-list hidden" id="cm-pending-list"></div>
   </div>
 
-  <div class="cm-attention-strip" id="cm-attention-strip" role="list" aria-label="Crew attention summary">
-    <button type="button" class="cm-attention-stat" data-attn-filter="ALL" role="listitem" aria-label="View all crew">
-      <span class="cm-attention-icon cm-attention-icon-navy">
-        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      </span>
-      <span class="cm-attention-body">
-        <strong id="cm-stat-total">0</strong>
-        <span class="cm-attention-label">Pilots</span>
-      </span>
-    </button>
-    <button type="button" class="cm-attention-stat" data-attn-filter="ATTENTION" role="listitem" aria-label="Filter to crew needing attention">
-      <span class="cm-attention-icon cm-attention-icon-amber">
-        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 8v4l3 3M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/></svg>
-      </span>
-      <span class="cm-attention-body">
-        <strong id="cm-stat-attention">0</strong>
-        <span class="cm-attention-label">Need Attention</span>
-      </span>
-    </button>
-    <button type="button" class="cm-attention-stat" data-attn-filter="NONCOMPLIANT" role="listitem" aria-label="Filter to non-compliant crew">
-      <span class="cm-attention-icon cm-attention-icon-red">
-        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/></svg>
-      </span>
-      <span class="cm-attention-body">
-        <strong id="cm-stat-noncompliant">0</strong>
-        <span class="cm-attention-label">Non-Compliant</span>
-      </span>
-    </button>
-  </div>
-
   <main class="cm-content">
-    <div class="cm-toolbar">
-      <div class="cm-search-wrap cm-toolbar-search">
-        <svg class="cm-icon cm-icon-search" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
-        <input type="search" id="cm-search" class="cm-search-input" placeholder="Search pilot, email, licence, document, base..." autocomplete="off" aria-label="Search crew" />
-      </div>
-      <button type="button" class="cm-btn cm-btn-ghost cm-btn-md cm-filter-toggle" id="cm-filter-toggle">
-        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
-        <span>Filter</span>
-        <span class="cm-filter-count hidden" id="cm-filter-count">0</span>
-      </button>
-      <div class="cm-view-toggle" id="cm-view-toggle" role="group" aria-label="List view">
-        <button type="button" class="is-active" id="cm-view-cards" title="Card view" aria-label="Card view">
-          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v6H4zM14 15h6v6h-6z"/></svg>
+    <div class="cm-content-main">
+      <div class="cm-toolbar">
+        <div class="cm-search-wrap cm-toolbar-search">
+          <svg class="cm-icon cm-icon-search" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
+          <input type="search" id="cm-search" class="cm-search-input" placeholder="Search pilot, email, licence, document, base..." autocomplete="off" aria-label="Search crew" />
+        </div>
+        <button type="button" class="cm-btn cm-btn-ghost cm-btn-md cm-filter-toggle" id="cm-filter-toggle">
+          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
+          <span>Filter</span>
+          <span class="cm-filter-count hidden" id="cm-filter-count">0</span>
         </button>
-        <button type="button" id="cm-view-table" title="List view" aria-label="List view">
-          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-        </button>
+        <div class="cm-view-toggle" id="cm-view-toggle" role="group" aria-label="List view">
+          <button type="button" class="is-active" id="cm-view-cards" title="Card view" aria-label="Card view">
+            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v6H4zM14 15h6v6h-6z"/></svg>
+          </button>
+          <button type="button" id="cm-view-table" title="List view" aria-label="List view">
+            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          </button>
+        </div>
+
+        <div class="cm-filter-popover hidden" id="cm-filter-popover">
+          <div class="cm-filter-groups">
+            <div class="cm-filter-group" data-filter-group="status">
+              <h4>Status</h4>
+              <div class="cm-filter-checks" id="cm-filters-status"></div>
+            </div>
+            <div class="cm-filter-group" data-filter-group="compliance">
+              <h4>Compliance</h4>
+              <div class="cm-filter-checks" id="cm-filters-compliance"></div>
+            </div>
+            <div class="cm-filter-group" data-filter-group="role">
+              <h4>Role</h4>
+              <div class="cm-filter-checks" id="cm-filters-role"></div>
+            </div>
+            <div class="cm-filter-group" data-filter-group="base">
+              <h4>Base</h4>
+              <div class="cm-filter-checks" id="cm-filters-base"></div>
+            </div>
+            <div class="cm-filter-group">
+              <h4>Sort by</h4>
+              <label class="cm-filter-radio"><input type="radio" name="cm-sort" value="name" checked /> Name</label>
+              <label class="cm-filter-radio"><input type="radio" name="cm-sort" value="compliance" /> Compliance</label>
+              <label class="cm-filter-radio"><input type="radio" name="cm-sort" value="nextExpiry" /> Next expiry</label>
+              <label class="cm-filter-radio"><input type="radio" name="cm-sort" value="documents" /> Documents</label>
+            </div>
+          </div>
+          <div class="cm-filter-actions">
+            <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-filters-clear">Clear</button>
+            <button type="button" class="cm-btn cm-btn-primary cm-btn-sm" id="cm-filters-apply">Apply Filters</button>
+          </div>
+        </div>
       </div>
 
-      <div class="cm-filter-popover hidden" id="cm-filter-popover">
-        <div class="cm-filter-groups">
-          <div class="cm-filter-group" data-filter-group="status">
-            <h4>Status</h4>
-            <div class="cm-filter-checks" id="cm-filters-status"></div>
+      <section class="cm-section" id="cm-pilots-section" aria-label="Pilot list">
+        <div class="cm-section-head">
+          <h2>Your Pilots</h2>
+          <span class="cm-section-sub" id="cm-pilots-count"></span>
+        </div>
+
+        <div class="cm-pilot-grid" id="cm-pilot-grid"></div>
+
+        <div class="cm-table-card hidden" id="cm-crew-table-card">
+          <div class="cm-table-scroll">
+            <table class="cm-table" id="cm-crew-table">
+              <colgroup>
+                <col style="width:44px" />
+                <col style="width:24%" />
+                <col style="width:10%" />
+                <col style="width:13%" />
+                <col style="width:13%" />
+                <col style="width:13%" />
+                <col style="width:9%" />
+                <col style="width:10%" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th class="cm-col-check"><input type="checkbox" id="cm-select-all" aria-label="Select all visible crew" /></th>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Licence Number</th>
+                  <th>Medical Expiry</th>
+                  <th>Licence Expiry</th>
+                  <th>Compliance</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="cm-table-body"></tbody>
+            </table>
           </div>
-          <div class="cm-filter-group" data-filter-group="compliance">
-            <h4>Compliance</h4>
-            <div class="cm-filter-checks" id="cm-filters-compliance"></div>
-          </div>
-          <div class="cm-filter-group" data-filter-group="role">
-            <h4>Role</h4>
-            <div class="cm-filter-checks" id="cm-filters-role"></div>
-          </div>
-          <div class="cm-filter-group" data-filter-group="base">
-            <h4>Base</h4>
-            <div class="cm-filter-checks" id="cm-filters-base"></div>
-          </div>
-          <div class="cm-filter-group">
-            <h4>Sort by</h4>
-            <label class="cm-filter-radio"><input type="radio" name="cm-sort" value="name" checked /> Name</label>
-            <label class="cm-filter-radio"><input type="radio" name="cm-sort" value="compliance" /> Compliance</label>
-            <label class="cm-filter-radio"><input type="radio" name="cm-sort" value="nextExpiry" /> Next expiry</label>
-            <label class="cm-filter-radio"><input type="radio" name="cm-sort" value="documents" /> Documents</label>
+          <div class="cm-table-footer">
+            <span id="cm-table-summary">Loading crew...</span>
+            <div class="cm-pagination">
+              <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-prev" disabled>Prev</button>
+              <span id="cm-page-info">1</span>
+              <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-next" disabled>Next</button>
+            </div>
           </div>
         </div>
-        <div class="cm-filter-actions">
-          <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-filters-clear">Clear</button>
-          <button type="button" class="cm-btn cm-btn-primary cm-btn-sm" id="cm-filters-apply">Apply Filters</button>
+
+        <div class="cm-empty-state hidden" id="cm-empty-state">
+          <div class="cm-empty-icon">
+            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <strong id="cm-empty-title">No pilots found</strong>
+          <p id="cm-empty-message">Try adjusting your search or filters.</p>
+          <div class="cm-empty-actions">
+            <button type="button" class="cm-btn cm-btn-primary cm-btn-sm hidden" id="cm-empty-add">+ Add Pilot</button>
+            <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm hidden" id="cm-empty-clear">Clear filters</button>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
 
-    <section class="cm-section hidden" id="cm-attention-section" aria-label="Crew needing attention">
-      <div class="cm-section-head">
-        <h2>Needs Attention</h2>
-        <span class="cm-section-sub" id="cm-attention-sub"></span>
-      </div>
-      <div class="cm-attention-list" id="cm-attention-list"></div>
-      <button type="button" class="cm-attention-more hidden" id="cm-attention-more">View all needing attention</button>
-    </section>
-
-    <section class="cm-section" id="cm-pilots-section" aria-label="Pilot list">
-      <div class="cm-section-head">
-        <h2>Your Pilots</h2>
-        <span class="cm-section-sub" id="cm-pilots-count"></span>
-      </div>
-
-      <div class="cm-pilot-grid" id="cm-pilot-grid"></div>
-
-      <div class="cm-table-card hidden" id="cm-crew-table-card">
-        <div class="cm-table-scroll">
-          <table class="cm-table" id="cm-crew-table">
-            <colgroup>
-              <col style="width:44px" />
-              <col style="width:24%" />
-              <col style="width:10%" />
-              <col style="width:13%" />
-              <col style="width:13%" />
-              <col style="width:13%" />
-              <col style="width:9%" />
-              <col style="width:10%" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th class="cm-col-check"><input type="checkbox" id="cm-select-all" aria-label="Select all visible crew" /></th>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Licence Number</th>
-                <th>Medical Expiry</th>
-                <th>Licence Expiry</th>
-                <th>Compliance</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="cm-table-body"></tbody>
-          </table>
-        </div>
-        <div class="cm-table-footer">
-          <span id="cm-table-summary">Loading crew...</span>
-          <div class="cm-pagination">
-            <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-prev" disabled>Prev</button>
-            <span id="cm-page-info">1</span>
-            <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-next" disabled>Next</button>
-          </div>
-        </div>
+    <aside class="cm-attention-panel" aria-label="Crew needing attention">
+      <div class="cm-attention-strip" id="cm-attention-strip" role="list" aria-label="Crew attention summary">
+        <button type="button" class="cm-attention-stat" data-attn-filter="ALL" role="listitem" aria-label="View all crew">
+          <span class="cm-attention-icon cm-attention-icon-navy">
+            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+          <span class="cm-attention-body">
+            <strong id="cm-stat-total">0</strong>
+            <span class="cm-attention-label">Pilots</span>
+          </span>
+        </button>
+        <button type="button" class="cm-attention-stat" data-attn-filter="ATTENTION" role="listitem" aria-label="Filter to crew needing attention">
+          <span class="cm-attention-icon cm-attention-icon-amber">
+            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 8v4l3 3M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/></svg>
+          </span>
+          <span class="cm-attention-body">
+            <strong id="cm-stat-attention">0</strong>
+            <span class="cm-attention-label">Need Attention</span>
+          </span>
+        </button>
+        <button type="button" class="cm-attention-stat" data-attn-filter="NONCOMPLIANT" role="listitem" aria-label="Filter to non-compliant crew">
+          <span class="cm-attention-icon cm-attention-icon-red">
+            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/></svg>
+          </span>
+          <span class="cm-attention-body">
+            <strong id="cm-stat-noncompliant">0</strong>
+            <span class="cm-attention-label">Non-Compliant</span>
+          </span>
+        </button>
       </div>
 
-      <div class="cm-empty-state hidden" id="cm-empty-state">
-        <div class="cm-empty-icon">
-          <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <section class="cm-section hidden" id="cm-attention-section" aria-label="Crew needing attention">
+        <div class="cm-section-head">
+          <h2>Needs Attention</h2>
+          <span class="cm-section-sub" id="cm-attention-sub"></span>
         </div>
-        <strong id="cm-empty-title">No pilots found</strong>
-        <p id="cm-empty-message">Try adjusting your search or filters.</p>
-        <div class="cm-empty-actions">
-          <button type="button" class="cm-btn cm-btn-primary cm-btn-sm hidden" id="cm-empty-add">+ Add Pilot</button>
-          <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm hidden" id="cm-empty-clear">Clear filters</button>
-        </div>
-      </div>
-    </section>
+        <div class="cm-attention-list" id="cm-attention-list"></div>
+        <button type="button" class="cm-attention-more hidden" id="cm-attention-more">View all needing attention</button>
+      </section>
+    </aside>
   </main>
 
   <div class="cm-bulk-bar hidden" id="cm-bulk-toolbar" role="toolbar" aria-label="Bulk actions">

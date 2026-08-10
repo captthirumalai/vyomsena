@@ -111,17 +111,16 @@ export function updateAttentionStrip() {
   section.classList.remove('hidden');
   if (sub) sub.textContent = `${needsAttention.length} pilot(s) need attention`;
   list.innerHTML = rows
-    .slice(0, 5)
     .map(
       (item) => `
       <button type="button" class="cm-attention-row ${item.days < 0 ? 'is-red' : 'is-amber'}" data-open-pilot="${escapeHtml(item.pilot.uid)}">
-        <span class="cm-avatar">${escapeHtml(getInitials(toProfileName(item.pilot)))}</span>
+        ${renderAvatarHtml(item.pilot)}
         <span class="cm-attention-name">${escapeHtml(toProfileName(item.pilot))}</span>
         <span class="cm-attention-reason">${escapeHtml(item.reason)}</span>
       </button>`
     )
     .join('');
-  more.classList.toggle('hidden', needsAttention.length <= 5);
+  more.classList.toggle('hidden', needsAttention.length === 0);
 }
 
 /* ================= PENDING BANNER ================= */
