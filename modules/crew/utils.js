@@ -75,26 +75,55 @@ export function normalizeSearchText(value) {
   return `${value || ''}`.trim().toLowerCase();
 }
 
-export function complianceRank(status) {
-  if (status === 'Expired') return 3;
-  if (status === 'Expiring') return 2;
-  return 1;
+export function complianceRank(level) {
+  if (level === 'NONCOMPLIANT') return 0;
+  if (level === 'ACTION') return 1;
+  if (level === 'COMPLIANT') return 2;
+  return 3;
 }
 
 export function getPilotRoleLabel(pilot) {
   return normalizeRole(pilot?.role || 'PILOT');
 }
 
-export function getPilotSearchText(pilot, docs) {
-  const licenseNumber = getLicenseNumber(docs);
+export function buildPilotSearchIndex(pilot, docs) {
   return [
     toProfileName(pilot),
     pilot?.email || '',
-    licenseNumber,
     pilot?.employeeId || '',
     pilot?.designation || '',
-    getPilotRoleLabel(pilot)
+    getPilotRoleLabel(pilot),
+    pilot?.organizationBase || '',
+    pilot?.base || '',
+    pilot?.operatorId || '',
+    ...(docs || []).flatMap((doc) => [
+      doc?.documentName || '',
+      doc?.documentCategory || '',
+      doc?.licenseOrCertificateNumber || '',
+      doc?.issuingAuthorityOrBody || ''
+    ])
   ].join(' ').toLowerCase();
+}
+
+function matchesSemanticToken(token, level, docs) {
+  if (token === 'expired') return level === 'NONCOMPLIANT' || (docs || []).some((doc) => getDocumentComplianceState(doc) === 'Expired');
+  if (token === 'expiring' || token === 'due') return level === 'ACTION';
+  if (token === 'valid') return level === 'COMPLIANT';
+  if (token === 'attention' || token === 'needs-attention') return level === 'ACTION' || level === 'NONCOMPLIANT';
+  if (token === 'nodocs' || token === 'no-docs' || token === 'no-documents') return level === 'NODOCS';
+  return false;
+}
+
+export function getPilotBase(pilot) {
+  return `${pilot?.organizationBase || pilot?.base || ''}`.toUpperCase();
+}
+
+export function getEarliestDocExpiry(docs) {
+  const days = (docs || [])
+    .map((doc) => daysUntil(doc.expiryDate))
+    .filter((value) => value !== null);
+  if (!days.length) return null;
+  return Math.min(...days);
 }
 
 export function compareValues(left, right) {
@@ -107,19 +136,23 @@ export function compareValues(left, right) {
 
 export function getSortedAndFilteredPilots() {
   const normalizedSearch = normalizeSearchText(crewListState.searchText);
+  const tokens = normalizedSearch ? normalizedSearch.split(/\s+/) : [];
 
   const filtered = crewState.pilotsCache.filter((pilot) => {
     const docs = crewState.docsByPilotCache.get(pilot.uid) || [];
-    const compliance = getCompliance(docs);
+    const level = getCrewAttentionLevel(docs);
+    const index = buildPilotSearchIndex(pilot, docs);
     const pilotRole = getPilotRoleLabel(pilot);
     const pilotStatus = `${pilot.status || 'Active'}`;
+    const pilotBase = getPilotBase(pilot);
 
-    const matchesSearch = !normalizedSearch || getPilotSearchText(pilot, docs).includes(normalizedSearch);
-    const matchesCompliance = crewListState.compliance === 'ALL' || compliance.toUpperCase() === crewListState.compliance;
-    const matchesRole = crewListState.role === 'ALL' || pilotRole === crewListState.role;
-    const matchesStatus = crewListState.status === 'ALL' || pilotStatus === crewListState.status;
+    const matchesSearch = tokens.every((token) => index.includes(token) || matchesSemanticToken(token, level, docs));
+    const matchesStatus = crewListState.statuses.size === 0 || crewListState.statuses.has(pilotStatus);
+    const matchesCompliance = crewListState.compliances.size === 0 || crewListState.compliances.has(level);
+    const matchesRole = crewListState.roles.size === 0 || crewListState.roles.has(pilotRole);
+    const matchesBase = crewListState.bases.size === 0 || crewListState.bases.has(pilotBase);
 
-    return matchesSearch && matchesCompliance && matchesRole && matchesStatus;
+    return matchesSearch && matchesStatus && matchesCompliance && matchesRole && matchesBase;
   });
 
   const sorted = filtered.slice().sort((leftPilot, rightPilot) => {
@@ -128,17 +161,16 @@ export function getSortedAndFilteredPilots() {
 
     let comparison = 0;
     if (crewListState.sortField === 'compliance') {
-      comparison = complianceRank(getCompliance(leftDocs)) - complianceRank(getCompliance(rightDocs));
+      comparison = complianceRank(getCrewAttentionLevel(leftDocs)) - complianceRank(getCrewAttentionLevel(rightDocs));
     } else if (crewListState.sortField === 'documents') {
       comparison = leftDocs.length - rightDocs.length;
-    } else if (crewListState.sortField === 'medicalExpiry') {
-      const leftDate = toDateValue(getMedicalExpiry(leftDocs))?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const rightDate = toDateValue(getMedicalExpiry(rightDocs))?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      comparison = leftDate - rightDate;
-    } else if (crewListState.sortField === 'licenceExpiry') {
-      const leftDate = toDateValue(getLicenceExpiry(leftDocs))?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const rightDate = toDateValue(getLicenceExpiry(rightDocs))?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      comparison = leftDate - rightDate;
+    } else if (crewListState.sortField === 'nextExpiry') {
+      const leftDays = getEarliestDocExpiry(leftDocs);
+      const rightDays = getEarliestDocExpiry(rightDocs);
+      if (leftDays === null && rightDays === null) comparison = 0;
+      else if (leftDays === null) comparison = 1;
+      else if (rightDays === null) comparison = -1;
+      else comparison = leftDays - rightDays;
     } else {
       comparison = compareValues(toProfileName(leftPilot).toLowerCase(), toProfileName(rightPilot).toLowerCase());
     }
@@ -233,6 +265,106 @@ export function getProfileStatusBadgeHtml(status) {
   return '<span class="cm-badge cm-badge-amber">On Leave</span>';
 }
 
+export function getCrewAttentionLevel(docs) {
+  const list = docs || [];
+  if (!list.length) return 'NODOCS';
+  const hasExpired = list.some((doc) => {
+    const days = daysUntil(doc.expiryDate);
+    return days !== null && days < 0;
+  });
+  if (hasExpired) return 'NONCOMPLIANT';
+  const hasExpiring = list.some((doc) => {
+    const days = daysUntil(doc.expiryDate);
+    return days !== null && days >= 0 && days < 30;
+  });
+  if (hasExpiring) return 'ACTION';
+  return 'COMPLIANT';
+}
+
+export function getAttentionReasons(pilot, docs) {
+  const list = docs || [];
+  if (!list.length) return [{ reason: 'No documents uploaded yet.', days: null, state: 'NODOCS' }];
+  return list
+    .map((doc) => {
+      const days = daysUntil(doc.expiryDate);
+      const name = doc?.documentName || 'Document';
+      let reason;
+      if (days === null) reason = `${name}: no expiry date set.`;
+      else if (days < 0) reason = `${name} expired ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago.`;
+      else if (days === 0) reason = `${name} expires today.`;
+      else reason = `${name} expires in ${days} day${days === 1 ? '' : 's'}.`;
+      return { doc, days, state: getDocumentComplianceState(doc), reason };
+    })
+    .filter((item) => item.days !== null && item.days < 30)
+    .sort((a, b) => a.days - b.days);
+}
+
+export function getAttentionSummary(pilot, docs) {
+  const level = getCrewAttentionLevel(docs);
+  if (level === 'NODOCS') return { level, primary: null, text: 'No documents uploaded yet.' };
+  const reasons = getAttentionReasons(pilot, docs);
+  if (!reasons.length) return { level, primary: null, text: 'All documents valid.' };
+  const primary = reasons[0];
+  const name = primary.doc?.documentName || 'Document';
+  const days = primary.days;
+  let text;
+  if (days < 0) text = `${name} expired ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`;
+  else if (days === 0) text = `${name} expires today`;
+  else text = `${name} expires in ${days} day${days === 1 ? '' : 's'}`;
+  return { level, primary, text };
+}
+
+export function getAttentionBadgeHtml(level) {
+  if (level === 'NONCOMPLIANT') return '<span class="cm-badge cm-badge-red">Non-Compliant</span>';
+  if (level === 'ACTION') return '<span class="cm-badge cm-badge-amber">Action Needed</span>';
+  if (level === 'NODOCS') return '<span class="cm-badge cm-badge-muted">No Documents</span>';
+  return '<span class="cm-badge cm-badge-green">Compliant</span>';
+}
+
+export function getAttentionTone(level) {
+  if (level === 'NONCOMPLIANT') return 'is-red';
+  if (level === 'ACTION') return 'is-amber';
+  if (level === 'NODOCS') return 'is-muted';
+  return 'is-green';
+}
+
+const CHIP_RULES = [
+  { key: 'LICENCE', label: 'Licence' },
+  { key: 'MEDICAL', label: 'Medical' },
+  { match: /ppc/i, label: 'PPC' },
+  { match: /instrument rating check/i, label: 'IR Check' },
+  { match: /ipc/i, label: 'IPC' },
+  { match: /opc/i, label: 'OPC' },
+  { match: /instrument rating/i, label: 'IR' },
+  { match: /crm/i, label: 'CRM' },
+  { match: /dangerous goods/i, label: 'DG' },
+  { match: /passport/i, label: 'Passport' },
+  { match: /rtr/i, label: 'RTR' }
+];
+
+export function getDocChipState(doc) {
+  const state = getDocumentComplianceState(doc);
+  if (state === 'Expired') return { tone: 'is-danger', mark: '✕' };
+  if (state === 'Expiring') return { tone: 'is-warn', mark: '⚠' };
+  if (state === 'Valid') return { tone: 'is-valid', mark: '✓' };
+  return { tone: '', mark: '·' };
+}
+
+export function getPrimaryDocChips(docs, max = 4) {
+  const chips = [];
+  const used = new Set();
+  (docs || []).forEach((doc) => {
+    const category = `${doc?.documentCategory || ''}`.toUpperCase();
+    const name = `${doc?.documentName || ''}`;
+    const rule = CHIP_RULES.find((r) => r.key === category || (r.match && r.match.test(name)));
+    if (!rule || used.has(rule.label)) return;
+    used.add(rule.label);
+    const chip = getDocChipState(doc);
+    chips.push({ label: rule.label, tone: chip.tone, mark: chip.mark });
+  });
+  return chips.slice(0, max);
+}
+
 export const CIRC = (r) => 2 * Math.PI * r;
 
 export function renderMiniRing(percent, status) {
@@ -289,6 +421,9 @@ export function openModal(contentHtml, { title = '', subtitle = '' } = {}) {
   const backdrop = query('#cm-modal-backdrop');
   const content = query('#cm-modal-content');
   if (!backdrop || !content) return;
+  const profileWrap = query('#cm-profile-form-wrap');
+  if (profileWrap) profileWrap.classList.add('hidden');
+  content.classList.remove('hidden');
   content.innerHTML = `
     ${title ? `<h3>${escapeHtml(title)}</h3>` : ''}
     ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}
@@ -296,6 +431,17 @@ export function openModal(contentHtml, { title = '', subtitle = '' } = {}) {
   `;
   backdrop.classList.remove('hidden');
   requestAnimationFrame(() => query('#cm-modal-close')?.focus());
+}
+
+export function openProfileModal() {
+  const backdrop = query('#cm-modal-backdrop');
+  const content = query('#cm-modal-content');
+  const profileWrap = query('#cm-profile-form-wrap');
+  if (!backdrop || !profileWrap) return;
+  if (content) content.classList.add('hidden');
+  profileWrap.classList.remove('hidden');
+  backdrop.classList.remove('hidden');
+  requestAnimationFrame(() => query('#cm-profile-heading')?.focus());
 }
 
 export function closeModal() {

@@ -3,6 +3,9 @@
 Route: /crew
 Title: Crew Management
 
+> **Crew V2 (single-screen UX) is implemented. See [`crew-v2-ux.md`](crew-v2-ux.md).**
+> V1 remains feature-complete but UX-overloaded and is frozen. No new features are added to V1.
+
 ## Current Build Snapshot
 - Live crew roster with real-time Firestore sync.
 - Operator-owned `crew_profiles` roster with pre-link profile creation.

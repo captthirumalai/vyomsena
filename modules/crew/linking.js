@@ -11,7 +11,7 @@ import {
   setStatus,
   showToast
 } from './utils.js';
-import { normalizeRequestStatus } from './directory.js';
+import { normalizeRequestStatus, renderDrawerView } from './directory.js';
 import {
   assignPilotByEmail,
   withdrawConnectionRequest,
@@ -53,16 +53,13 @@ export function stopLinkCodeTimer() {
 }
 
 function renderLinkCode() {
-  if (crewState.activeTab !== 'linking') return;
-  const codeEl = query('#cm-link-code');
-  const timerEl = query('#cm-link-timer');
-  const dotEl = query('#cm-link-timer-dot');
+  const codeEl = query('#cm-invite-code');
+  const timerEl = query('#cm-invite-expiry');
   if (!codeEl || !timerEl) return;
 
   if (!crewState.activeLinkCode || !crewState.activeLinkCodeExpiresAt) {
     codeEl.textContent = '—';
     timerEl.textContent = 'No active code';
-    if (dotEl) dotEl.classList.remove('is-live', 'is-ending');
     return;
   }
 
@@ -71,10 +68,6 @@ function renderLinkCode() {
 
   if (remainingMs <= 0) {
     timerEl.textContent = 'Code expired. Generate a new one.';
-    if (dotEl) {
-      dotEl.classList.remove('is-live');
-      dotEl.classList.add('is-ending');
-    }
     stopLinkCodeTimer();
     return;
   }
@@ -83,10 +76,6 @@ function renderLinkCode() {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   timerEl.textContent = `Expires in ${minutes}m ${String(seconds).padStart(2, '0')}s`;
-  if (dotEl) {
-    dotEl.classList.add('is-live');
-    dotEl.classList.toggle('is-ending', remainingMs < 30000);
-  }
 }
 
 function renderLinkPilotSelect() {
@@ -115,15 +104,15 @@ function getRequestStatusBadge(status) {
 }
 
 export function renderOutgoingRequests() {
-  const body = query('#cm-link-table-body');
-  if (!body) return;
+  const container = query('#cm-drawer-more-links');
+  if (!container) return;
 
   if (!crewState.outgoingRequestsCache.length) {
-    body.innerHTML = '<tr><td colspan="6" class="cm-empty">No outgoing requests.</td></tr>';
+    container.innerHTML = '<div class="cm-drawer-view-empty">No connection requests.</div>';
     return;
   }
 
-  body.innerHTML = crewState.outgoingRequestsCache
+  container.innerHTML = crewState.outgoingRequestsCache
     .slice()
     .sort((left, right) => {
       const leftTs = toDateValue(left.createdAt)?.getTime() || 0;
@@ -133,29 +122,24 @@ export function renderOutgoingRequests() {
     .map((request) => {
       const status = normalizeRequestStatus(request.status);
       const created = formatShortDate(request.createdAt);
-      const acceptedAt = request.acceptedAt ? formatShortDate(request.acceptedAt) : '—';
-      const expiredAt = request.expiredAt ? formatShortDate(request.expiredAt) : '—';
 
-      const actionButtons = [];
-      if (status === 'PENDING') {
-        actionButtons.push(
-          `<button type="button" class="cm-action-btn" data-link-action="resend" data-request-id="${escapeHtml(request.requestId)}" data-tip="Resend" aria-label="Resend request">
-            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
-          </button>`,
-          `<button type="button" class="cm-action-btn is-danger" data-link-action="cancel" data-request-id="${escapeHtml(request.requestId)}" data-tip="Cancel" aria-label="Cancel request">
-            <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/></svg>
-          </button>`
-        );
-      }
+      const actionButtons =
+        status === 'PENDING'
+          ? `<span class="cm-action-row">
+              <button type="button" class="cm-action-btn" data-link-action="resend" data-request-id="${escapeHtml(request.requestId)}" data-tip="Resend" aria-label="Resend request">
+                <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+              </button>
+              <button type="button" class="cm-action-btn is-danger" data-link-action="cancel" data-request-id="${escapeHtml(request.requestId)}" data-tip="Cancel" aria-label="Cancel request">
+                <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/></svg>
+              </button>
+            </span>`
+          : '';
 
-      return `<tr>
-        <td data-label="Pilot">${escapeHtml(request.recipientEmail || request.recipientId || 'Unknown')}</td>
-        <td data-label="Status">${getRequestStatusBadge(status)}</td>
-        <td data-label="Created">${escapeHtml(created)}</td>
-        <td data-label="Accepted">${escapeHtml(acceptedAt)}</td>
-        <td data-label="Expired">${escapeHtml(expiredAt)}</td>
-        <td data-label="Actions" class="cm-col-actions"><span class="cm-action-row">${actionButtons.join('')}</span></td>
-      </tr>`;
+      return `<div class="cm-more-item">
+        <strong>${escapeHtml(request.recipientEmail || request.recipientId || 'Unknown')}</strong>
+        <span>${getRequestStatusBadge(status)}${created ? ` · ${escapeHtml(created)}` : ''}</span>
+      </div>
+      ${actionButtons ? `<div class="cm-more-item"><span></span><span>${actionButtons}</span></div>` : ''}`;
     })
     .join('');
 }
@@ -340,11 +324,49 @@ export async function issueCompanyInvite(pilotUid) {
     setStatus(`Invite ready for ${toProfileName(pilot)} | Code: ${invite.code} | Expires: ${expiryText}`);
     showToast(`Invite generated for ${toProfileName(pilot)}.`);
 
-    setLinkSelectValue(pilotUid);
+    renderInviteInDrawer(invite.code, pilot);
     setActiveLinkCode(invite.code, invite.expiresAt, pilotUid);
   } catch (error) {
     console.error('Generate invite failed:', error);
     setStatus(error.message || 'Unable to generate invite.');
     showToast(error.message || 'Unable to generate invite.', 'error');
   }
+}
+
+function renderInviteInDrawer(code, pilot) {
+  const drawerView = query('#cm-drawer-view');
+  if (!drawerView) return;
+
+  crewState.drawerView = 'invite';
+
+  const copySvg = '<svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M9 5h11v11M9 5a2 2 0 1 0-4 0v11a2 2 0 0 0 2 2h11"/></svg>';
+
+  drawerView.innerHTML = `
+    <div class="cm-invite-box">
+      <h4>Invite Code</h4>
+      <p>Share this code with ${escapeHtml(toProfileName(pilot))} so they can link their account to your roster.</p>
+      <div class="cm-invite-code-row">
+        <code id="cm-invite-code">—</code>
+        <button type="button" class="cm-btn cm-btn-primary cm-btn-sm" id="cm-invite-copy">${copySvg} Copy</button>
+      </div>
+      <p class="cm-form-status" id="cm-invite-expiry"></p>
+      <button type="button" class="cm-btn cm-btn-outline cm-btn-sm" id="cm-invite-back">Back to Overview</button>
+    </div>`;
+
+  const copyButton = query('#cm-invite-copy');
+  copyButton?.addEventListener('click', async () => {
+    if (!crewState.activeLinkCode) return;
+    try {
+      await navigator.clipboard.writeText(crewState.activeLinkCode);
+      showToast('Invite code copied to clipboard.', 'success');
+    } catch (error) {
+      showToast('Unable to copy code. Select it manually.', 'error');
+    }
+  });
+
+  query('#cm-invite-back')?.addEventListener('click', () => {
+    crewState.drawerView = 'overview';
+    renderDrawerView();
+    stopLinkCodeTimer();
+  });
 }

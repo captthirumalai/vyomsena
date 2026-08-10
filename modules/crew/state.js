@@ -1,8 +1,6 @@
 export const PAGE_SIZE = 10;
 
-export const CREW_PROFILE_SESSION_KEY = 'vs-selected-crew-profile';
-
-export const CREW_TAB_STORAGE_KEY = 'vs-crew-active-tab';
+export const CREW_LIST_VIEW_KEY = 'vs-crew-list-view';
 
 export const crewState = {
   activeView: null,
@@ -21,10 +19,12 @@ export const crewState = {
   queueSyncLastError: null,
   queueSyncFlashTimer: null,
   crewPermissions: null,
-  activeTab: 'directory',
   profileEditUid: null,
   selectedRows: new Set(),
   currentPage: 1,
+  drawerView: 'overview',
+  drawerInviteOpen: false,
+  activeDocument: null,
   activeLinkCode: null,
   activeLinkCodeExpiresAt: null,
   activeLinkCodePilotUid: null,
@@ -36,11 +36,14 @@ export const crewState = {
 
 export const crewListState = {
   searchText: '',
-  compliance: 'ALL',
-  role: 'ALL',
-  status: 'ALL',
+  view: 'cards',
+  statuses: new Set(),
+  compliances: new Set(),
+  roles: new Set(),
+  bases: new Set(),
   sortField: 'name',
-  sortDirection: 'asc'
+  sortDirection: 'asc',
+  filterOpen: false
 };
 
 export const docListState = {

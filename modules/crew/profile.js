@@ -13,15 +13,15 @@ import {
   getLicenceExpiry,
   findPrimaryDoc,
   setStatus,
-  showToast
+  showToast,
+  closeModal,
+  openProfileModal
 } from './utils.js';
 import { canPerformCrewAction } from '../../services/permissionService.js';
 import { updatePilotProfile, createPilot, updatePilotDocumentWithAudit } from '../../services/crewService.js';
 import { refreshCrew } from './crew.js';
-import { setActiveTab } from './directory.js';
 
 export function openProfileForm(pilotUid) {
-  setActiveTab('profile');
   crewState.profileEditUid = pilotUid || null;
 
   const heading = query('#cm-profile-heading');
@@ -29,6 +29,11 @@ export function openProfileForm(pilotUid) {
   const mode = query('#cm-profile-mode');
   const saveLabel = query('#cm-profile-save-label');
   const form = query('#cm-profile-form');
+  const photoPreview = query('#cm-profile-photo-preview');
+  if (photoPreview) {
+    photoPreview.style.backgroundImage = '';
+    photoPreview.textContent = 'Add photo';
+  }
 
   if (pilotUid) {
     const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
@@ -56,10 +61,12 @@ export function openProfileForm(pilotUid) {
     if (saveLabel) saveLabel.textContent = 'Create Crew';
     form?.reset();
     setFormField('#cm-field-operator', crewState.activeOperatorUid || '');
+    setFormValue('#cm-field-status', 'Active');
   }
 
   clearFormErrors();
   if (form) form.dataset.mode = pilotUid ? 'edit' : 'create';
+  openProfileModal();
 }
 
 export async function saveProfileForm() {
@@ -150,6 +157,7 @@ export async function saveProfileForm() {
         statusEl.classList.add('is-success');
       }
       showToast('Crew profile updated.', 'success');
+      closeModal();
     } else {
       if (!crewState.activeOperatorUid) throw new Error('Operator context missing.');
       await createPilot({
@@ -166,9 +174,7 @@ export async function saveProfileForm() {
         statusEl.classList.add('is-success');
       }
       showToast('Crew profile created.', 'success');
-      form.reset();
-      setFormField('#cm-field-operator', crewState.activeOperatorUid || '');
-      setActiveTab('directory');
+      closeModal();
     }
   } catch (error) {
     console.error('Save crew profile failed:', error);

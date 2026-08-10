@@ -1,4 +1,4 @@
-import { crewState, docListState } from './state.js';
+import { crewState } from './state.js';
 import {
   query,
   escapeHtml,
@@ -13,7 +13,8 @@ import {
   openModal,
   closeModal,
   confirmModal,
-  normalizeSearchText,
+  getStatusBadgeHtml,
+  daysUntil,
   setFormField,
   isPilotRole
 } from './utils.js';
@@ -27,114 +28,139 @@ import {
   enqueueCrewDocumentDelete,
   shouldQueueError
 } from '../../services/crewDocumentSyncService.js';
-import { DOCUMENT_MASTER_LIST } from './documentsConfig.js';
-import { renderCrewTable, updateKPIs } from './directory.js';
+import { DOCUMENT_MASTER_LIST, DOCUMENT_CATEGORIES } from './documentsConfig.js';
+import { renderCrewScreen, renderDrawerView } from './directory.js';
 import { renderQueueSyncState } from './queue.js';
 import { selectPilot, refreshCrew } from './crew.js';
 
-export function renderDocPilotSelect() {
-  const select = query('#cm-doc-pilot');
-  if (!select) return;
-  select.innerHTML = crewState.pilotsCache
-    .filter((pilot) => `${pilot.status || 'Active'}` !== 'Deleted')
-    .map((pilot) => `<option value="${escapeHtml(pilot.uid)}">${escapeHtml(toProfileName(pilot))}</option>`)
+/* ================= DRAWER DOCUMENTS VIEW ================= */
+
+export function renderPilotDocuments() {
+  const container = query('#cm-drawer-view');
+  if (!container) return;
+  const pilotUid = crewState.selectedPilotUid;
+  const docs = (crewState.docsByPilotCache.get(pilotUid) || [])
+    .slice()
+    .sort((a, b) => (daysUntil(a.expiryDate) ?? Number.MAX_SAFE_INTEGER) - (daysUntil(b.expiryDate) ?? Number.MAX_SAFE_INTEGER));
+
+  const rows = docs
+    .map((doc) => {
+      const state = getDocumentComplianceState(doc);
+      const expiry = formatExpiry(doc.expiryDate);
+      const mark = state === 'Expired' ? '✕' : state === 'Expiring' ? '⚠' : '✓';
+      return `
+      <button type="button" class="cm-doc-row" data-doc-open="${escapeHtml(doc.firestoreId)}">
+        <span class="cm-doc-row-status ${state === 'Expired' ? 'is-danger' : state === 'Expiring' ? 'is-warn' : 'is-valid'}">${mark}</span>
+        <span class="cm-doc-row-main">
+          <strong>${escapeHtml(doc.documentName || 'Untitled')}</strong>
+          <span class="cm-doc-row-meta">${escapeHtml((doc.documentCategory || 'GENERAL').toUpperCase())}${doc.licenseOrCertificateNumber ? ` · ${escapeHtml(doc.licenseOrCertificateNumber)}` : ''}</span>
+        </span>
+        <span class="cm-doc-row-status">${expiry.date !== 'N/A' ? `${escapeHtml(expiry.date)}${expiry.rel ? `<br />${escapeHtml(expiry.rel)}` : ''}` : 'No expiry'}</span>
+        <span class="cm-doc-row-status">${getStatusBadgeHtml(state)}</span>
+      </button>`;
+    })
     .join('');
-  if (crewState.selectedPilotUid) select.value = crewState.selectedPilotUid;
+
+  const canEdit = canPerformCrewAction(crewState.activeCurrentUser, 'edit');
+  container.innerHTML = `
+    <div>
+      <div class="cm-drawer-docs-head">
+        <h4>Documents (${docs.length})</h4>
+        ${canEdit ? `<button type="button" class="cm-btn cm-btn-primary cm-btn-sm" id="cm-doc-upload-toggle">+ Add Document</button>` : ''}
+      </div>
+      ${docs.length ? `<div class="cm-more-list">${rows}</div>` : '<div class="cm-drawer-view-empty">No documents uploaded yet.</div>'}
+    </div>`;
+  query('#cm-doc-upload-toggle')?.addEventListener('click', openDocumentUploadModal);
 }
 
-export function renderDocumentsTab() {
-  if (!crewState.selectedPilotUid && crewState.pilotsCache.length && !isPilotRole()) {
-    const first = crewState.pilotsCache.find((pilot) => `${pilot.status || 'Active'}` !== 'Deleted');
-    if (first) crewState.selectedPilotUid = first.uid;
+export function openDocumentUploadModal() {
+  const pilotUid = crewState.selectedPilotUid;
+  const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid) || crewState.activeCurrentUser;
+  if (!pilotUid) {
+    showToast('Select a pilot first.', 'warning');
+    return;
   }
-  renderDocPilotSelect();
-  const caption = query('#cm-doc-caption');
-  if (caption) caption.textContent = 'Documents';
-  renderPilotDocuments();
-}
+  openModal(
+    `
+    <form id="cm-doc-upload-form" novalidate>
+      <div class="cm-form-grid">
+        <label class="cm-field">
+          <span>Category</span>
+          <select id="cm-doc-category-input" name="documentCategory">
+            ${DOCUMENT_CATEGORIES.map((cat) => `<option value="${escapeHtml(cat.key)}">${escapeHtml(cat.label)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="cm-field">
+          <span>Document name</span>
+          <select id="cm-doc-name" name="documentName"><option value="">Select document...</option></select>
+          <input type="text" id="cm-doc-name-custom" name="documentNameCustom" class="hidden" placeholder="Custom document name" />
+        </label>
+        <label class="cm-field"><span>License / Certificate number</span><input type="text" name="licenseNumber" placeholder="Optional" /></label>
+        <label class="cm-field"><span>Issue date</span><input type="date" name="issueDate" /></label>
+        <label class="cm-field"><span>Expiry date</span><input type="date" name="expiryDate" /></label>
+        <label class="cm-field"><span>Issuing authority</span><input type="text" name="authority" id="cm-doc-authority" placeholder="DGCA / Organization" /></label>
+        <label class="cm-field"><span>Reminder lead (days)</span><input type="number" name="reminderDays" id="cm-doc-reminder" value="30" min="0" /></label>
+        <label class="cm-field"><span>Notes / Remarks</span><textarea name="notesOrRemarks" rows="2" placeholder="Optional"></textarea></label>
+        <label class="cm-field"><span>File (PDF, image)</span><input type="file" name="documentFile" id="cm-doc-file" accept="application/pdf,image/*,.pdf" required /></label>
+      </div>
+      <p class="cm-form-status" id="cm-doc-upload-status"></p>
+      <div class="cm-modal-actions">
+        <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" id="cm-doc-upload-cancel">Cancel</button>
+        <button type="submit" class="cm-btn cm-btn-primary cm-btn-md" id="cm-doc-upload-submit">Upload Document</button>
+      </div>
+    </form>
+  `,
+    { title: 'Add Document', subtitle: `Uploading for ${toProfileName(pilot)}.` }
+  );
 
-export function getFilteredDocs() {
-  const pilotUid = crewState.selectedPilotUid || crewState.activeCurrentUser?.uid;
-  const docs = crewState.docsByPilotCache.get(pilotUid) || [];
-  const normalizedSearch = normalizeSearchText(docListState.searchText);
-
-  return docs.filter((doc) => {
-    const category = `${doc.documentCategory || 'GENERAL'}`.toUpperCase();
-    const status = getDocumentComplianceState(doc);
-    const matchesSearch = !normalizedSearch || `${doc.documentName || ''} ${doc.licenseOrCertificateNumber || ''} ${doc.issuingAuthorityOrBody || ''}`.toLowerCase().includes(normalizedSearch);
-    const matchesCategory = docListState.category === 'ALL' || category === docListState.category;
-    const matchesStatus = docListState.status === 'ALL' || status.toUpperCase() === docListState.status;
-    return matchesSearch && matchesCategory && matchesStatus;
+  populateDocumentNames(getDocumentCategoryKey());
+  query('#cm-doc-category-input')?.addEventListener('change', (event) => onDocumentCategoryChange(event.target?.value || 'LICENCE'));
+  query('#cm-doc-name')?.addEventListener('change', (event) => onDocumentNameChange(event.target?.value || ''));
+  query('#cm-doc-upload-cancel')?.addEventListener('click', closeModal);
+  query('#cm-doc-upload-form')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    submitDocumentUpload(event.currentTarget);
   });
 }
 
-export function renderPilotDocuments() {
-  const body = query('#cm-doc-table-body');
-  const caption = query('#cm-doc-caption');
-  const uploadCaption = query('#cm-doc-upload-caption');
-  if (!body) return;
+export function openDocumentDetail(documentId) {
+  const pilotUid = crewState.selectedPilotUid;
+  const docs = crewState.docsByPilotCache.get(pilotUid) || [];
+  const doc = docs.find((item) => item.firestoreId === documentId);
+  if (!doc) return;
+  crewState.activeDocument = doc;
+  const state = getDocumentComplianceState(doc);
+  const expiry = formatExpiry(doc.expiryDate);
+  const canEdit = canPerformCrewAction(crewState.activeCurrentUser, 'edit');
+  const canDelete = canPerformCrewAction(crewState.activeCurrentUser, 'delete');
 
-  const pilotUid = crewState.selectedPilotUid || crewState.activeCurrentUser?.uid;
-  const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid) || crewState.activeCurrentUser;
-  const filtered = getFilteredDocs();
-  const pilotName = toProfileName(pilot);
+  openModal(
+    `
+    <dl class="cm-drawer-kv">
+      <div class="kv-row"><dt>Category</dt><dd>${escapeHtml((doc.documentCategory || 'GENERAL').toUpperCase())}</dd></div>
+      <div class="kv-row"><dt>Status</dt><dd>${getStatusBadgeHtml(state)}</dd></div>
+      <div class="kv-row"><dt>Number</dt><dd>${escapeHtml(doc.licenseOrCertificateNumber || 'N/A')}</dd></div>
+      <div class="kv-row"><dt>Authority</dt><dd>${escapeHtml(doc.issuingAuthorityOrBody || 'N/A')}</dd></div>
+      <div class="kv-row"><dt>Issue date</dt><dd>${escapeHtml(formatShortDate(doc.issueDate))}</dd></div>
+      <div class="kv-row"><dt>Expiry</dt><dd>${escapeHtml(expiry.date)}${expiry.rel ? ` — ${escapeHtml(expiry.rel)}` : ''}</dd></div>
+      <div class="kv-row"><dt>Reminder</dt><dd>${escapeHtml(`${doc.reminderLeadTimeDays ?? 'N/A'} day(s)`)}</dd></div>
+      ${doc.notesOrRemarks ? `<div class="kv-row"><dt>Notes</dt><dd>${escapeHtml(doc.notesOrRemarks)}</dd></div>` : ''}
+    </dl>
+    <div class="cm-modal-actions">
+      ${doc.documentUri ? `<button type="button" class="cm-btn cm-btn-ghost cm-btn-md" id="cm-doc-detail-preview">Preview / Open</button>` : ''}
+      ${canEdit ? `<button type="button" class="cm-btn cm-btn-ghost cm-btn-md" id="cm-doc-detail-edit">Edit</button>` : ''}
+      ${canDelete ? `<button type="button" class="cm-btn cm-btn-danger cm-btn-md" id="cm-doc-detail-delete">Delete</button>` : ''}
+    </div>
+  `,
+    { title: doc.documentName || 'Document' }
+  );
 
-  if (caption) caption.textContent = pilotUid ? `Documents — ${pilotName}` : 'Documents';
-  if (uploadCaption) {
-    uploadCaption.textContent = pilotUid ? `Uploading for ${pilotName}.` : 'Select a pilot, then fill the document details.';
-  }
-
-  if (!pilotUid) {
-    body.innerHTML = '<tr><td colspan="8" class="cm-empty">No pilot selected.</td></tr>';
-    return;
-  }
-
-  if (!filtered.length) {
-    body.innerHTML = '<tr><td colspan="8" class="cm-empty">No documents match the current filters.</td></tr>';
-    return;
-  }
-
-  body.innerHTML = filtered
-    .map((doc) => {
-      const status = getDocumentComplianceState(doc);
-      const expiry = formatExpiry(doc.expiryDate);
-      return `<tr>
-        <td data-label="Document"><strong>${escapeHtml(doc.documentName || 'Untitled')}</strong></td>
-        <td data-label="Category"><span class="cm-badge cm-badge-muted">${escapeHtml((doc.documentCategory || 'GENERAL').toUpperCase())}</span></td>
-        <td data-label="Number">${escapeHtml(doc.licenseOrCertificateNumber || 'N/A')}</td>
-        <td data-label="Authority">${escapeHtml(doc.issuingAuthorityOrBody || 'N/A')}</td>
-        <td data-label="Issue Date">${escapeHtml(formatShortDate(doc.issueDate))}</td>
-        <td data-label="Expiry">
-          <span class="cm-expiry">
-            <span class="cm-expiry-date">${escapeHtml(expiry.date)}</span>
-            ${expiry.rel ? `<span class="cm-expiry-in ${status === 'Expired' ? 'is-danger' : status === 'Expiring' ? 'is-warn' : ''}">${escapeHtml(expiry.rel)}</span>` : ''}
-            <span class="cm-badge ${status === 'Expired' ? 'cm-badge-red' : status === 'Expiring' ? 'cm-badge-amber' : 'cm-badge-green'}">${status}</span>
-          </span>
-        </td>
-        <td data-label="Reminder">${escapeHtml(`${doc.reminderLeadTimeDays ?? 'N/A'} day(s)`)}</td>
-        <td data-label="Actions" class="cm-col-actions">
-          <span class="cm-action-row">
-            ${doc.documentUri ? `
-              <button type="button" class="cm-action-btn" data-doc-action="download" data-document-id="${escapeHtml(doc.firestoreId)}" data-tip="Download" aria-label="Download document">
-                <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-              </button>
-              <button type="button" class="cm-action-btn" data-doc-action="preview" data-document-id="${escapeHtml(doc.firestoreId)}" data-tip="Preview" aria-label="Preview document">
-                <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
-              </button>` : ''}
-            ${canPerformCrewAction(crewState.activeCurrentUser, 'edit') ? `
-              <button type="button" class="cm-action-btn" data-doc-action="edit" data-document-id="${escapeHtml(doc.firestoreId)}" data-tip="Edit" aria-label="Edit document">
-                <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-              </button>` : ''}
-            ${canPerformCrewAction(crewState.activeCurrentUser, 'delete') ? `
-              <button type="button" class="cm-action-btn is-danger" data-doc-action="delete" data-document-id="${escapeHtml(doc.firestoreId)}" data-storage-path="${escapeHtml(doc.storagePath || '')}" data-tip="Delete" aria-label="Delete document">
-                <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-              </button>` : ''}
-          </span>
-        </td>
-      </tr>`;
-    })
-    .join('');
+  query('#cm-doc-detail-preview')?.addEventListener('click', () => previewDocument(doc));
+  query('#cm-doc-detail-edit')?.addEventListener('click', () => editDocumentWithForm(documentId));
+  query('#cm-doc-detail-delete')?.addEventListener('click', () => deleteDocument(documentId, doc.storagePath || ''));
 }
+
+/* ================= DOCUMENT CATEGORY / NAME HELPERS ================= */
 
 export function getDocumentCategoryKey() {
   return `${query('#cm-doc-category-input')?.value || 'LICENCE'}`.toUpperCase();
@@ -194,27 +220,19 @@ export function onDocumentNameChange(name) {
   setFormField('#cm-doc-reminder', `${preset.reminderDays ?? 30}`);
 }
 
-export function toggleUploadCard(show) {
-  const card = query('#cm-doc-upload-card');
-  if (!card) return;
-  card.classList.toggle('hidden', !show);
-  if (show) {
-    populateDocumentNames(getDocumentCategoryKey());
-    const caption = query('#cm-doc-upload-caption');
-    const pilotUid = crewState.selectedPilotUid || crewState.activeCurrentUser?.uid;
-    const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
-    if (caption && pilot) caption.textContent = `Uploading for ${toProfileName(pilot)}.`;
-  }
-}
+/* ================= PREVIEW / DOWNLOAD ================= */
 
 export function previewDocument(doc) {
   if (!doc?.documentUri) return;
-  openModal(`
+  openModal(
+    `
     <p>${escapeHtml(doc.documentName || 'Document')} — ${escapeHtml(doc.documentCategory || 'GENERAL')}</p>
     ${/\.pdf($|\?)/i.test(doc.documentUri)
       ? `<iframe class="cm-pdf-viewer" src="${escapeHtml(doc.documentUri)}" title="Document preview"></iframe>`
       : `<p>This file type can't be previewed inline. <a href="${escapeHtml(doc.documentUri)}" target="_blank" rel="noopener noreferrer">Open in a new tab</a>.</p>`}
-  `, { title: doc.documentName || 'Document' });
+  `,
+    { title: doc.documentName || 'Document' }
+  );
 }
 
 export async function downloadDocument(doc) {
@@ -234,6 +252,8 @@ export function getTargetPilot() {
   return crewState.pilotsCache.find((pilot) => pilot.uid === pilotUid) || crewState.activeCurrentUser || null;
 }
 
+/* ================= UPLOAD / EDIT / DELETE ================= */
+
 export async function submitDocumentUpload(form) {
   if (!(form instanceof HTMLFormElement)) return;
   const targetPilotUid = crewState.selectedPilotUid || crewState.activeCurrentUser?.uid;
@@ -245,9 +265,7 @@ export async function submitDocumentUpload(form) {
 
   const documentCategory = form.documentCategory?.value?.trim() || 'GENERAL';
   const isCustomCategory = `${documentCategory}`.toUpperCase() === 'CUSTOM';
-  const documentName = isCustomCategory
-    ? form.documentNameCustom?.value?.trim()
-    : form.documentName?.value?.trim();
+  const documentName = isCustomCategory ? form.documentNameCustom?.value?.trim() : form.documentName?.value?.trim();
   const licenseOrCertificateNumber = form.licenseNumber?.value?.trim() || null;
   const issueDate = toTimestampCandidate(form.issueDate?.value || null);
   const expiryDate = toTimestampCandidate(form.expiryDate?.value || null);
@@ -325,7 +343,7 @@ export async function submitDocumentUpload(form) {
     showToast('Document uploaded.', 'success');
 
     await selectPilot(targetPilotUid);
-    if (crewState.activeTab === 'documents') renderPilotDocuments();
+    closeModal();
   } catch (error) {
     console.error('Document upload failed:', error);
 
@@ -371,8 +389,8 @@ export async function submitDocumentUpload(form) {
         isDirty: true
       });
 
-      renderCrewTable();
-      renderPilotDocuments();
+      renderCrewScreen();
+      renderDrawerView();
       renderQueueSyncState();
       if (status) {
         status.textContent = 'Network unavailable. Document upload queued and marked dirty.';
@@ -402,7 +420,8 @@ export async function editDocumentWithForm(documentId) {
   const targetDoc = pilotDocs.find((item) => item.firestoreId === documentId);
   if (!targetDoc) return;
 
-  openModal(`
+  openModal(
+    `
     <form id="cm-doc-edit-form" novalidate>
       <div class="cm-form-grid" style="grid-template-columns:1fr">
         <label class="cm-field">
@@ -431,7 +450,9 @@ export async function editDocumentWithForm(documentId) {
         <button type="submit" class="cm-btn cm-btn-primary cm-btn-md" id="cm-doc-edit-save">Save Changes</button>
       </div>
     </form>
-  `, { title: `Edit ${targetDoc.documentName || 'document'}` });
+  `,
+    { title: `Edit ${targetDoc.documentName || 'document'}` }
+  );
 
   const formEl = query('#cm-doc-edit-form');
   const status = query('#cm-doc-upload-status');
@@ -474,9 +495,8 @@ export async function editDocumentWithForm(documentId) {
               : item
           );
           crewState.docsByPilotCache.set(targetPilotUid, nextDocs);
-          const targetPilot = crewState.pilotsCache.find((item) => item.uid === targetPilotUid) || crewState.activeCurrentUser;
-          renderCrewTable();
-          renderPilotDocuments();
+          renderCrewScreen();
+          renderDrawerView();
         }
         renderQueueSyncState();
         if (status) {
@@ -538,9 +558,8 @@ export async function deleteDocument(documentId, storagePath) {
           if (targetPilotUid) {
             const nextDocs = (crewState.docsByPilotCache.get(targetPilotUid) || []).filter((item) => item.firestoreId !== documentId);
             crewState.docsByPilotCache.set(targetPilotUid, nextDocs);
-            const targetPilot = crewState.pilotsCache.find((item) => item.uid === targetPilotUid) || crewState.activeCurrentUser;
-            renderCrewTable();
-            renderPilotDocuments();
+            renderCrewScreen();
+            renderDrawerView();
           }
           renderQueueSyncState();
           if (status) {
@@ -556,90 +575,6 @@ export async function deleteDocument(documentId, storagePath) {
           showToast(error.message || 'Unable to delete document.', 'error');
         }
       }
-    }
-  });
-}
-
-export function bindDocumentControls() {
-  query('#cm-doc-pilot')?.addEventListener('change', (event) => {
-    const pilotUid = event.target?.value;
-    if (!pilotUid) return;
-    crewState.selectedPilotUid = pilotUid;
-    docListState.searchText = '';
-    const search = query('#cm-doc-search');
-    if (search) search.value = '';
-    selectPilot(pilotUid);
-  });
-
-  query('#cm-doc-search')?.addEventListener('input', (event) => {
-    docListState.searchText = event.target?.value || '';
-    renderPilotDocuments();
-  });
-
-  query('#cm-doc-category')?.addEventListener('change', (event) => {
-    docListState.category = `${event.target?.value || 'ALL'}`.toUpperCase();
-    renderPilotDocuments();
-  });
-
-  query('#cm-doc-status')?.addEventListener('change', (event) => {
-    docListState.status = `${event.target?.value || 'ALL'}`.toUpperCase();
-    renderPilotDocuments();
-  });
-
-  query('#cm-doc-upload-toggle')?.addEventListener('click', () => {
-    const card = query('#cm-doc-upload-card');
-    if (!card) return;
-    toggleUploadCard(card.classList.contains('hidden'));
-  });
-
-  query('#cm-doc-category-input')?.addEventListener('change', (event) => {
-    onDocumentCategoryChange(event.target?.value || 'LICENCE');
-  });
-
-  query('#cm-doc-name')?.addEventListener('change', (event) => {
-    onDocumentNameChange(event.target?.value || '');
-  });
-
-  const clearInvalidField = (event) => {
-    if (event.target instanceof HTMLElement) event.target.closest('.cm-field')?.classList.remove('is-invalid');
-  };
-  query('#cm-doc-name')?.addEventListener('change', clearInvalidField);
-  query('#cm-doc-name-custom')?.addEventListener('input', clearInvalidField);
-  query('#cm-doc-file')?.addEventListener('change', clearInvalidField);
-
-  query('#cm-doc-upload-form')?.addEventListener('submit', (event) => {
-    event.preventDefault();
-    submitDocumentUpload(event.currentTarget);
-  });
-
-  query('#cm-doc-table-body')?.addEventListener('click', async (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const button = target.closest('button[data-doc-action]');
-    if (!button) return;
-    const action = button.getAttribute('data-doc-action');
-    const documentId = button.getAttribute('data-document-id');
-    const storagePath = button.getAttribute('data-storage-path') || '';
-    if (!action || !documentId) return;
-
-    const pilotUid = crewState.selectedPilotUid || crewState.activeCurrentUser?.uid;
-    const pilotDocs = crewState.docsByPilotCache.get(pilotUid) || [];
-    const targetDoc = pilotDocs.find((item) => item.firestoreId === documentId);
-
-    if (action === 'download') {
-      await downloadDocument(targetDoc);
-      return;
-    }
-    if (action === 'preview') {
-      previewDocument(targetDoc);
-      return;
-    }
-    if (action === 'edit') {
-      await editDocumentWithForm(documentId);
-      return;
-    }
-    if (action === 'delete') {
-      await deleteDocument(documentId, storagePath);
     }
   });
 }
