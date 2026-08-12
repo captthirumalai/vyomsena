@@ -1,5 +1,28 @@
+.fdtl-header {
+  position: relative;
+}
+
+.fdtl-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .fdtl-header .card-heading {
   margin-bottom: 0.4rem;
+  flex: 1;
+}
+
+.fdtl-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.fdtl-header-action {
+  min-width: 96px;
 }
 
 .fdtl-scheme-line {

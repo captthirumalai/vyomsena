@@ -1,4 +1,15 @@
-export { CAR_SOURCE, DEFAULT_FDTL_SCHEME, getDefaultScheme, getFdtlScheme, saveFdtlScheme, onFdtlSchemeSnapshot } from './scheme.js';
+export {
+  CAR_SOURCE,
+  DEFAULT_FDTL_SCHEME,
+  getDefaultScheme,
+  getFdtlScheme,
+  getFdtlSchemeDraft,
+  getFdtlSchemeVersionHistory,
+  saveFdtlScheme,
+  saveFdtlSchemeDraft,
+  approveFdtlScheme,
+  onFdtlSchemeSnapshot
+} from './scheme.js';
 export { buildAuditEntry, writeAuditEntry, listAuditEntries, onAuditSnapshot, diffObject } from './audit.js';
 export {
   OPERATION_CREW,

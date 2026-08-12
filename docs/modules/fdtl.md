@@ -3,9 +3,23 @@
 Route: /fdtl
 Title: FDTL Monitoring
 
-Repurposed from the former Fleet (Aircraft) module. Now implements Flight Duty Time Limit (FDTL) monitoring under **DGCA CAR Section 7, Series J, Part IV, Rev 1 (19 January 2023)**, driven by the operator's approved FDTL Scheme rather than hard-coded limits.
+End goal: build a focused, operator-owned Flight Duty Time Limit (FDTL) compliance module that keeps the company’s approved scheme as the single source of truth, surfaces live crew risk in the dashboard, and lets operations staff review and record duty facts without cluttering the daily workflow. The scheme is configured once at the company level and then only opened when a policy change or approval action is truly required.
+
+Repurposed from the former Fleet (Aircraft) module. This module implements Flight Duty Time Limit monitoring under **DGCA CAR Section 7, Series J, Part IV, Rev 1 (19 January 2023)**, driven by the operator's approved FDTL Scheme rather than hard-coded limits.
 
 > The CAR serves as guidelines for Private/Aerial operators operating non-turbojet aeroplanes below 5700 kg AUW. Such operators prepare their own FDTL Scheme based on the type and size of operation, include it in the Operations Manual, and submit it to DGCA for approval. VAMS therefore treats the scheme as the single source of truth for all limits.
+
+## End Goal
+
+The FDTL module should become the operational control room for crew duty compliance. It must:
+
+- keep a single company-level approved scheme as the authoritative rule set;
+- show live crew status at a glance across the operator’s population;
+- let operations teams monitor attention and exceedance conditions without navigating configuration screens;
+- allow accurate duty-record capture, fatigue reporting, and pre-flight eligibility checks;
+- keep scheme edits rare, explicit, and audit-backed, so they are accessed only when a review, approval, or policy update is required.
+
+In short, the daily user experience is operational monitoring, while scheme administration is a deliberate exception path rather than a permanent tab in the workflow.
 
 ## Implementation Status
 
@@ -22,15 +36,29 @@ The module is now operating as an organisation-wide FDTL monitoring system with 
 - Approval workflow for scheme saving and approval tracking.
 
 ### Current limitation
-- Time-zone crossing rest rules and full operator approval-history workflow are still being tightened to production-grade standards.
+- Time-zone crossing rest rules are still being tightened to production-grade standards.
+- The module now keeps the approved scheme as the protected live source of truth and stores draft adjustments separately until approval, so the active company rule set cannot be overwritten in place.
 
-## Module Areas (5 panes)
+## UX Decision: Scheme as a rare-action control
+
+The FDTL scheme should not live as a standard tab in the main workflow. Because the company scheme is set once and then governs all calculations, it is better presented as a top-right action button labelled `Scheme` that opens only when needed.
+
+This keeps the main navigation focused on:
+
+1. Dashboard
+2. Crew
+3. Duty Records
+4. Flight Check
+
+and treats scheme changes as a deliberate administrative action rather than a routine workstream.
+
+## Module Areas
 
 1. **Dashboard** — who needs attention. Counts of crew Within Limits / Attention / Exceeded and fatigue reports, plus the attention list.
 2. **Crew** — current duty state per crew member (on duty / on rest / available / off duty / sick / leave), duty start, rest completion, and FDTL summary alerts. State is editable and audited.
 3. **Duty Records** — capture report time, duty period, FDP start/end, flight time, landings, operation type (commercial / positioning / training / base training / familiarisation / skill test / IR / PPC), sector, note. Historical records retained for the scheme's retention period. Audit trail view included.
 4. **Flight Check** — pre-flight eligibility gate: given crew, single/two-pilot operation, report time, planned duty end, planned flight time and landings, computes base FDP limit, WOCL adjustment, applicable FDP limit, planned FDP, and verdict (Within / Attention / Exceeded) plus 24-hour flight time and landing checks.
-5. **Scheme** — operator-controlled FDTL settings, scheme approval status, and confidential fatigue report submission.
+5. **Scheme** — rare admin action, opened via the top-right button only when the operator needs to review or update the approved scheme, approval status, or other policy-driven values.
 
 ## FDTL Engine (scheme-driven)
 

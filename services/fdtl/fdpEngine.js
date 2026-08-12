@@ -100,6 +100,101 @@ function asYmd(date) {
   return `${year}-${month}-${day}`;
 }
 
+function getRecordInterval(record) {
+  const start = parseDate(record?.dutyStart || record?.fdpStart || record?.reportTime);
+  const end = parseDate(record?.dutyEnd || record?.fdpEnd || record?.reportTime);
+  if (!start || !end) return null;
+  return { start, end };
+}
+
+function getNightWindowForDate(date, startHour, endHour) {
+  const base = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const start = new Date(base);
+  start.setHours(startHour, 0, 0, 0);
+
+  const end = new Date(base);
+  end.setHours(endHour, 0, 0, 0);
+
+  if (startHour <= endHour) {
+    return { start, end };
+  }
+
+  const nextDay = new Date(base);
+  nextDay.setDate(base.getDate() + 1);
+  return { start, end: new Date(nextDay.getTime() + endHour * 60 * 60 * 1000) };
+}
+
+function intervalOverlapMinutes(startA, endA, startB, endB) {
+  const overlapStart = new Date(Math.max(startA.getTime(), startB.getTime()));
+  const overlapEnd = new Date(Math.min(endA.getTime(), endB.getTime()));
+  if (overlapEnd <= overlapStart) return 0;
+  return Math.max(0, Math.round((overlapEnd.getTime() - overlapStart.getTime()) / 60000));
+}
+
+function countLocalNightsInRange(startTime, endTime, localNightStartHour, localNightEndHour) {
+  const rangeStart = parseDate(startTime) || new Date();
+  const rangeEnd = parseDate(endTime) || new Date();
+  if (!rangeStart || !rangeEnd || rangeEnd <= rangeStart) return 0;
+
+  const startDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
+  const endDate = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate());
+  let count = 0;
+
+  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
+    const window = getNightWindowForDate(cursor, localNightStartHour, localNightEndHour);
+    const overlapStart = new Date(Math.max(rangeStart.getTime(), window.start.getTime()));
+    const overlapEnd = new Date(Math.min(rangeEnd.getTime(), window.end.getTime()));
+    if (overlapEnd > overlapStart) count += 1;
+  }
+
+  return count;
+}
+
+function collectNightDutyDates(record, localNightStartHour, localNightEndHour, regulatedStartHour, regulatedEndHour) {
+  const interval = getRecordInterval(record);
+  if (!interval) return [];
+
+  const dates = new Set();
+  const startDate = new Date(interval.start.getFullYear(), interval.start.getMonth(), interval.start.getDate());
+  const endDate = new Date(interval.end.getFullYear(), interval.end.getMonth(), interval.end.getDate());
+
+  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
+    const localWindow = getNightWindowForDate(cursor, localNightStartHour, localNightEndHour);
+    const regulatedWindow = getNightWindowForDate(cursor, regulatedStartHour, regulatedEndHour);
+    const localOverlap = intervalOverlapMinutes(interval.start, interval.end, localWindow.start, localWindow.end);
+    const regulatedOverlap = intervalOverlapMinutes(interval.start, interval.end, regulatedWindow.start, regulatedWindow.end);
+    if (localOverlap > 0 || regulatedOverlap > 0) {
+      dates.add(asYmd(cursor));
+    }
+  }
+
+  return [...dates].filter(Boolean);
+}
+
+function getTimeZoneCrossingRequirementMinutes(scheme, record) {
+  if (!record) return 0;
+  const zoneChange = Number(
+    record.timeZoneCrossingHours ??
+    record.timeZoneDifferenceHours ??
+    record.zoneChangeHours ??
+    record.timezoneCrossingHours ??
+    0
+  );
+
+  const standard3To7 = Number(scheme.rest?.timeZoneCrossing3To7Minutes ?? scheme.timeZoneCrossing?.zone3To7Minutes ?? 1080);
+  const standardOver7 = Number(scheme.rest?.timeZoneCrossingOver7Minutes ?? scheme.timeZoneCrossing?.over7Minutes ?? 1440);
+
+  if (zoneChange > 7) {
+    return standardOver7;
+  }
+
+  if (zoneChange >= 3) {
+    return standard3To7;
+  }
+
+  return 0;
+}
+
 export function computeRestStatus(scheme, { state, records, now = new Date() }) {
   const minimumMinutes = scheme.rest?.minimumMinutes ?? 720;
   const ordered = [...(records || [])].sort((a, b) => {
@@ -117,13 +212,15 @@ export function computeRestStatus(scheme, { state, records, now = new Date() }) 
       )
     : 0;
 
-  const requiredRestMinutes = Math.max(minimumMinutes, previousDutyPeriodMinutes);
+  const timezoneMinimumMinutes = getTimeZoneCrossingRequirementMinutes(scheme, latest);
+  const requiredRestMinutes = Math.max(minimumMinutes, previousDutyPeriodMinutes, timezoneMinimumMinutes);
   const actualRestMinutes = lastDutyEndedAt ? diffMinutes(lastDutyEndedAt, now) : 0;
   const restUntil = lastDutyEndedAt ? new Date(lastDutyEndedAt.getTime() + requiredRestMinutes * 60000) : null;
 
   return {
     minimumMinutes,
     previousDutyPeriodMinutes,
+    timezoneMinimumMinutes,
     requiredRestMinutes,
     actualRestMinutes,
     restUntil,
@@ -139,19 +236,18 @@ export function computeNightDutyStatus(scheme, { records = [], now = new Date() 
   const endHour = scheme.nightDuty?.endHour ?? 5;
   const localStart = scheme.operationalAdjustments?.localNightStartHour ?? 22;
   const localEnd = scheme.operationalAdjustments?.localNightEndHour ?? 6;
-  const allNightDuty = (records || []).filter((record) => {
-    const start = parseDate(record.fdpStart || record.dutyStart || record.reportTime);
-    if (!start) return false;
-    const inNightDuty = isWithinNightWindow(start, startHour, endHour);
-    const inLocalNight = isWithinNightWindow(start, localStart, localEnd);
-    return inNightDuty || inLocalNight;
-  });
 
-  const uniqueDates = [...new Set(allNightDuty.map((record) => asYmd(record.fdpStart || record.dutyStart || record.reportTime)).filter(Boolean))].sort();
+  const uniqueDates = new Set();
+  for (const record of records || []) {
+    const nightDates = collectNightDutyDates(record, localStart, localEnd, startHour, endHour);
+    nightDates.forEach((date) => uniqueDates.add(date));
+  }
+
+  const orderedDates = [...uniqueDates].sort();
   let consecutiveNights = 0;
-  for (let index = uniqueDates.length - 1; index >= 0; index -= 1) {
-    const current = new Date(`${uniqueDates[index]}T00:00:00`);
-    const previous = index === uniqueDates.length - 1 ? null : new Date(`${uniqueDates[index + 1]}T00:00:00`);
+  for (let index = orderedDates.length - 1; index >= 0; index -= 1) {
+    const current = new Date(`${orderedDates[index]}T00:00:00`);
+    const previous = index === orderedDates.length - 1 ? null : new Date(`${orderedDates[index + 1]}T00:00:00`);
     if (!previous) {
       consecutiveNights += 1;
       continue;
@@ -165,7 +261,7 @@ export function computeNightDutyStatus(scheme, { records = [], now = new Date() 
   }
 
   return {
-    localNightCount: uniqueDates.length,
+    localNightCount: orderedDates.length,
     consecutiveNights,
     maxConsecutiveNights: scheme.nightDuty?.maxConsecutiveNights ?? 2,
     ok: consecutiveNights <= (scheme.nightDuty?.maxConsecutiveNights ?? 2),
@@ -176,37 +272,37 @@ export function computeNightDutyStatus(scheme, { records = [], now = new Date() 
 }
 
 export function computeCumulativeStatus(scheme, { records = [], now = new Date() }) {
-  const cutoff = now.getTime() - 365 * 24 * 60 * 60 * 1000;
-  const recent = (records || []).filter((record) => {
-    const end = parseDate(record.fdpEnd || record.dutyEnd || record.reportTime);
-    return end && end.getTime() >= cutoff;
-  });
-
-  const totals = recent.reduce(
-    (acc, record) => {
-      acc.flightTimeMinutes += Number(record.flightTimeMinutes) || 0;
-      const dutyStart = parseDate(record.dutyStart || record.fdpStart || record.reportTime);
-      const dutyEnd = parseDate(record.dutyEnd || record.fdpEnd || record.reportTime);
-      if (dutyStart && dutyEnd) {
-        acc.dutyMinutes += diffMinutes(dutyStart, dutyEnd);
-      }
-      return acc;
-    },
-    { flightTimeMinutes: 0, dutyMinutes: 0 }
-  );
-
   const periods = Object.entries(scheme.cumulative || {}).map(([days, limit]) => {
     const periodDays = Number(days) || 0;
+    const cutoff = now.getTime() - periodDays * 24 * 60 * 60 * 1000;
+    const windowRecords = (records || []).filter((record) => {
+      const end = parseDate(record.fdpEnd || record.dutyEnd || record.reportTime);
+      return end && end.getTime() >= cutoff && end.getTime() <= now.getTime();
+    });
+
+    const total = windowRecords.reduce(
+      (acc, record) => {
+        acc.flightTimeMinutes += Number(record.flightTimeMinutes) || 0;
+        const interval = getRecordInterval(record);
+        if (interval) {
+          acc.dutyMinutes += diffMinutes(interval.start, interval.end);
+        }
+        return acc;
+      },
+      { flightTimeMinutes: 0, dutyMinutes: 0 }
+    );
+
     const flightLimit = Number(limit?.flightTimeMinutes) || 0;
     const dutyLimit = Number(limit?.dutyMinutes) || 0;
-    const flightExceeded = totals.flightTimeMinutes > flightLimit;
-    const dutyExceeded = totals.dutyMinutes > dutyLimit;
+    const flightExceeded = total.flightTimeMinutes > flightLimit;
+    const dutyExceeded = total.dutyMinutes > dutyLimit;
+
     return {
       days: periodDays,
       flightLimit,
       dutyLimit,
-      flightUsed: totals.flightTimeMinutes,
-      dutyUsed: totals.dutyMinutes,
+      flightUsed: total.flightTimeMinutes,
+      dutyUsed: total.dutyMinutes,
       flightExceeded,
       dutyExceeded,
       ok: !flightExceeded && !dutyExceeded
@@ -214,17 +310,22 @@ export function computeCumulativeStatus(scheme, { records = [], now = new Date()
   });
 
   return {
-    totals,
+    totals: {
+      flightTimeMinutes: periods.reduce((sum, item) => sum + item.flightUsed, 0),
+      dutyMinutes: periods.reduce((sum, item) => sum + item.dutyUsed, 0)
+    },
     periods,
     ok: periods.every((period) => period.ok),
     alert: periods.some((period) => !period.ok)
-      ? 'Cumulative limits exceeded in 365-day view'
+      ? 'Cumulative limits exceeded in rolling window view'
       : 'Cumulative limits within scheme'
   };
 }
 
 export function computeWeeklyRestStatus(scheme, { records = [], now = new Date() }) {
   const weekly = scheme.rest?.weekly || {};
+  const localNightStart = Number(scheme.operationalAdjustments?.localNightStartHour ?? 22);
+  const localNightEnd = Number(scheme.operationalAdjustments?.localNightEndHour ?? 6);
   const localNightsRequired = Number(weekly.localNights) || 2;
   const maxSpanHours = Number(weekly.maxSpanHours) || 168;
   const minMinutes = Number(weekly.minimumMinutes) || 2160;
@@ -234,41 +335,30 @@ export function computeWeeklyRestStatus(scheme, { records = [], now = new Date()
   const recent = (records || []).filter((record) => {
     const end = parseDate(record.fdpEnd || record.dutyEnd || record.reportTime);
     return end && now.getTime() - end.getTime() <= windowMs;
-  });
-
-  const sorted = [...recent].sort((a, b) => {
+  }).sort((a, b) => {
     const left = parseDate(a.fdpEnd || a.dutyEnd || a.reportTime)?.getTime() ?? 0;
     const right = parseDate(b.fdpEnd || b.dutyEnd || b.reportTime)?.getTime() ?? 0;
     return right - left;
   });
 
-  const latest = sorted[0] || null;
-  let localNightCount = 0;
-  let totalRestMinutes = 0;
+  const latest = recent[0] || null;
+  const latestEnd = latest ? parseDate(latest.fdpEnd || latest.dutyEnd || latest.reportTime) : null;
+  const totalRestMinutes = latestEnd ? diffMinutes(latestEnd, now) : 0;
+  const localNightCount = latestEnd
+    ? countLocalNightsInRange(latestEnd, now, localNightStart, localNightEnd)
+    : 0;
 
-  if (latest) {
-    const end = parseDate(latest.fdpEnd || latest.dutyEnd || latest.reportTime);
-    if (end) {
-      totalRestMinutes = diffMinutes(end, now);
-    }
-  }
-
-  for (const record of sorted) {
-    const start = parseDate(record.fdpStart || record.dutyStart || record.reportTime);
-    if (!start) continue;
-    const localNightStart = Number(scheme.operationalAdjustments?.localNightStartHour ?? 22);
-    const localNightEnd = Number(scheme.operationalAdjustments?.localNightEndHour ?? 6);
-    if (isWithinNightWindow(start, localNightStart, localNightEnd)) {
-      localNightCount += 1;
-    }
-  }
-
-  const requiredMinutes = localNightCount > (Number(weekly.nightDutyTriggerCount) || 3) ? extendedMinMinutes : minMinutes;
+  const timezoneMinimumMinutes = getTimeZoneCrossingRequirementMinutes(scheme, latest);
+  const requiredMinutes = Math.max(
+    localNightCount >= (Number(weekly.nightDutyTriggerCount) || 3) ? extendedMinMinutes : minMinutes,
+    timezoneMinimumMinutes
+  );
   const ok = totalRestMinutes >= requiredMinutes;
 
   return {
     localNightCount,
     localNightsRequired,
+    timezoneMinimumMinutes,
     requiredMinutes,
     totalRestMinutes,
     ok,
@@ -308,16 +398,72 @@ export function summarizeCrewFdtl(scheme, { crewProfileId, state, records = [], 
   };
 }
 
-export function computeWoclAdjustment(scheme, { fdpStart, fdpEnd }) {
+export function computeSplitDutyAdjustment(scheme, { breakMinutes = 0 } = {}) {
+  const splitDuty = scheme.splitDuty || {};
+  const breakLength = Number(breakMinutes) || 0;
+  const minBreak = Number(splitDuty.breakLessThanMinutes ?? 180);
+  const maxBreak = Number(splitDuty.breakGreaterThanMinutes ?? 600);
+  const extensionFactor = Number(splitDuty.extensionFactor ?? 0.5);
+
+  if (breakLength <= 0) {
+    return { breakMinutes: 0, extensionMinutes: 0, applies: false, rule: 'none' };
+  }
+
+  if (breakLength < minBreak) {
+    return { breakMinutes: breakLength, extensionMinutes: 0, applies: false, rule: 'short_break' };
+  }
+
+  if (breakLength > maxBreak) {
+    return { breakMinutes: breakLength, extensionMinutes: 0, applies: false, rule: 'long_break' };
+  }
+
+  const extensionMinutes = Math.round(breakLength * extensionFactor);
+  return {
+    breakMinutes: breakLength,
+    extensionMinutes,
+    applies: extensionMinutes > 0,
+    rule: 'split_duty'
+  };
+}
+
+export function computeStandbyAdjustment(scheme, { standbyMinutes = 0, standbyType = 'home' } = {}) {
+  const standby = scheme.standby || {};
+  const totalStandbyMinutes = Number(standbyMinutes) || 0;
+  if (!standby.enabled || totalStandbyMinutes <= 0) {
+    return { standbyMinutes: 0, adjustmentMinutes: 0, applies: false };
+  }
+
+  const factorMap = {
+    home: Number(standby.homeCountPct ?? 0),
+    hotel: Number(standby.hotelCountPct ?? 0.5),
+    airport: Number(standby.airportCountPct ?? 1)
+  };
+
+  const factor = factorMap[standbyType] ?? Number(standby.homeCountPct ?? 0);
+  const adjustmentMinutes = Math.round(totalStandbyMinutes * factor);
+
+  return {
+    standbyMinutes: totalStandbyMinutes,
+    adjustmentMinutes,
+    applies: adjustmentMinutes > 0,
+    standbyType,
+    factor
+  };
+}
+
+export function computeWoclAdjustment(scheme, { fdpStart, fdpEnd, isAcclimatised }) {
   if (!fdpStart || !fdpEnd) {
     return { reductionMinutes: 0, overlapMinutes: 0, startsInWocl: false, endsInWocl: false, encompassesWocl: false };
   }
   const wocl = scheme.wocl || {};
-  const startHour = wocl.startHour ?? 2;
-  const endHour = wocl.endHour ?? 6;
+  const acclimatisation = scheme.acclimatisation || {};
+  const startHour = wocl.startHour ?? acclimatisation.nightWindowStartHour ?? 2;
+  const endHour = wocl.endHour ?? acclimatisation.nightWindowEndHour ?? 6;
   const startReductionPct = wocl.startEncroachmentReductionPct ?? 1;
   const endReductionPct = wocl.endOrEncompassReductionPct ?? 0.5;
   const maxStartReduction = wocl.maxStartReductionMinutes ?? 120;
+  const acclimatised = isAcclimatised ?? acclimatisation.defaultIsAcclimatised ?? true;
+  const reductionFactor = acclimatised ? 1 : Number(acclimatisation.unacclimatisedReductionPct ?? 0.5);
 
   const startAbs = fdpStart.getTime();
   const endAbs = fdpEnd.getTime();
@@ -358,12 +504,15 @@ export function computeWoclAdjustment(scheme, { fdpStart, fdpEnd }) {
     reductionMinutes = 0;
   }
 
+  reductionMinutes *= reductionFactor;
+
   return {
     reductionMinutes: Math.round(reductionMinutes),
     overlapMinutes: Math.round(overlapMinutes),
     startsInWocl,
     endsInWocl,
-    encompassesWocl
+    encompassesWocl,
+    acclimatised
   };
 }
 
@@ -373,14 +522,28 @@ export function computeApplicableFdpLimit(scheme, plan) {
     return { ok: false, reason: 'exceeds_scheme_max' };
   }
 
-  const wocl = plan.fdpStart && plan.fdpEnd ? computeWoclAdjustment(scheme, { fdpStart: plan.fdpStart, fdpEnd: plan.fdpEnd }) : null;
+  const wocl = plan.fdpStart && plan.fdpEnd ? computeWoclAdjustment(scheme, {
+    fdpStart: plan.fdpStart,
+    fdpEnd: plan.fdpEnd,
+    isAcclimatised: plan.isAcclimatised ?? plan.acclimatised
+  }) : null;
+  const splitDuty = computeSplitDutyAdjustment(scheme, { breakMinutes: Number(plan.breakMinutes ?? 0) });
+  const standby = computeStandbyAdjustment(scheme, {
+    standbyMinutes: Number(plan.standbyMinutes ?? 0),
+    standbyType: plan.standbyType ?? 'home'
+  });
+
   const reductionMinutes = wocl?.reductionMinutes || 0;
-  const applicableLimitMinutes = Math.max(0, baseLimitMinutes - reductionMinutes);
+  const extensionMinutes = splitDuty.extensionMinutes || 0;
+  const standbyAdjustmentMinutes = standby.adjustmentMinutes || 0;
+  const applicableLimitMinutes = Math.max(0, baseLimitMinutes - reductionMinutes + extensionMinutes + standbyAdjustmentMinutes);
 
   return {
     ok: true,
     baseLimitMinutes,
     woclReductionMinutes: reductionMinutes,
+    splitDuty,
+    standby,
     applicableLimitMinutes,
     wocl: wocl || null
   };

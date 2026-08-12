@@ -452,7 +452,13 @@ async function handleSchemeSubmit(event) {
   };
 
   try {
-    await saveFdtlScheme(activeCompanyId, nextScheme);
+    await saveFdtlScheme(activeCompanyId, nextScheme, {
+      mode: action === 'approve' ? 'approve' : 'draft',
+      actor: activeActor,
+      reason: action === 'approve' ? 'Scheme approved from FDTL module' : 'Scheme draft updated from FDTL module',
+      trackHistory: true,
+      forceOverride: false
+    });
     showMessage(action === 'approve' ? 'FDTL scheme approved and saved.' : 'FDTL scheme settings saved.');
   } catch (error) {
     console.error('Save FDTL scheme failed:', error);

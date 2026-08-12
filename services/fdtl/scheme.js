@@ -1,7 +1,9 @@
-import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from '../firestoreService.js';
+import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, setDoc, serverTimestamp } from '../firestoreService.js';
 
 const SCHEME_COLLECTION = 'fdtl_scheme';
+const SCHEME_HISTORY_COLLECTION = 'fdtl_scheme_history';
 const CURRENT_SCHEME_ID = 'current';
+const DRAFT_SCHEME_ID = 'draft';
 
 export const CAR_SOURCE = 'DGCA CAR Section 7, Series J, Part IV, Rev 1 (19 January 2023)';
 
@@ -48,6 +50,7 @@ export const DEFAULT_FDTL_SCHEME = {
     minimumMinutes: 720,
     ruleLabel: 'At least as long as the preceding duty period OR 12 hours, whichever is greater.',
     timeZoneCrossing3To7Minutes: 1080,
+    timeZoneCrossingOver7Minutes: 1440,
     weekly: {
       minimumMinutes: 2160,
       localNights: 2,
@@ -55,6 +58,16 @@ export const DEFAULT_FDTL_SCHEME = {
       nightDutyTriggerCount: 3,
       extendedMinimumMinutes: 2880
     }
+  },
+  timeZoneCrossing: {
+    zone3To7Minutes: 1080,
+    over7Minutes: 1440
+  },
+  acclimatisation: {
+    defaultIsAcclimatised: true,
+    nightWindowStartHour: 2,
+    nightWindowEndHour: 6,
+    unacclimatisedReductionPct: 0.5
   },
   operationalAdjustments: {
     reportingTimeMinutes: 30,
@@ -103,32 +116,146 @@ export function getDefaultScheme() {
   return JSON.parse(JSON.stringify(DEFAULT_FDTL_SCHEME));
 }
 
-function schemeDocRef(companyId) {
-  return doc(`companies/${companyId}/${SCHEME_COLLECTION}`, CURRENT_SCHEME_ID);
+function schemeDocRef(companyId, id = CURRENT_SCHEME_ID) {
+  return doc(`companies/${companyId}/${SCHEME_COLLECTION}`, id);
+}
+
+function schemeDraftDocRef(companyId) {
+  return schemeDocRef(companyId, DRAFT_SCHEME_ID);
+}
+
+function schemeHistoryCollection(companyId) {
+  return collection(`companies/${companyId}/${SCHEME_HISTORY_COLLECTION}`);
+}
+
+function normalizedApprovalStatus(status, fallback = 'draft') {
+  const normalized = `${status || fallback}`.trim().toLowerCase();
+  return ['draft', 'approved', 'superseded'].includes(normalized) ? normalized : fallback;
+}
+
+export async function getFdtlSchemeVersionHistory(companyId) {
+  if (!companyId) return [];
+  const snapshot = await getDocs(query(schemeHistoryCollection(companyId), orderBy('createdAt', 'desc')));
+  return snapshot.docs.map((item) => ({ versionId: item.id, ...item.data() }));
 }
 
 export async function getFdtlScheme(companyId) {
   if (!companyId) return getDefaultScheme();
-  const snapshot = await getDoc(schemeDocRef(companyId));
+
+  const currentSnapshot = await getDoc(schemeDocRef(companyId));
+  if (currentSnapshot.exists()) {
+    return { ...getDefaultScheme(), ...currentSnapshot.data() };
+  }
+
+  const draftSnapshot = await getDoc(schemeDraftDocRef(companyId));
+  if (draftSnapshot.exists()) {
+    return { ...getDefaultScheme(), ...draftSnapshot.data() };
+  }
+
+  return getDefaultScheme();
+}
+
+export async function getFdtlSchemeDraft(companyId) {
+  if (!companyId) return getDefaultScheme();
+  const snapshot = await getDoc(schemeDraftDocRef(companyId));
   if (!snapshot.exists()) return getDefaultScheme();
   return { ...getDefaultScheme(), ...snapshot.data() };
 }
 
-export async function saveFdtlScheme(companyId, scheme) {
+export async function saveFdtlSchemeDraft(companyId, scheme, options = {}) {
+  return saveFdtlScheme(companyId, scheme, { ...options, mode: 'draft' });
+}
+
+export async function approveFdtlScheme(companyId, scheme, options = {}) {
+  return saveFdtlScheme(companyId, scheme, { ...options, mode: 'approve' });
+}
+
+export async function saveFdtlScheme(companyId, scheme, options = {}) {
   if (!companyId) {
     throw new Error('companyId is required to save the FDTL scheme.');
   }
+
   const merged = {
     ...getDefaultScheme(),
     ...(scheme || {}),
+    approval: {
+      ...(getDefaultScheme().approval || {}),
+      ...(scheme?.approval || {})
+    },
+    operationalAdjustments: {
+      ...(getDefaultScheme().operationalAdjustments || {}),
+      ...(scheme?.operationalAdjustments || {})
+    },
     updatedAt: serverTimestamp()
   };
-  await setDoc(schemeDocRef(companyId), {
+
+  const requestedStatus = normalizedApprovalStatus(merged.approval?.status, 'draft');
+  const mode = `${options.mode || 'draft'}`.trim().toLowerCase();
+  const effectiveStatus = mode === 'approve' ? 'approved' : requestedStatus;
+
+  const currentSnapshot = await getDoc(schemeDocRef(companyId));
+  const currentScheme = currentSnapshot.exists() ? currentSnapshot.data() : null;
+  const currentStatus = normalizedApprovalStatus(currentScheme?.approval?.status, 'draft');
+  const hasApprovedCurrent = currentStatus === 'approved';
+  const targetRef = mode === 'approve' || !hasApprovedCurrent ? schemeDocRef(companyId) : schemeDraftDocRef(companyId);
+  const nextVersionName = options.versionName || merged.schemeVersion || currentScheme?.schemeVersion || 'Rev 1';
+
+  const historyRecord = {
     ...merged,
     companyId,
-    lastModified: serverTimestamp()
-  });
-  return merged;
+    approval: {
+      ...merged.approval,
+      status: effectiveStatus
+    },
+    versionName: nextVersionName,
+    versionStatus: effectiveStatus,
+    createdAt: serverTimestamp(),
+    lastModified: serverTimestamp(),
+    reason: options.reason || null,
+    editedBy: options.actor?.name || options.actor?.email || options.actor?.uid || null
+  };
+
+  if (options.trackHistory !== false) {
+    await addDoc(schemeHistoryCollection(companyId), historyRecord);
+  }
+
+  const persisted = {
+    ...merged,
+    companyId,
+    approval: {
+      ...merged.approval,
+      status: effectiveStatus
+    },
+    versionName: nextVersionName,
+    versionStatus: effectiveStatus,
+    lastModified: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+
+  if (mode === 'approve') {
+    await setDoc(schemeDocRef(companyId), persisted);
+    if (currentSnapshot.exists()) {
+      await setDoc(schemeDraftDocRef(companyId), {
+        ...persisted,
+        approval: {
+          ...persisted.approval,
+          status: 'draft'
+        },
+        versionStatus: 'draft',
+        lastModified: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+    return persisted;
+  }
+
+  if (hasApprovedCurrent) {
+    await setDoc(schemeDraftDocRef(companyId), persisted);
+    return { ...persisted, source: 'draft' };
+  }
+
+  await setDoc(schemeDocRef(companyId), persisted);
+  return persisted;
 }
 
 export function onFdtlSchemeSnapshot(companyId, onNext, onError) {
@@ -136,15 +263,23 @@ export function onFdtlSchemeSnapshot(companyId, onNext, onError) {
     onNext?.(getDefaultScheme());
     return () => {};
   }
-  return onSnapshot(
+
+  const currentUnsubscribe = onSnapshot(
     schemeDocRef(companyId),
-    (snapshot) => {
-      if (!snapshot.exists()) {
-        onNext(getDefaultScheme());
+    async (snapshot) => {
+      const approvedScheme = snapshot.exists() ? { ...getDefaultScheme(), ...snapshot.data() } : getDefaultScheme();
+      const draftSnapshot = await getDoc(schemeDraftDocRef(companyId));
+      const draftScheme = draftSnapshot.exists() ? { ...getDefaultScheme(), ...draftSnapshot.data() } : null;
+
+      if (approvedScheme?.approval?.status === 'approved') {
+        onNext(approvedScheme);
         return;
       }
-      onNext({ ...getDefaultScheme(), ...snapshot.data() });
+
+      onNext(draftScheme || approvedScheme || getDefaultScheme());
     },
     onError
   );
+
+  return () => currentUnsubscribe();
 }
