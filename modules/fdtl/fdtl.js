@@ -674,18 +674,19 @@ export async function init(view, context) {
     ? { name: currentUser.name || currentUser.email, email: currentUser.email, uid: currentUser.uid }
     : null;
 
+  activeScheme = getDefaultScheme();
+  latestCrew = [];
+  latestStates = [];
+  latestRecords = [];
+  latestFatigue = [];
+  latestAudit = [];
+  renderAll();
+
   const orgContext = getCurrentOrganizationContext(currentUser);
   const companyId = orgContext.organizationId || currentUser?.uid || null;
   activeCompanyId = companyId;
 
   if (!companyId) {
-    activeScheme = getDefaultScheme();
-    latestCrew = [];
-    latestStates = [];
-    latestRecords = [];
-    latestFatigue = [];
-    latestAudit = [];
-    renderAll();
     showMessage('No authorized operator found.');
     return {
       destroy() {}
@@ -716,15 +717,23 @@ export async function init(view, context) {
       listFatigueReports(companyId),
       listAuditEntries(companyId)
     ]);
-    latestCrew = crewList;
-    activeScheme = scheme;
-    latestStates = states;
-    latestRecords = records;
-    latestFatigue = fatigue;
-    latestAudit = audit;
+
+    latestCrew = Array.isArray(crewList) ? crewList : [];
+    activeScheme = scheme && typeof scheme === 'object' ? { ...getDefaultScheme(), ...scheme } : getDefaultScheme();
+    latestStates = Array.isArray(states) ? states : [];
+    latestRecords = Array.isArray(records) ? records : [];
+    latestFatigue = Array.isArray(fatigue) ? fatigue : [];
+    latestAudit = Array.isArray(audit) ? audit : [];
     renderAll();
   } catch (error) {
     console.error('FDTL initial load failed:', error);
+    activeScheme = getDefaultScheme();
+    latestCrew = [];
+    latestStates = [];
+    latestRecords = [];
+    latestFatigue = [];
+    latestAudit = [];
+    renderAll();
     showMessage('Unable to load FDTL monitoring data right now.');
   }
 
