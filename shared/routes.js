@@ -1,7 +1,7 @@
 import { manifest as dashboardManifest } from '../modules/dashboard/manifest.js';
 import { manifest as crewManifest } from '../modules/crew/manifest.js';
 import { manifest as crewProfileManifest } from '../modules/crewprofile/manifest.js';
-import { manifest as aircraftManifest } from '../modules/aircraft/manifest.js';
+import { manifest as fdtlManifest } from '../modules/fdtl/manifest.js';
 import { manifest as aiManifest } from '../modules/ai/manifest.js';
 import { manifest as dispatchManifest } from '../modules/dispatch/manifest.js';
 import { manifest as efbManifest } from '../modules/efb/manifest.js';
@@ -20,7 +20,7 @@ export const appRoutes = [
   dashboardManifest,
   crewManifest,
   crewProfileManifest,
-  aircraftManifest,
+  fdtlManifest,
   aiManifest,
   dispatchManifest,
   efbManifest,

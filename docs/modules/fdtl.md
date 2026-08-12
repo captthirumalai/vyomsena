@@ -1,0 +1,79 @@
+# FDTL Monitoring Module
+
+Route: /fdtl
+Title: FDTL Monitoring
+
+Repurposed from the former Fleet (Aircraft) module. Now implements Flight Duty Time Limit (FDTL) monitoring under **DGCA CAR Section 7, Series J, Part IV, Rev 1 (19 January 2023)**, driven by the operator's approved FDTL Scheme rather than hard-coded limits.
+
+> The CAR serves as guidelines for Private/Aerial operators operating non-turbojet aeroplanes below 5700 kg AUW. Such operators prepare their own FDTL Scheme based on the type and size of operation, include it in the Operations Manual, and submit it to DGCA for approval. VAMS therefore treats the scheme as the single source of truth for all limits.
+
+## Implementation Status
+
+The module is now operating as an organisation-wide FDTL monitoring system with scheme-driven rules, crew-by-crew duty tracking, and operator-configurable operational adjustments.
+
+### Completed features
+- Scheme-driven FDTL configuration with editable operational values for reporting time, post-flight allowance, local night timings, and transportation allowance.
+- Dashboard and crew roster monitoring across the operator's crew population.
+- Duty-state tracking for on duty / on rest / available / off duty / sick / leave.
+- Duty record capture for report time, duty period, FDP windows, flight time, and landings.
+- Flight eligibility check for planned duty end, FDP, flight time, and landing limits.
+- Rest, night-duty, weekly-rest, and cumulative-warning summaries for each crew member.
+- Confidential fatigue report submission with audit trail.
+- Approval workflow for scheme saving and approval tracking.
+
+### Current limitation
+- Time-zone crossing rest rules and full operator approval-history workflow are still being tightened to production-grade standards.
+
+## Module Areas (5 panes)
+
+1. **Dashboard** — who needs attention. Counts of crew Within Limits / Attention / Exceeded and fatigue reports, plus the attention list.
+2. **Crew** — current duty state per crew member (on duty / on rest / available / off duty / sick / leave), duty start, rest completion, and FDTL summary alerts. State is editable and audited.
+3. **Duty Records** — capture report time, duty period, FDP start/end, flight time, landings, operation type (commercial / positioning / training / base training / familiarisation / skill test / IR / PPC), sector, note. Historical records retained for the scheme's retention period. Audit trail view included.
+4. **Flight Check** — pre-flight eligibility gate: given crew, single/two-pilot operation, report time, planned duty end, planned flight time and landings, computes base FDP limit, WOCL adjustment, applicable FDP limit, planned FDP, and verdict (Within / Attention / Exceeded) plus 24-hour flight time and landing checks.
+5. **Scheme** — operator-controlled FDTL settings, scheme approval status, and confidential fatigue report submission.
+
+## FDTL Engine (scheme-driven)
+
+`services/fdtl/` — the engine reads all limits from the active scheme.
+
+- `scheme.js` — default FDTL Scheme document (CAR-derived values) + read/save `companies/{companyId}/fdtl_scheme/current`.
+- `fdpEngine.js` — pure functions:
+  - `resolveFdpBaseLimit` — single-pilot and two-pilot FDP tables keyed by flight time and landings (e.g. two-pilot 8h: 6 landings → 11:00, 5 → 11:30, 4 → 12:00, 3 → 12:30; 10h with 1/2 landings → 13:30).
+  - `computeWoclAdjustment` — WOCL (02:00–06:00 acclimatized): FDP starting in WOCL is reduced 100% of encroachment (capped per scheme); FDP ending in or fully encompassing WOCL is reduced 50%.
+  - `computeApplicableFdpLimit` / `checkPlannedFdp` — applicable limit and verdict.
+  - `computeRestStatus`, `computeNightDutyStatus`, `computeWeeklyRestStatus`, `computeCumulativeStatus`, `summarizeCrewFdtl` — organisation-wide compliance summaries across rest, night duty, weekly rest, and cumulative limits.
+- `dutyRecords.js` — duty state doc per crew (`companies/{companyId}/fdtl_duty/{crewProfileId}`) and flat duty records (`companies/{companyId}/fdtl_records/{recordId}`).
+- `audit.js` — audit trail (`companies/{companyId}/fdtl_audit`): who, when, entity, field, before, after, reason, source. Every state/record change writes audit entries.
+- `fatigue.js` — fatigue reports (`companies/{companyId}/fdtl_fatigue`), confidential, non-punitive.
+
+## Data Model
+
+- `companies/{companyId}/fdtl_scheme/current` — approved FDTL Scheme.
+- `companies/{companyId}/fdtl_duty/{crewProfileId}` — current duty state.
+- `companies/{companyId}/fdtl_records/{recordId}` — historical duty records.
+- `companies/{companyId}/fdtl_audit/{auditId}` — audit trail.
+- `companies/{companyId}/fdtl_fatigue/{fatigueId}` — fatigue reports.
+- Crew roster read from existing crew profiles (no second pilot database).
+
+## FDTL Scheme Document (default values, all minutes)
+
+- FDP tables: single pilot (7h → FDP 08:30 / 8 landings; 8h → 6 landings 09:30, 4 landings 11:00) and two pilot (8h → 11:00/11:30/12:00/12:30 for 6/5/4/3 landings; 10h with 1–2 landings → 13:30).
+- WOCL: 02:00–06:00; 100% reduction when starting in WOCL (capped 2h); 50% when ending in or encompassing WOCL.
+- Rest: minimum = max(previous duty period, 12h); time-zone crossing 3–7 zones → 18h.
+- Weekly rest: 36h incl. 2 local nights within 168h span; extended to 48h after more than 3 night duties in 168h.
+- Night duty: 00:00–05:00, max 2 consecutive nights, exception once per 168h.
+- Cumulative: 7d FT 35h / Duty 60h; 14d 65h / 100h; 28d 100h / 190h; 90d 300h / 600h; 365d 1000h / 1800h.
+- Split duty: break < 3h no extension; 3–10h extension = half the break; > 10h no extension.
+- Standby: schedule/commuter only, configurable counting toward FDP.
+- Unforeseen operational circumstance: max extension FT +1:30, FDP +3:00, with PIC consent and Head of Operations approval, audited.
+- Records retention: 18 months.
+
+## Next Enhancements
+
+- Tighten time-zone crossing rest rules with a full 3–7 zone rest engine and calendar-based local-night tracking.
+- Extend cumulative limit rollup to explicit 7/14/28/90/365-day windows with per-crew dashboard detail.
+- Add a dedicated scheme approval history log and compare view for prior versions.
+- Add crew profile FDTL fields (home base, temporary home base, single/two-pilot operation, acclimatisation status).
+- Add split duty, standby, and positioning handling in the FDP engine.
+- Add unforeseen operational circumstance workflow with approval and audit record.
+- Expand flight check to include policy-specific exemptions and local-night / rest gating.

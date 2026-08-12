@@ -1,0 +1,295 @@
+<section class="card fdtl-header">
+  <div class="card-heading">
+    <h2>FDTL Monitoring</h2>
+    <p>Flight Duty Time Limit monitoring under the operator's approved FDTL Scheme.</p>
+  </div>
+  <div id="fdtl-scheme-line" class="fdtl-scheme-line">Scheme: loading...</div>
+  <div id="fdtl-status" class="fdtl-status" aria-live="polite"></div>
+  <nav class="fdtl-tabs" role="tablist" aria-label="FDTL sections">
+    <button type="button" class="fdtl-tab active" data-fdtl-tab="dashboard" role="tab" aria-selected="true">Dashboard</button>
+    <button type="button" class="fdtl-tab" data-fdtl-tab="crew" role="tab" aria-selected="false">Crew</button>
+    <button type="button" class="fdtl-tab" data-fdtl-tab="duty-records" role="tab" aria-selected="false">Duty Records</button>
+    <button type="button" class="fdtl-tab" data-fdtl-tab="flight-check" role="tab" aria-selected="false">Flight Check</button>
+    <button type="button" class="fdtl-tab" data-fdtl-tab="scheme" role="tab" aria-selected="false">Scheme</button>
+  </nav>
+</section>
+
+<section class="fdtl-pane" data-fdtl-pane="dashboard">
+  <div class="card">
+    <div class="card-heading">
+      <h3>Current Crew Situation</h3>
+      <p class="muted">Computed against the applicable FDTL limits from the active scheme.</p>
+    </div>
+    <div class="fdtl-summary">
+      <div class="fdtl-stat">
+        <strong id="fdtl-stat-within">0</strong>
+        <span>Within Limits</span>
+      </div>
+      <div class="fdtl-stat">
+        <strong id="fdtl-stat-attention">0</strong>
+        <span>Attention</span>
+      </div>
+      <div class="fdtl-stat">
+        <strong id="fdtl-stat-exceeded">0</strong>
+        <span>Exceeded</span>
+      </div>
+      <div class="fdtl-stat">
+        <strong id="fdtl-stat-fatigue">0</strong>
+        <span>Fatigue Reports</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Needs Attention</h3>
+    <div id="fdtl-attention-list" class="fdtl-attention-list">
+      <p class="muted">Loading crew attention state...</p>
+    </div>
+  </div>
+</section>
+
+<section class="fdtl-pane hidden" data-fdtl-pane="crew">
+  <div class="card">
+    <div class="card-heading">
+      <h3>Crew Duty Status</h3>
+      <p class="muted">Current duty state per crew member. Rest completion is derived from the scheme's minimum rest rule.</p>
+    </div>
+    <div class="fdtl-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Crew</th>
+            <th>Designation</th>
+            <th>Base</th>
+            <th>Duty State</th>
+            <th>Duty Start</th>
+            <th>Rest Until</th>
+            <th>Set State</th>
+          </tr>
+        </thead>
+        <tbody id="fdtl-crew-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="fdtl-pane hidden" data-fdtl-pane="duty-records">
+  <div class="card">
+    <div class="card-heading">
+      <h3>New Duty Record</h3>
+      <p class="muted">Captures report time, FDP, duty period, flight time, landings, and operation type for the crew member.</p>
+    </div>
+    <form id="fdtl-record-form" class="fdtl-form">
+      <label class="fdtl-form-field">
+        <span>Crew</span>
+        <select id="fdtl-record-crew" required></select>
+      </label>
+      <label class="fdtl-form-field">
+        <span>Operation Type</span>
+        <select id="fdtl-record-op-type" required></select>
+      </label>
+      <label class="fdtl-form-field">
+        <span>Single / Two Pilot</span>
+        <select id="fdtl-record-op-crew" required></select>
+      </label>
+      <label class="fdtl-form-field">
+        <span>Duty Date</span>
+        <input type="date" id="fdtl-record-date" required />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Report Time</span>
+        <input type="datetime-local" id="fdtl-record-report" required />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Duty Start</span>
+        <input type="datetime-local" id="fdtl-record-duty-start" />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Duty End</span>
+        <input type="datetime-local" id="fdtl-record-duty-end" />
+      </label>
+      <label class="fdtl-form-field">
+        <span>FDP Start</span>
+        <input type="datetime-local" id="fdtl-record-fdp-start" required />
+      </label>
+      <label class="fdtl-form-field">
+        <span>FDP End</span>
+        <input type="datetime-local" id="fdtl-record-fdp-end" required />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Flight Time (minutes)</span>
+        <input type="number" id="fdtl-record-flight-time" min="0" step="1" value="0" required />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Landings</span>
+        <input type="number" id="fdtl-record-landings" min="0" step="1" value="0" required />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Sector</span>
+        <input type="text" id="fdtl-record-sector" placeholder="e.g. VOBL-VODH" />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Note</span>
+        <textarea id="fdtl-record-note" rows="2"></textarea>
+      </label>
+      <label class="fdtl-form-field">
+        <span>Reason (audit trail)</span>
+        <input type="text" id="fdtl-record-reason" placeholder="e.g. Actual block time from logbook" />
+      </label>
+      <button type="submit" class="vs-button vs-button--primary vs-button--sm">Add Duty Record</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-heading">
+      <h3>Duty Records</h3>
+      <p class="muted">Historical duty and rest records, retained for the scheme's record retention period.</p>
+    </div>
+    <div class="fdtl-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Crew</th>
+            <th>Operation</th>
+            <th>Crew Type</th>
+            <th>FDP</th>
+            <th>Flight Time</th>
+            <th>Landings</th>
+            <th>Sector</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="fdtl-records-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-heading">
+      <h3>Audit Trail</h3>
+      <p class="muted">Every change tracked to its source: who, when, what, before, after, and reason.</p>
+    </div>
+    <div id="fdtl-audit-list" class="fdtl-audit-list">
+      <p class="muted">Loading audit trail...</p>
+    </div>
+  </div>
+</section>
+
+<section class="fdtl-pane hidden" data-fdtl-pane="flight-check">
+  <div class="card">
+    <div class="card-heading">
+      <h3>Crew Flight Eligibility</h3>
+      <p class="muted">Determines whether the crew member remains within the applicable FDP, flight time, and landing limits before a flight is operated.</p>
+    </div>
+    <form id="fdtl-check-form" class="fdtl-form">
+      <label class="fdtl-form-field">
+        <span>Crew</span>
+        <select id="fdtl-check-crew" required></select>
+      </label>
+      <label class="fdtl-form-field">
+        <span>Single / Two Pilot</span>
+        <select id="fdtl-check-op-crew" required></select>
+      </label>
+      <label class="fdtl-form-field">
+        <span>Report Time</span>
+        <input type="datetime-local" id="fdtl-check-report" required />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Planned Duty End</span>
+        <input type="datetime-local" id="fdtl-check-fdp-end" required />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Planned Flight Time (minutes)</span>
+        <input type="number" id="fdtl-check-flight-time" min="0" step="1" value="0" required />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Planned Landings</span>
+        <input type="number" id="fdtl-check-landings" min="0" step="1" value="0" required />
+      </label>
+      <button type="submit" class="vs-button vs-button--primary vs-button--sm">Check Eligibility</button>
+    </form>
+    <div id="fdtl-check-result" class="fdtl-check-result"></div>
+  </div>
+</section>
+
+<section class="fdtl-pane hidden" data-fdtl-pane="scheme">
+  <div class="card">
+    <div class="card-heading">
+      <h3>Scheme Settings</h3>
+      <p class="muted">Operator-controlled values for reporting time, post-flight allowance, local night, and transport allowances.</p>
+    </div>
+    <form id="fdtl-scheme-form" class="fdtl-form">
+      <label class="fdtl-form-field">
+        <span>Scheme Name</span>
+        <input type="text" id="fdtl-scheme-name" />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Scheme Version</span>
+        <input type="text" id="fdtl-scheme-version" />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Approval Status</span>
+        <select id="fdtl-scheme-approval-status">
+          <option value="draft">Draft</option>
+          <option value="approved">Approved</option>
+          <option value="superseded">Superseded</option>
+        </select>
+      </label>
+      <label class="fdtl-form-field">
+        <span>Ops Manual Ref</span>
+        <input type="text" id="fdtl-scheme-ops-manual-ref" placeholder="e.g. OM-05 / Section 6.4" />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Reporting Time (minutes)</span>
+        <input type="number" id="fdtl-scheme-reporting-time" min="0" step="5" />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Post-flight Allowance (minutes)</span>
+        <input type="number" id="fdtl-scheme-post-flight-allowance" min="0" step="5" />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Local Night Start (HH)</span>
+        <input type="number" id="fdtl-scheme-local-night-start" min="0" max="23" step="1" />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Local Night End (HH)</span>
+        <input type="number" id="fdtl-scheme-local-night-end" min="0" max="23" step="1" />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Transportation Allowance (minutes)</span>
+        <input type="number" id="fdtl-scheme-transportation" min="0" step="5" />
+      </label>
+      <div class="fdtl-form-actions">
+        <button type="submit" class="vs-button vs-button--secondary vs-button--sm" data-action="save">Save Draft</button>
+        <button type="submit" class="vs-button vs-button--primary vs-button--sm" data-action="approve">Approve Scheme</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-heading">
+      <h3>Fatigue Report</h3>
+      <p class="muted">Confidential fatigue reports are recorded for the operator and remain non-punitive.</p>
+    </div>
+    <form id="fdtl-fatigue-form" class="fdtl-form">
+      <label class="fdtl-form-field">
+        <span>Crew</span>
+        <select id="fdtl-fatigue-crew" required></select>
+      </label>
+      <label class="fdtl-form-field">
+        <span>Reported On</span>
+        <input type="datetime-local" id="fdtl-fatigue-reported-on" required />
+      </label>
+      <label class="fdtl-form-field">
+        <span>Fatigue Description</span>
+        <textarea id="fdtl-fatigue-description" rows="3" required></textarea>
+      </label>
+      <label class="fdtl-form-field">
+        <span>Action Taken</span>
+        <textarea id="fdtl-fatigue-action" rows="2"></textarea>
+      </label>
+      <button type="submit" class="vs-button vs-button--primary vs-button--sm">Submit Fatigue Report</button>
+    </form>
+  </div>
+</section>

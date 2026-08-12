@@ -13,12 +13,12 @@ Process:
 
 Module documents:
 - ai.md
-- aircraft.md
 - crew.md
 - crew-profile.md
 - dashboard.md
 - dispatch.md
 - efb.md
+- fdtl.md
 - flightops.md
 - maintenance.md
 - notam.md
