@@ -94,9 +94,9 @@ function isWithinNightWindow(date, startHour, endHour) {
 function asYmd(date) {
   const parsed = parseDate(date);
   if (!parsed) return null;
-  const year = parsed.getFullYear();
-  const month = String(parsed.getMonth() + 1).padStart(2, '0');
-  const day = String(parsed.getDate()).padStart(2, '0');
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -108,19 +108,23 @@ function getRecordInterval(record) {
 }
 
 function getNightWindowForDate(date, startHour, endHour) {
-  const base = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const base = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate()
+  ));
   const start = new Date(base);
-  start.setHours(startHour, 0, 0, 0);
+  start.setUTCHours(startHour, 0, 0, 0);
 
   const end = new Date(base);
-  end.setHours(endHour, 0, 0, 0);
+  end.setUTCHours(endHour, 0, 0, 0);
 
   if (startHour <= endHour) {
     return { start, end };
   }
 
   const nextDay = new Date(base);
-  nextDay.setDate(base.getDate() + 1);
+  nextDay.setUTCDate(base.getUTCDate() + 1);
   return { start, end: new Date(nextDay.getTime() + endHour * 60 * 60 * 1000) };
 }
 
@@ -136,11 +140,11 @@ function countLocalNightsInRange(startTime, endTime, localNightStartHour, localN
   const rangeEnd = parseDate(endTime) || new Date();
   if (!rangeStart || !rangeEnd || rangeEnd <= rangeStart) return 0;
 
-  const startDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
-  const endDate = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate());
+  const startDate = new Date(Date.UTC(rangeStart.getUTCFullYear(), rangeStart.getUTCMonth(), rangeStart.getUTCDate()));
+  const endDate = new Date(Date.UTC(rangeEnd.getUTCFullYear(), rangeEnd.getUTCMonth(), rangeEnd.getUTCDate()));
   let count = 0;
 
-  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
+  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
     const window = getNightWindowForDate(cursor, localNightStartHour, localNightEndHour);
     const overlapStart = new Date(Math.max(rangeStart.getTime(), window.start.getTime()));
     const overlapEnd = new Date(Math.min(rangeEnd.getTime(), window.end.getTime()));
@@ -155,10 +159,10 @@ function collectNightDutyDates(record, localNightStartHour, localNightEndHour, r
   if (!interval) return [];
 
   const dates = new Set();
-  const startDate = new Date(interval.start.getFullYear(), interval.start.getMonth(), interval.start.getDate());
-  const endDate = new Date(interval.end.getFullYear(), interval.end.getMonth(), interval.end.getDate());
+  const startDate = new Date(Date.UTC(interval.start.getUTCFullYear(), interval.start.getUTCMonth(), interval.start.getUTCDate()));
+  const endDate = new Date(Date.UTC(interval.end.getUTCFullYear(), interval.end.getUTCMonth(), interval.end.getUTCDate()));
 
-  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
+  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
     const localWindow = getNightWindowForDate(cursor, localNightStartHour, localNightEndHour);
     const regulatedWindow = getNightWindowForDate(cursor, regulatedStartHour, regulatedEndHour);
     const localOverlap = intervalOverlapMinutes(interval.start, interval.end, localWindow.start, localWindow.end);
@@ -344,14 +348,31 @@ export function computeWeeklyRestStatus(scheme, { records = [], now = new Date()
   const latest = recent[0] || null;
   const latestEnd = latest ? parseDate(latest.fdpEnd || latest.dutyEnd || latest.reportTime) : null;
   const totalRestMinutes = latestEnd ? diffMinutes(latestEnd, now) : 0;
-  const localNightCount = latestEnd
-    ? countLocalNightsInRange(latestEnd, now, localNightStart, localNightEnd)
-    : 0;
 
-  const timezoneMinimumMinutes = getTimeZoneCrossingRequirementMinutes(scheme, latest);
+  const localNightDates = new Set();
+  for (const record of recent) {
+    const interval = getRecordInterval(record);
+    if (!interval) continue;
+    const startDate = new Date(Date.UTC(interval.start.getUTCFullYear(), interval.start.getUTCMonth(), interval.start.getUTCDate()));
+    const endDate = new Date(Date.UTC(interval.end.getUTCFullYear(), interval.end.getUTCMonth(), interval.end.getUTCDate()));
+    for (let cursor = new Date(startDate); cursor <= endDate; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      const window = getNightWindowForDate(cursor, localNightStart, localNightEnd);
+      const overlap = intervalOverlapMinutes(interval.start, interval.end, window.start, window.end);
+      if (overlap > 0) {
+        localNightDates.add(asYmd(cursor));
+      }
+    }
+  }
+
+  const localNightCount = localNightDates.size;
+  const timezoneMinimumMinutes = recent.length
+    ? Math.max(...recent.map((record) => getTimeZoneCrossingRequirementMinutes(scheme, record)))
+    : 0;
+  const triggerCount = Number(weekly.nightDutyTriggerCount) || 3;
   const requiredMinutes = Math.max(
-    localNightCount >= (Number(weekly.nightDutyTriggerCount) || 3) ? extendedMinMinutes : minMinutes,
-    timezoneMinimumMinutes
+    localNightCount >= triggerCount ? extendedMinMinutes : minMinutes,
+    timezoneMinimumMinutes,
+    minMinutes
   );
   const ok = totalRestMinutes >= requiredMinutes;
 
