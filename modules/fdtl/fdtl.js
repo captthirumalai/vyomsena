@@ -679,6 +679,13 @@ export async function init(view, context) {
   activeCompanyId = companyId;
 
   if (!companyId) {
+    activeScheme = getDefaultScheme();
+    latestCrew = [];
+    latestStates = [];
+    latestRecords = [];
+    latestFatigue = [];
+    latestAudit = [];
+    renderAll();
     showMessage('No authorized operator found.');
     return {
       destroy() {}
