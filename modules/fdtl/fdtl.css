@@ -344,6 +344,11 @@
   color: #166534;
 }
 
+.fdtl-check-list li.watch {
+  background: #fef9c3;
+  color: #92400e;
+}
+
 .fdtl-check-list li.fail {
   background: #fee2e2;
   color: #991b1b;
@@ -357,4 +362,133 @@
   margin: 0.75rem 0 0;
   font-weight: 600;
   color: #166534;
+}
+
+.fdtl-check-table-wrap {
+  overflow-x: auto;
+  margin-top: 0.85rem;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 10px;
+}
+
+.fdtl-check-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.fdtl-check-table th,
+.fdtl-check-table td {
+  text-align: left;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid rgba(100, 116, 139, 0.12);
+  vertical-align: top;
+}
+
+.fdtl-check-table thead tr {
+  background: #f1f5f9;
+}
+
+.fdtl-check-table th {
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.fdtl-check-table td:first-child {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fdtl-check-table td.fdtl-td-reason {
+  max-width: 320px;
+  white-space: normal;
+  line-height: 1.4;
+  font-size: 0.79rem;
+  color: #334155;
+}
+
+.fdtl-check-table tr.ok > td:first-child {
+  border-left: 3px solid #22c55e;
+}
+
+.fdtl-check-table tr.watch > td:first-child {
+  border-left: 3px solid #f59e0b;
+}
+
+.fdtl-check-table tr.fail > td:first-child {
+  border-left: 3px solid #ef4444;
+}
+
+.fdtl-check-table tr.ok {
+  background: #f0fdf4;
+}
+
+.fdtl-check-table tr.watch {
+  background: #fffbeb;
+}
+
+.fdtl-check-table tr.fail {
+  background: #fef2f2;
+}
+
+.fdtl-check-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.fdtl-rule-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.fdtl-rule-pill {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: #e0f2fe;
+  color: #075985;
+  white-space: nowrap;
+}
+
+.fdtl-rule-pill.violation {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.fdtl-check-reason {
+  color: #991b1b;
+}
+
+.fdtl-check-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.fdtl-check-summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.fdtl-check-summary-stat span {
+  font-size: 0.72rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.fdtl-check-summary-stat strong {
+  font-size: 1.05rem;
+  color: #0f172a;
 }

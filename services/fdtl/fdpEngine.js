@@ -570,6 +570,79 @@ export function computeApplicableFdpLimit(scheme, plan) {
   };
 }
 
+function buildFlightComplianceRecord({
+  flight,
+  dutyIndex,
+  runningFdpMinutes,
+  applicableLimitMinutes,
+  fdpThreshold,
+  runningFlightTime,
+  dayMaxFlightTime,
+  maxLandings,
+  flightOffset
+}) {
+  const issueTexts = [];
+  const ruleRefs = [];
+
+  if (runningFdpMinutes > applicableLimitMinutes) {
+    issueTexts.push(`FDP ${formatDurationMinutes(runningFdpMinutes)} exceeds applicable ${formatDurationMinutes(applicableLimitMinutes)}`);
+    ruleRefs.push('CAR §7.2 – FDP limit');
+  } else if (runningFdpMinutes >= fdpThreshold) {
+    issueTexts.push(`FDP ${formatDurationMinutes(runningFdpMinutes)} is approaching the applicable limit of ${formatDurationMinutes(applicableLimitMinutes)}`);
+    ruleRefs.push('CAR §7.2 – FDP watch threshold');
+  } else {
+    issueTexts.push(`FDP ${formatDurationMinutes(runningFdpMinutes)} remains within the applicable limit of ${formatDurationMinutes(applicableLimitMinutes)}`);
+    ruleRefs.push('CAR §7.2 – FDP within limit');
+  }
+
+  if (runningFlightTime > dayMaxFlightTime) {
+    issueTexts.push(`Flight time ${formatDurationMinutes(runningFlightTime)} exceeds daily maximum ${formatDurationMinutes(dayMaxFlightTime)}`);
+    ruleRefs.push('CAR §7.3 – Daily flight-time limit');
+  } else {
+    issueTexts.push(`Flight time ${formatDurationMinutes(runningFlightTime)} remains within daily maximum ${formatDurationMinutes(dayMaxFlightTime)}`);
+    ruleRefs.push('CAR §7.3 – Daily flight-time within limit');
+  }
+
+  if (maxLandings != null && flightOffset + 1 > maxLandings) {
+    issueTexts.push(`Landings ${flightOffset + 1} exceed the table maximum of ${maxLandings}`);
+    ruleRefs.push('CAR §7.4 – Landing count');
+  } else if (maxLandings != null) {
+    issueTexts.push(`Landings ${flightOffset + 1} remain within the table maximum of ${maxLandings}`);
+    ruleRefs.push('CAR §7.4 – Landing count within limit');
+  }
+
+  const violationFlags = [
+    runningFdpMinutes > applicableLimitMinutes,
+    runningFlightTime > dayMaxFlightTime,
+    maxLandings != null && flightOffset + 1 > maxLandings
+  ].filter(Boolean).length;
+
+  const verdict = violationFlags > 0 ? VERDICTS.EXCEEDED : runningFdpMinutes >= fdpThreshold ? VERDICTS.ATTENTION : VERDICTS.WITHIN;
+  const uniqueRuleRefs = [...new Set(ruleRefs)];
+  const reason = issueTexts.join(' · ');
+
+  return {
+    flightNumber: flight.flightNumber,
+    date: flight.departure ? asYmd(flight.departure) : flight.date || null,
+    dutyIndex,
+    verdict,
+    ruleRefs: uniqueRuleRefs,
+    reason,
+    complianceText: verdict === VERDICTS.EXCEEDED
+      ? `Violation: ${reason}`
+      : verdict === VERDICTS.ATTENTION
+        ? `Attention: ${reason}`
+        : `Complied: ${reason}`,
+    applicableLimitMinutes,
+    usedFdpMinutes: runningFdpMinutes,
+    usedFlightTimeMinutes: runningFlightTime,
+    maxLandings,
+    landingCount: flightOffset + 1,
+    departure: flight.departure,
+    landing: flight.landing
+  };
+}
+
 export function simulateFlightSequence(scheme, {
   flights = [],
   operationCrew = OPERATION_CREW.TWO,
@@ -663,8 +736,6 @@ export function simulateFlightSequence(scheme, {
 
   const completedDuties = [];
   const duties = [];
-  let stopped = false;
-  let firstViolation = null;
   const weeklyRestGaps = [];
 
   dutiesRaw.forEach((dutyFlights, dutyIndex) => {
@@ -678,38 +749,6 @@ export function simulateFlightSequence(scheme, {
     const dutyEnd = new Date(finalLanding.getTime() + postFlightAllowanceMinutes * 60000);
     const flightTimeMinutes = dutyFlights.reduce((sum, flight) => sum + flight.flightMinutes, 0);
     const landings = dutyFlights.length;
-
-    if (stopped) {
-      duties.push({
-        dutyIndex: dutyIndex + 1,
-        reportTime,
-        finalLanding,
-        dutyEnd,
-        plannedFdpMinutes: Math.max(0, diffMinutes(reportTime, finalLanding)),
-        flightTimeMinutes,
-        landings,
-        applicableLimitMinutes: null,
-        verdict: null,
-        reasons: [],
-        notEvaluated: true,
-        restRequiredMinutes: null,
-        restAvailableMinutes: null,
-        restOk: null,
-        cumulative: null,
-        weekly: null,
-        night: null,
-        flights: dutyFlights.map((flight) => ({
-          ...flight,
-          flightMinutes: flight.flightMinutes,
-          departure: flight.departure,
-          landing: flight.landing,
-          verdict: null,
-          reasons: [],
-          notEvaluated: true
-        }))
-      });
-      return;
-    }
 
     const plannedFdpMinutes = Math.max(0, diffMinutes(reportTime, finalLanding));
     const fdpResult = checkPlannedFdp(scheme, {
@@ -750,39 +789,7 @@ export function simulateFlightSequence(scheme, {
       landings,
       applicableLimitMinutes,
       fdpRemainingMinutes: fdpResult.remainingMinutes,
-      timeZoneCrossingHours: firstFlight.timeZoneCrossingHours || lastFlight.timeZoneCrossingHours || 0,
-      flights: dutyFlights.map((flight, flightOffset) => {
-        const runningFlightTime = dutyFlights.slice(0, flightOffset + 1).reduce((sum, item) => sum + item.flightMinutes, 0);
-        const runningFdpMinutes = Math.max(0, diffMinutes(reportTime, flight.landing));
-        let flightVerdict = VERDICTS.WITHIN;
-        const reasons = [];
-        if (runningFdpMinutes > applicableLimitMinutes) {
-          flightVerdict = VERDICTS.EXCEEDED;
-          reasons.push(`FDP ${formatDurationMinutes(runningFdpMinutes)} exceeds ${formatDurationMinutes(applicableLimitMinutes)}`);
-        } else if (runningFdpMinutes >= fdpThreshold) {
-          flightVerdict = VERDICTS.ATTENTION;
-          reasons.push(`FDP approaching limit ${formatDurationMinutes(runningFdpMinutes)} / ${formatDurationMinutes(applicableLimitMinutes)}`);
-        }
-        if (runningFlightTime > dayMaxFlightTime) {
-          flightVerdict = VERDICTS.EXCEEDED;
-          reasons.push(`Flight time ${formatDurationMinutes(runningFlightTime)} exceeds daily ${formatDurationMinutes(dayMaxFlightTime)}`);
-        }
-        const maxLandings = resolveMaxLandings(scheme, { operationCrew, flightTimeMinutes: runningFlightTime });
-        if (maxLandings != null && flightOffset + 1 > maxLandings) {
-          flightVerdict = VERDICTS.EXCEEDED;
-          reasons.push(`Landings ${flightOffset + 1} exceed ${maxLandings}`);
-        }
-        return {
-          ...flight,
-          flightMinutes: flight.flightMinutes,
-          departure: flight.departure,
-          landing: flight.landing,
-          runningFdpMinutes,
-          runningFlightTime,
-          verdict: flightVerdict,
-          reasons
-        };
-      })
+      timeZoneCrossingHours: firstFlight.timeZoneCrossingHours || lastFlight.timeZoneCrossingHours || 0
     };
 
     const simRecordsWithDuty = [...baselineRecords, ...completedDuties.map(toSimRecord), toSimRecord(duty)];
@@ -816,26 +823,81 @@ export function simulateFlightSequence(scheme, {
 
     let dutyVerdict = fdpResult.verdict;
     const reasons = [];
+    const dutyRuleRefs = [];
     if (fdpResult.verdict === VERDICTS.EXCEEDED) {
       reasons.push(`FDP ${formatDurationMinutes(plannedFdpMinutes)} exceeds applicable ${formatDurationMinutes(applicableLimitMinutes)}`);
+      dutyRuleRefs.push('CAR §7.2 – FDP limit');
     }
     const exceededPeriod = cumulative.periods.find((period) => period.flightExceeded || period.dutyExceeded);
     if (exceededPeriod) {
       dutyVerdict = VERDICTS.EXCEEDED;
       reasons.push(`Cumulative ${exceededPeriod.days}-day limit exceeded (flight ${formatDurationMinutes(exceededPeriod.flightUsed)}/${formatDurationMinutes(exceededPeriod.flightLimit)}, duty ${formatDurationMinutes(exceededPeriod.dutyUsed)}/${formatDurationMinutes(exceededPeriod.dutyLimit)})`);
+      dutyRuleRefs.push(`CAR §15.4 – ${exceededPeriod.days}-day cumulative ${exceededPeriod.flightExceeded ? 'flight-time' : 'duty'} limit`);
     }
     if (!weeklyOk) {
       dutyVerdict = VERDICTS.EXCEEDED;
       reasons.push(weekly.alert);
+      dutyRuleRefs.push('CAR §11.2 – Weekly rest');
     }
     if (!night.ok && dutyVerdict !== VERDICTS.EXCEEDED) {
       dutyVerdict = VERDICTS.ATTENTION;
       reasons.push(night.alert);
+      dutyRuleRefs.push('CAR §10.1 – Night duty');
     }
     if (!restOk) {
       dutyVerdict = VERDICTS.EXCEEDED;
       reasons.push(restReason);
+      dutyRuleRefs.push('CAR §8.2 – Minimum rest between duties');
     }
+
+    duty.flights = dutyFlights.map((flight, flightOffset) => {
+      const runningFlightTime = dutyFlights.slice(0, flightOffset + 1).reduce((sum, item) => sum + item.flightMinutes, 0);
+      const runningFdpMinutes = Math.max(0, diffMinutes(reportTime, flight.landing));
+      const maxLandings = resolveMaxLandings(scheme, { operationCrew, flightTimeMinutes: runningFlightTime });
+      const flightCompliance = buildFlightComplianceRecord({
+        flight,
+        dutyIndex: dutyIndex + 1,
+        runningFdpMinutes,
+        applicableLimitMinutes,
+        fdpThreshold,
+        runningFlightTime,
+        dayMaxFlightTime,
+        maxLandings,
+        flightOffset
+      });
+
+      const mergedVerdict = flightCompliance.verdict === VERDICTS.EXCEEDED || dutyVerdict === VERDICTS.EXCEEDED
+        ? VERDICTS.EXCEEDED
+        : flightCompliance.verdict === VERDICTS.ATTENTION || dutyVerdict === VERDICTS.ATTENTION
+          ? VERDICTS.ATTENTION
+          : VERDICTS.WITHIN;
+      const mergedRuleRefs = [...new Set([...(flightCompliance.ruleRefs || []), ...dutyRuleRefs])];
+      const mergedReason = [flightCompliance.reason, ...reasons].filter(Boolean).join(' · ');
+
+      return {
+        ...flight,
+        flightMinutes: flight.flightMinutes,
+        departure: flight.departure,
+        landing: flight.landing,
+        runningFdpMinutes,
+        runningFlightTime,
+        verdict: mergedVerdict,
+        reasons: mergedReason ? [mergedReason] : [],
+        ruleRefs: mergedRuleRefs,
+        reason: mergedReason,
+        complianceText: mergedVerdict === VERDICTS.EXCEEDED
+          ? `Violation: ${mergedReason}`
+          : mergedVerdict === VERDICTS.ATTENTION
+            ? `Attention: ${mergedReason}`
+            : `Complied: ${mergedReason}`,
+        applicableLimitMinutes: flightCompliance.applicableLimitMinutes,
+        usedFdpMinutes: flightCompliance.usedFdpMinutes,
+        usedFlightTimeMinutes: flightCompliance.usedFlightTimeMinutes,
+        maxLandings: flightCompliance.maxLandings,
+        landingCount: flightCompliance.landingCount,
+        dutyRuleRefs
+      };
+    });
 
     completedDuties.push(duty);
 
@@ -843,6 +905,7 @@ export function simulateFlightSequence(scheme, {
       ...duty,
       verdict: dutyVerdict,
       reasons,
+      dutyRuleRefs,
       restRequiredMinutes,
       restAvailableMinutes,
       restOk,
@@ -852,23 +915,22 @@ export function simulateFlightSequence(scheme, {
       night,
       notEvaluated: false
     });
-
-    if (dutyVerdict === VERDICTS.EXCEEDED && !stopped) {
-      stopped = true;
-      firstViolation = duties[duties.length - 1];
-    }
   });
 
-  const verdict = firstViolation ? VERDICTS.EXCEEDED : duties.some((duty) => duty.verdict === VERDICTS.ATTENTION) ? VERDICTS.ATTENTION : VERDICTS.WITHIN;
-  let summary;
-  if (firstViolation) {
-    summary = `${crewName ? `${crewName} - ` : ''}Schedule invalid from Duty ${firstViolation.dutyIndex}${firstViolation.notEvaluated ? '' : '.'} Subsequent flights not evaluated.`;
-  } else {
-    const attentionCount = duties.filter((duty) => duty.verdict === VERDICTS.ATTENTION).length;
-    summary = attentionCount
-      ? `Sequence evaluated with ${duties.length} duty period${duties.length === 1 ? '' : 's'} and ${attentionCount} attention item${attentionCount === 1 ? '' : 's'}.`
-      : `Sequence evaluated with ${duties.length} duty period${duties.length === 1 ? '' : 's'} and no non-compliant violation.`;
-  }
+  const firstViolation = duties.find((duty) => duty.verdict === VERDICTS.EXCEEDED) || null;
+  const verdict = duties.some((duty) => duty.verdict === VERDICTS.EXCEEDED)
+    ? VERDICTS.EXCEEDED
+    : duties.some((duty) => duty.verdict === VERDICTS.ATTENTION)
+      ? VERDICTS.ATTENTION
+      : VERDICTS.WITHIN;
+
+  const exceedCount = duties.flatMap((duty) => duty.flights).filter((flight) => flight.verdict === VERDICTS.EXCEEDED).length;
+  const attentionCount = duties.flatMap((duty) => duty.flights).filter((flight) => flight.verdict === VERDICTS.ATTENTION).length;
+  const withinCount = duties.flatMap((duty) => duty.flights).filter((flight) => flight.verdict === VERDICTS.WITHIN).length;
+
+  const summary = firstViolation
+    ? `${crewName ? `${crewName} - ` : ''}Sequence evaluated across ${duties.length} duty period${duties.length === 1 ? '' : 's'}; first violation detected in Duty ${firstViolation.dutyIndex}. ${exceedCount} flight${exceedCount === 1 ? '' : 's'} exceeded, ${attentionCount} attention, ${withinCount} compliant.`
+    : `Sequence evaluated with ${duties.length} duty period${duties.length === 1 ? '' : 's'}; ${withinCount} compliant, ${attentionCount} attention, ${exceedCount} exceeded.`;
 
   return {
     verdict,

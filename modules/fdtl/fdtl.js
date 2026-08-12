@@ -757,35 +757,37 @@ function handleCheckSubmit(event) {
     { within: 0, attention: 0, exceeded: 0, notEvaluated: 0 }
   );
 
-  const renderDuty = (duty) => {
-    if (duty.notEvaluated) {
-      return `<li class="muted"><strong>Duty ${duty.dutyIndex}</strong> — NOT EVALUATED (schedule already invalid from Duty ${simulation.firstViolation?.dutyIndex}).</li>`;
-    }
+  const renderRulePills = (ruleRefs, isViolation) =>
+    Array.isArray(ruleRefs) && ruleRefs.length
+      ? `<div class="fdtl-rule-pills">${ruleRefs.map((ref) => `<span class="fdtl-rule-pill${isViolation ? ' violation' : ''}">${escapeHtml(ref)}</span>`).join('')}</div>`
+      : '<span class="muted">—</span>';
 
-    const toneClass = duty.verdict === VERDICTS.EXCEEDED ? 'fail' : duty.verdict === VERDICTS.ATTENTION ? 'watch' : 'ok';
-    const restText = duty.restOk == null
-      ? ''
-      : `<span>Rest before duty ${duty.restOk ? '✓' : '✕'} ${formatDurationMinutes(duty.restAvailableMinutes)} / required ${formatDurationMinutes(duty.restRequiredMinutes)}</span>`;
-    const cumulativeText = duty.cumulative?.periods
-      ? `<span>Cumulative ${duty.cumulative.periods.map((period) => `${period.days}d: ${formatDurationMinutes(period.flightUsed)}/${formatDurationMinutes(period.flightLimit)} FT`).join(' · ')}</span>`
-      : '';
+  const renderFlightRow = (flight, dutyIndex) => {
+    const rowClass = flight.verdict === VERDICTS.EXCEEDED ? 'fail' : flight.verdict === VERDICTS.ATTENTION ? 'watch' : 'ok';
+    const badgeClass = flight.verdict === VERDICTS.EXCEEDED ? 'critical' : flight.verdict === VERDICTS.ATTENTION ? 'watch' : 'good';
+    const isViolation = flight.verdict === VERDICTS.EXCEEDED;
+    const reason = flight.reason || flight.complianceText || '—';
 
-    const flightTexts = duty.flights
-      .map((flight) => {
-        const mark = flight.verdict === VERDICTS.EXCEEDED ? '✕' : flight.verdict === VERDICTS.ATTENTION ? '!' : '✓';
-        return `${mark} F${flight.flightNumber}`;
-      })
-      .join(' ');
-
-    return `<li class="${toneClass}">
-      <strong>Duty ${duty.dutyIndex}: ${escapeHtml(VERDICT_LABELS[duty.verdict] || 'Within Limits')}</strong>
-      · FDP ${formatDurationMinutes(duty.plannedFdpMinutes)} / ${formatDurationMinutes(duty.applicableLimitMinutes)}
-      · Flight ${formatDurationMinutes(duty.flightTimeMinutes)} · ${duty.landings} landings
-      <br><small>${flightTexts}</small>
-      <br><small>${restText}${restText ? ' · ' : ''}${cumulativeText}</small>
-      ${duty.reasons.length ? `<br><small class="fdtl-check-reason">${duty.reasons.map((reason) => escapeHtml(reason)).join(' · ')}</small>` : ''}
-    </li>`;
+    return `
+      <tr class="${rowClass}">
+        <td>F${flight.flightNumber}</td>
+        <td>Duty ${dutyIndex}</td>
+        <td><span class="fdtl-badge fdtl-badge--${badgeClass}">${escapeHtml(VERDICT_LABELS[flight.verdict] || 'Within Limits')}</span></td>
+        <td>${escapeHtml(flight.departure ? formatDateTime(flight.departure) : '—')}</td>
+        <td>${escapeHtml(flight.landing ? formatDateTime(flight.landing) : '—')}</td>
+        <td>${renderRulePills(flight.ruleRefs, isViolation)}</td>
+        <td class="fdtl-td-reason">${escapeHtml(reason)}</td>
+      </tr>`;
   };
+
+  const flightTableRows = simulation.duties
+    .flatMap((duty) => duty.flights.map((flight) => renderFlightRow(flight, duty.dutyIndex)))
+    .join('');
+
+  const violatedDuties = simulation.duties.filter((d) => d.verdict === VERDICTS.EXCEEDED);
+  const violationSummaryLine = violatedDuties.length
+    ? violatedDuties.map((d) => `Duty ${d.dutyIndex}: ${d.reasons.join(' · ')}`).join('<br>')
+    : '';
 
   resultElement.innerHTML = `
     <div class="fdtl-check-card">
@@ -793,14 +795,29 @@ function handleCheckSubmit(event) {
         <strong>${escapeHtml(member ? getCrewName(member) : crewId || 'Crew')}</strong>
         <span class="fdtl-badge fdtl-badge--${tone}">${escapeHtml(VERDICT_LABELS[verdict] || 'Within Limits')}</span>
       </div>
-      <div class="fdtl-check-limit">
-        <div><span>Duty periods</span><strong>${simulation.duties.length}</strong></div>
-        <div><span>Flights</span><strong>${flightCounts.within} ✓ · ${flightCounts.attention} ! · ${flightCounts.exceeded} ✕${flightCounts.notEvaluated ? ` · ${flightCounts.notEvaluated} ⚪` : ''}</strong></div>
-        <div><span>Status</span><strong>${escapeHtml(simulation.summary)}</strong></div>
+      <div class="fdtl-check-summary-bar">
+        <div class="fdtl-check-summary-stat"><span>Duties</span><strong>${simulation.duties.length}</strong></div>
+        <div class="fdtl-check-summary-stat"><span>Compliant</span><strong style="color:#166534">${flightCounts.within}</strong></div>
+        <div class="fdtl-check-summary-stat"><span>Attention</span><strong style="color:#92400e">${flightCounts.attention}</strong></div>
+        <div class="fdtl-check-summary-stat"><span>Exceeded</span><strong style="color:#991b1b">${flightCounts.exceeded}</strong></div>
       </div>
-      <ul class="fdtl-check-list">
-        ${simulation.duties.map(renderDuty).join('')}
-      </ul>
+      ${violationSummaryLine ? `<div class="fdtl-check-reason" style="margin-top:0.7rem;font-size:0.82rem;line-height:1.5">${violationSummaryLine}</div>` : ''}
+      <div class="fdtl-check-table-wrap">
+        <table class="fdtl-check-table">
+          <thead>
+            <tr>
+              <th>Flight</th>
+              <th>Duty</th>
+              <th>Result</th>
+              <th>Departure</th>
+              <th>Landing</th>
+              <th>Rule refs</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>${flightTableRows}</tbody>
+        </table>
+      </div>
     </div>`;
 }
 
