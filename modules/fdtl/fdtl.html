@@ -196,22 +196,48 @@
         <select id="fdtl-check-op-crew" required></select>
       </label>
       <label class="fdtl-form-field">
+        <span>Report Time Override (advanced)</span>
+        <input type="datetime-local" id="fdtl-check-report-override" title="Optional. Overrides the scheme-derived report time for the first duty period." />
+      </label>
+      <label class="fdtl-form-field">
         <span>Report Time</span>
-        <input type="datetime-local" id="fdtl-check-report" required />
+        <input type="datetime-local" id="fdtl-check-report" />
       </label>
       <label class="fdtl-form-field">
         <span>Planned Duty End</span>
-        <input type="datetime-local" id="fdtl-check-fdp-end" required />
+        <input type="datetime-local" id="fdtl-check-fdp-end" />
       </label>
       <label class="fdtl-form-field">
         <span>Planned Flight Time (minutes)</span>
-        <input type="number" id="fdtl-check-flight-time" min="0" step="1" value="0" required />
+        <input type="number" id="fdtl-check-flight-time" min="0" step="1" value="0" />
       </label>
       <label class="fdtl-form-field">
         <span>Planned Landings</span>
-        <input type="number" id="fdtl-check-landings" min="0" step="1" value="0" required />
+        <input type="number" id="fdtl-check-landings" min="0" step="1" value="0" />
       </label>
-      <button type="submit" class="vs-button vs-button--primary vs-button--sm">Check Eligibility</button>
+      <div class="fdtl-flight-sequence-card">
+        <div class="card-heading compact">
+          <h4>Flight Sequence</h4>
+          <p class="muted">Enter a multi-flight timetable. VAMS groups flights into duty periods, checks the entire sequence chronologically, and feeds the proposed flights into cumulative, weekly, and rest calculations.</p>
+        </div>
+        <div class="fdtl-sequence-wrap">
+          <table class="fdtl-sequence-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Departure</th>
+                <th>Landing</th>
+                <th>Flight</th>
+                <th>New Duty</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="fdtl-flight-sequence-body"></tbody>
+          </table>
+          <button type="button" id="fdtl-add-flight-row" class="vs-button vs-button--secondary vs-button--sm">+ Add Flight</button>
+        </div>
+      </div>
+      <button type="submit" class="vs-button vs-button--primary vs-button--sm">Check Sequence</button>
     </form>
     <div id="fdtl-check-result" class="fdtl-check-result"></div>
   </div>

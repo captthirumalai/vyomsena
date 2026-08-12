@@ -21,6 +21,7 @@ export {
   computeWoclAdjustment,
   computeApplicableFdpLimit,
   checkPlannedFdp,
+  simulateFlightSequence,
   computeRestStatus,
   computeNightDutyStatus,
   computeWeeklyRestStatus,
