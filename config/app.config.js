@@ -1,6 +1,6 @@
 export const appConfig = {
   appName: 'VAMS V2',
-  releaseVersion: 'V0.2.23',
+  releaseVersion: 'V0.2.24',
   defaultRoute: '/dashboard',
   theme: 'light'
 };

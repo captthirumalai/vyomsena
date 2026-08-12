@@ -11,7 +11,8 @@ import {
   updateDoc as updateDocFn,
   deleteDoc as deleteDocFn,
   onSnapshot as onSnapshotFn,
-  serverTimestamp as firestoreTimestamp
+  serverTimestamp as firestoreTimestamp,
+  limit as limitFn
 } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { getDbInstance } from './firebaseService.js';
 
@@ -41,6 +42,10 @@ export function where(field, op, value) {
 
 export function orderBy(field, direction) {
   return orderByFn(field, direction);
+}
+
+export function limit(count) {
+  return limitFn(count);
 }
 
 export async function getDocs(queryRef) {
