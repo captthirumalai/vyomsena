@@ -19,15 +19,15 @@
   padding: 1.1rem 1.15rem;
   background: var(--cm-card);
   border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius);
-  box-shadow: var(--cm-shadow);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: transform var(--cm-ease), box-shadow var(--cm-ease), border-color var(--cm-ease);
 }
 
 .cm-kpi:hover {
   transform: translateY(-3px);
-  box-shadow: var(--cm-shadow-hover);
+  box-shadow: var(--shadow-sm);
   border-color: var(--cm-border-strong);
 }
 
@@ -47,28 +47,28 @@
 }
 
 .cm-kpi-icon-navy {
-  background: #eef2ff;
-  color: var(--cm-primary);
+  background: var(--color-neutral-bg);
+  color: var(--color-neutral-strong);
 }
 
 .cm-kpi-icon-green {
-  background: var(--cm-green-bg);
-  color: var(--cm-green);
+  background: var(--color-good-bg);
+  color: var(--color-good-strong);
 }
 
 .cm-kpi-icon-amber {
-  background: var(--cm-amber-bg);
-  color: var(--cm-amber);
+  background: var(--color-watch-bg);
+  color: var(--color-watch-strong);
 }
 
 .cm-kpi-icon-red {
-  background: var(--cm-red-bg);
-  color: var(--cm-red);
+  background: var(--color-critical-bg);
+  color: var(--color-critical-strong);
 }
 
 .cm-kpi-icon-blue {
-  background: var(--cm-blue-bg);
-  color: var(--cm-blue);
+  background: #eff6ff;
+  color: var(--cm-primary);
 }
 
 .cm-kpi-body {
@@ -78,21 +78,22 @@
 }
 
 .cm-kpi-body strong {
-  font-size: 1.6rem;
+  font-size: var(--font-size-lg);
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1;
+  color: var(--cm-text);
 }
 
 .cm-kpi-label {
-  font-size: 0.82rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   color: var(--cm-text);
 }
 
 .cm-kpi-sub {
   grid-column: 2;
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   color: var(--cm-muted);
 }
 

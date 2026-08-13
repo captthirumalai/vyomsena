@@ -4,11 +4,6 @@
       <h2>FDTL Monitoring</h2>
       <p>Flight Duty Time Limit compliance over operational data from Flight Operations, EFB, and manual history.</p>
     </div>
-    <div class="fdtl-header-actions">
-      <button type="button" class="fdtl-tab fdtl-header-action" data-fdtl-tab="scheme" role="tab" aria-selected="false">FDTL Scheme</button>
-      <a class="fdtl-tab fdtl-header-action" href="#/fdtl-calculator">Flight Calculator</a>
-      <button type="button" class="fdtl-tab fdtl-header-action" data-fdtl-tab="audit" role="tab" aria-selected="false">Audit Trail</button>
-    </div>
   </div>
   <div id="fdtl-scheme-line" class="fdtl-scheme-line">Scheme: loading...</div>
   <div id="fdtl-status" class="fdtl-status" aria-live="polite"></div>
@@ -87,10 +82,6 @@
           <input type="time" id="fdtl-manual-chocks-off" />
         </label>
         <label class="fdtl-form-field">
-          <span>Chocks On</span>
-          <input type="time" id="fdtl-manual-chocks-on" />
-        </label>
-        <label class="fdtl-form-field">
           <span>Takeoff</span>
           <input type="time" id="fdtl-manual-takeoff" />
         </label>
@@ -99,12 +90,17 @@
           <input type="time" id="fdtl-manual-landing" />
         </label>
         <label class="fdtl-form-field">
-          <span>IR Time (min)</span>
-          <input type="number" id="fdtl-manual-ir" min="0" step="1" value="0" />
+          <span>Chocks On</span>
+          <input type="time" id="fdtl-manual-chocks-on" />
+        </label>
+        <p class="fdtl-form-field--full fdtl-time-warning hidden" id="fdtl-manual-time-warning" role="alert"></p>
+        <label class="fdtl-form-field">
+          <span>IR Time (hh:mm)</span>
+          <input type="time" id="fdtl-manual-ir" />
         </label>
         <label class="fdtl-form-field">
-          <span>XC Time (min)</span>
-          <input type="number" id="fdtl-manual-xc" min="0" step="1" value="0" />
+          <span>XC Time (hh:mm)</span>
+          <input type="time" id="fdtl-manual-xc" />
         </label>
         <label class="fdtl-form-field">
           <span>Distance (NM)</span>

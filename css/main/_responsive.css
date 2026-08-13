@@ -2,14 +2,6 @@
 
 
 @media (max-width: 980px) {
-  .vs-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .vs-sidebar {
-    width: 100%;
-  }
-
   .vs-auth-grid {
     grid-template-columns: 1fr;
     min-height: auto;

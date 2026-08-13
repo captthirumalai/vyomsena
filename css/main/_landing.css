@@ -119,25 +119,12 @@
   gap: 1rem;
 }
 
-.auth-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  border-radius: 28px;
-  padding: 1.5rem;
-  box-shadow: var(--shadow);
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.auth-card:not(.active) {
-  display: none;
-}
-
-.card-heading h2 {
+.vs-auth-card .card-heading h2 {
   margin: 0;
-  font-size: 1.45rem;
+  font-size: 1.55rem;
 }
 
-.card-heading p {
+.vs-auth-card .card-heading p {
   margin: 0.75rem 0 0;
   color: var(--muted-color);
   line-height: 1.7;
@@ -224,11 +211,12 @@
   width: 100%;
   min-height: 50px;
   padding: 0 1.25rem;
-  border: none;
-  border-radius: 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-weight: 700;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  font-size: var(--font-size-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .btn:hover {
@@ -237,14 +225,18 @@
 
 .btn-primary {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #ffffff;
-  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.18);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.24);
 }
 
 .btn-secondary {
-  background: #f8fafc;
+  background: var(--surface);
   color: var(--secondary-color);
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-color: var(--border-color);
 }
 
 .btn-spinner {

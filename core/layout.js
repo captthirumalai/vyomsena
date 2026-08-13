@@ -55,6 +55,24 @@ function initShellActions() {
   query('#btn-theme-toggle')?.addEventListener('click', () => {
     themeStore.toggleTheme();
   });
+
+  const shellEl = query('#app-shell');
+  const menuButton = query('#btn-menu-toggle');
+  const backdrop = query('#app-sidebar-backdrop');
+
+  function setSidebarOpen(open) {
+    shellEl?.classList.toggle('sidebar-open', open);
+    menuButton?.setAttribute('aria-expanded', String(open));
+    document.body.classList.toggle('sidebar-lock', open);
+  }
+
+  menuButton?.addEventListener('click', () => {
+    setSidebarOpen(!shellEl?.classList.contains('sidebar-open'));
+  });
+
+  backdrop?.addEventListener('click', () => {
+    setSidebarOpen(false);
+  });
 }
 
 export function initLayout() {
@@ -63,6 +81,7 @@ export function initLayout() {
 
   const shell = `
     <div class="vs-shell auth-mode" id="app-shell">
+      <div class="vs-sidebar-backdrop" id="app-sidebar-backdrop" aria-hidden="true"></div>
       <aside class="vs-sidebar hidden" id="app-sidebar">
         <div class="vs-brand-panel">
           <div class="vs-brand-logo">V</div>
@@ -82,6 +101,9 @@ export function initLayout() {
       <div class="vs-main">
         <header class="vs-topbar hidden" id="app-topbar">
           <div class="vs-topbar-title">
+            <button id="btn-menu-toggle" class="vs-icon-btn vs-btn-menu" type="button" aria-label="Toggle navigation" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
             <div class="brand-copy">
               <h1>VAMS Portal</h1>
               <p id="app-user">Secure operations dashboard</p>
@@ -333,5 +355,11 @@ export function initLayout() {
 
   window.addEventListener('hashchange', () => {
     setActiveSidebarLink(window.location.hash.replace('#', '') || '/dashboard');
+    const shellEl = query('#app-shell');
+    if (shellEl?.classList.contains('sidebar-open')) {
+      shellEl.classList.remove('sidebar-open');
+      query('#btn-menu-toggle')?.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('sidebar-lock');
+    }
   });
 }

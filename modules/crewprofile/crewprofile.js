@@ -324,7 +324,7 @@ function renderHeader() {
     { label: 'Valid', value: Math.max(profileDocuments.length - compliance.expired - compliance.expiring, 0) },
     { label: 'Expiring', value: compliance.expiring },
     { label: 'Expired', value: compliance.expired }
-  ].map((item) => `<article class="crew-profile-kpi"><strong>${item.value}</strong><span>${item.label}</span></article>`).join('');
+  ].map((item) => `<article class="vs-kpi-card"><strong class="vs-kpi-value">${item.value}</strong><span class="vs-kpi-label">${item.label}</span></article>`).join('');
 }
 
 function renderPersonalTab() {

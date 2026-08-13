@@ -271,12 +271,12 @@
   display: none;
 }
 
-.card-heading h2 {
+.vs-form-inner .card-heading h2 {
   margin: 0;
   font-size: 1.55rem;
 }
 
-.card-heading p {
+.vs-form-inner .card-heading p {
   margin: 0.75rem 0 0;
   color: var(--muted-color);
   line-height: 1.75;

@@ -19,15 +19,15 @@
   padding: 1rem 1.1rem;
   background: var(--cm-card);
   border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius);
-  box-shadow: var(--cm-shadow);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: transform var(--cm-ease), box-shadow var(--cm-ease), border-color var(--cm-ease);
 }
 
 .cm-attention-stat:hover {
   transform: translateY(-2px);
-  box-shadow: var(--cm-shadow-hover);
+  box-shadow: var(--shadow-sm);
   border-color: var(--cm-border-strong);
 }
 
@@ -41,30 +41,31 @@
 }
 
 .cm-attention-icon-navy {
-  background: #eef2ff;
-  color: var(--cm-primary);
+  background: var(--color-neutral-bg);
+  color: var(--color-neutral-strong);
 }
 
 .cm-attention-icon-amber {
-  background: var(--cm-amber-bg);
-  color: var(--cm-amber);
+  background: var(--color-watch-bg);
+  color: var(--color-watch-strong);
 }
 
 .cm-attention-icon-red {
-  background: var(--cm-red-bg);
-  color: var(--cm-red);
+  background: var(--color-critical-bg);
+  color: var(--color-critical-strong);
 }
 
 .cm-attention-body strong {
   display: block;
-  font-size: 1.5rem;
+  font-size: var(--font-size-lg);
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1;
+  color: var(--cm-text);
 }
 
 .cm-attention-label {
-  font-size: 0.78rem;
+  font-size: var(--font-size-xs);
   color: var(--cm-muted);
   font-weight: 600;
 }

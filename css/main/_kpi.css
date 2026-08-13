@@ -1,0 +1,118 @@
+/* ============================================================
+   VyomSena shared KPI/stat card component.
+   One "feel" for every module's KPI cards:
+   - same card surface, radius, shadow
+   - same label/value scale (typography tokens)
+   - same semantic status tones (good / watch / critical / neutral)
+   ============================================================ */
+
+.vs-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.vs-kpi-grid--fixed {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.vs-kpi-card {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.vs-kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.vs-kpi-card.is-good {
+  background: var(--color-good-bg);
+  border-color: var(--color-good-border);
+}
+.vs-kpi-card.is-watch {
+  background: var(--color-watch-bg);
+  border-color: var(--color-watch-border);
+}
+.vs-kpi-card.is-critical {
+  background: var(--color-critical-bg);
+  border-color: var(--color-critical-border);
+}
+.vs-kpi-card.is-neutral {
+  background: var(--color-neutral-bg);
+  border-color: transparent;
+}
+
+.vs-kpi-card.is-good .vs-kpi-value { color: var(--color-good-strong); }
+.vs-kpi-card.is-watch .vs-kpi-value { color: var(--color-watch-strong); }
+.vs-kpi-card.is-critical .vs-kpi-value { color: var(--color-critical-strong); }
+.vs-kpi-card.is-neutral .vs-kpi-value { color: var(--color-neutral-strong); }
+
+.vs-kpi-label,
+.vs-kpi-card .kpi-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted-color);
+}
+
+.vs-kpi-value {
+  display: block;
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--text-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.vs-kpi-sub {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--muted-color);
+}
+
+.vs-kpi-card--icon {
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 0.85rem;
+  align-items: center;
+}
+
+.vs-kpi-card--icon .vs-kpi-icon,
+.vs-kpi-card--icon .kpi-icon {
+  grid-row: span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--color-neutral-bg);
+  color: var(--text-color);
+}
+
+.vs-kpi-card--icon .vs-kpi-icon.is-good { background: var(--color-good-bg); color: var(--color-good-strong); }
+.vs-kpi-card--icon .vs-kpi-icon.is-watch { background: var(--color-watch-bg); color: var(--color-watch-strong); }
+.vs-kpi-card--icon .vs-kpi-icon.is-critical { background: var(--color-critical-bg); color: var(--color-critical-strong); }
+.vs-kpi-card--icon .vs-kpi-icon svg { width: 22px; height: 22px; }
+
+@media (max-width: 1160px) {
+  .vs-kpi-grid--fixed,
+  .vs-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .vs-kpi-grid--fixed,
+  .vs-kpi-grid { grid-template-columns: 1fr; }
+}

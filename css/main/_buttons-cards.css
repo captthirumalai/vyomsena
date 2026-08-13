@@ -1,21 +1,28 @@
-/* VyomSena app shell - buttons-cards styles (extracted from css/main.css) */
-
+/* VyomSena shared button system — one look across every module.
+   Variants: primary / secondary / ghost / outline / danger. Sizes: sm / md / lg. */
 
 .vs-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.45rem;
   min-height: 44px;
   padding: 0 1rem;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   font-weight: 700;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
   cursor: pointer;
-  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .vs-button:hover:not(:disabled) {
   transform: translateY(-1px);
+}
+
+.vs-button:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .vs-button:disabled {
@@ -29,21 +36,55 @@
   box-shadow: 0 10px 24px rgba(37, 99, 235, 0.16);
 }
 
-.vs-button--secondary {
-  background: white;
-  color: var(--secondary-color);
-  border-color: rgba(15, 23, 42, 0.12);
+.vs-button--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.24);
 }
 
-body[data-theme='dark'] .vs-button--secondary {
-  background: #1f2937;
-  border-color: rgba(148, 163, 184, 0.3);
-  color: #e2e8f0;
+.vs-button--secondary {
+  background: var(--surface);
+  color: var(--secondary-color);
+  border-color: var(--border-color);
+}
+
+.vs-button--ghost {
+  background: var(--surface-strong);
+  color: var(--secondary-color);
+  border-color: transparent;
+}
+
+.vs-button--ghost:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  color: var(--primary-strong);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.vs-button--outline {
+  background: transparent;
+  color: var(--secondary-color);
+  border-color: var(--border-color);
+}
+
+.vs-button--outline:hover:not(:disabled) {
+  color: var(--primary-strong);
+  border-color: var(--primary-color);
+}
+
+.vs-button--danger {
+  background: var(--color-critical-bg);
+  color: var(--color-critical-strong);
+  border-color: var(--color-critical-border);
+}
+
+.vs-button--danger:hover:not(:disabled) {
+  background: var(--color-critical-bg);
+  box-shadow: inset 0 0 0 1px var(--color-critical-border);
 }
 
 .vs-button--sm {
   min-height: 38px;
   padding: 0 0.85rem;
+  font-size: var(--font-size-xs);
 }
 
 .vs-button--md {
@@ -55,26 +96,84 @@ body[data-theme='dark'] .vs-button--secondary {
   padding: 0 1.25rem;
 }
 
+.vs-button-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.vs-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--secondary-color);
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.vs-icon-btn:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.vs-icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.vs-icon-btn .vs-notif-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-critical);
+  border: 2px solid var(--surface);
+}
+
+/* Dark theme tweaks */
+body[data-theme='dark'] .vs-button--secondary,
+body[data-theme='dark'] .vs-button--ghost,
+body[data-theme='dark'] .vs-button--outline {
+  border-color: var(--border-color);
+}
+
+body[data-theme='dark'] .vs-button--ghost {
+  background: var(--surface-strong);
+}
+
+/* ---------- Cards ---------- */
 .vs-card {
-  background: white;
-  border-radius: 22px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
   padding: 1.5rem;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--shadow);
 }
 
 .vs-card__title {
   margin: 0 0 1rem;
-  font-size: 1.1rem;
+  font-size: var(--font-size-md);
+  font-weight: 800;
 }
 
 .vs-card__body {
   color: var(--muted-color);
   line-height: 1.75;
+  font-size: var(--font-size-sm);
 }
 
 .vs-card__footer {
   margin-top: 1.25rem;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  border-top: 1px solid var(--border-color);
   padding-top: 1rem;
 }

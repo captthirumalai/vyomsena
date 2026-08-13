@@ -2,7 +2,7 @@
 
 :root {
   color-scheme: light dark;
-  font-family: "Segoe UI", "Trebuchet MS", Arial, sans-serif;
+  font-family: "Segoe UI", "Inter", "Trebuchet MS", Arial, sans-serif;
   --primary-color: #2563eb;
   --primary-strong: #1d4ed8;
   --secondary-color: #0f172a;
@@ -13,7 +13,34 @@
   --muted-color: #64748b;
   --border-color: rgba(15, 23, 42, 0.08);
   --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 14px rgba(15, 23, 42, 0.06);
   --page-glow: radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 38%), radial-gradient(circle at 90% 12%, rgba(14, 165, 233, 0.14), transparent 26%);
+
+  /* Typography scale — the whole app draws from these four sizes */
+  --font-size-xs: 0.78rem;
+  --font-size-sm: 0.88rem;
+  --font-size-md: 1.02rem;
+  --font-size-lg: 1.55rem;
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+
+  /* Semantic status colours — consistent across every module */
+  --color-good: #16a34a;
+  --color-good-bg: rgba(16, 185, 129, 0.1);
+  --color-good-border: rgba(5, 150, 105, 0.28);
+  --color-good-strong: #065f46;
+  --color-watch: #d97706;
+  --color-watch-bg: rgba(245, 158, 11, 0.12);
+  --color-watch-border: rgba(217, 119, 6, 0.32);
+  --color-watch-strong: #92400e;
+  --color-critical: #dc2626;
+  --color-critical-bg: rgba(239, 68, 68, 0.1);
+  --color-critical-border: rgba(220, 38, 38, 0.28);
+  --color-critical-strong: #991b1b;
+  --color-neutral-bg: rgba(148, 163, 184, 0.16);
+  --color-neutral-strong: #334155;
 }
 
 :root[data-theme='dark'] {
@@ -27,9 +54,15 @@
   --muted-color: #94a3b8;
   --border-color: rgba(148, 163, 184, 0.22);
   --shadow: 0 18px 42px rgba(2, 6, 23, 0.52);
+  --shadow-sm: 0 1px 2px rgba(2, 6, 23, 0.4), 0 4px 16px rgba(2, 6, 23, 0.5);
   --page-glow:
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.24), transparent 34%),
     radial-gradient(circle at 88% 12%, rgba(14, 116, 144, 0.24), transparent 24%);
+
+  --color-good-strong: #86efac;
+  --color-watch-strong: #fcd34d;
+  --color-critical-strong: #fca5a5;
+  --color-neutral-strong: #cbd5e1;
 }
 
 * {

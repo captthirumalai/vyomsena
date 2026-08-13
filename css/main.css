@@ -5,6 +5,7 @@
    ============================================================ */
 
 @import './main/_foundation.css';
+@import './main/_components.css';
 @import './main/_landing.css';
 @import './main/_app-shell.css';
 @import './main/_buttons-cards.css';
@@ -12,4 +13,5 @@
 @import './main/_auth-hero.css';
 @import './main/_topbar.css';
 @import './main/_footer.css';
+@import './main/_kpi.css';
 @import './main/_responsive.css';

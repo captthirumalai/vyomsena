@@ -1,0 +1,80 @@
+/* ============================================================
+   VyomSena shared UI components (base layer).
+   These classes are used across every module. Defining them once
+   here guarantees one consistent surface/typography feel app-wide.
+   ============================================================ */
+
+/* ---------- Card surface ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.35rem;
+  box-shadow: var(--shadow);
+}
+
+.card.compact {
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Card headings ---------- */
+.card-heading {
+  margin-bottom: 0.8rem;
+}
+
+.card-heading.compact {
+  margin-bottom: 0.55rem;
+}
+
+.card-heading h2,
+.card-heading h3 {
+  margin: 0;
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.card-heading p {
+  margin: 0.35rem 0 0;
+  color: var(--muted-color);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+/* ---------- Muted helper ---------- */
+.muted {
+  color: var(--muted-color);
+  font-size: var(--font-size-sm);
+}
+
+/* ---------- Eyebrow / kicker ---------- */
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--primary-strong);
+}
+
+/* ---------- Section headings used inside cards ---------- */
+.card h3 {
+  margin: 0 0 0.75rem;
+  color: var(--text-color);
+  font-size: var(--font-size-md);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Dark theme ---------- */
+body[data-theme='dark'] .card {
+  background: var(--surface);
+  border-color: var(--border-color);
+}
+
+body[data-theme='dark'] .card-heading p,
+body[data-theme='dark'] .muted {
+  color: var(--muted-color);
+}

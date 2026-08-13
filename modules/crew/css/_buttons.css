@@ -1,4 +1,6 @@
-/* VyomSena Crew Management - BUTTONS styles (extracted from crew.css) */
+/* VyomSena Crew Management - BUTTONS styles
+   Mirrors the shared .vs-button system (css/main/_buttons-cards.css) so
+   crew buttons look identical to the rest of the app. */
 
 /* ============================ BUTTONS ============================ */
 
@@ -8,8 +10,9 @@
   justify-content: center;
   gap: 0.45rem;
   border: 1px solid transparent;
-  border-radius: var(--cm-radius-sm);
-  font-weight: 600;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   white-space: nowrap;
   transition: transform 120ms ease, box-shadow var(--cm-ease), background-color var(--cm-ease), border-color var(--cm-ease), color var(--cm-ease);
@@ -25,13 +28,13 @@
 }
 
 .cm-btn-primary {
-  background: var(--cm-primary);
+  background: linear-gradient(135deg, var(--cm-primary), var(--cm-accent));
   color: #fff;
   box-shadow: 0 4px 12px rgba(29, 78, 216, 0.28);
 }
 
 .cm-btn-primary:hover:not(:disabled) {
-  background: #1e40af;
+  background: linear-gradient(135deg, var(--cm-primary), var(--cm-accent));
   box-shadow: 0 6px 16px rgba(29, 78, 216, 0.34);
 }
 
@@ -47,6 +50,17 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
+.cm-btn-outline {
+  background: transparent;
+  color: var(--cm-text);
+  border-color: var(--cm-border-strong);
+}
+
+.cm-btn-outline:hover:not(:disabled) {
+  border-color: var(--cm-accent);
+  color: var(--cm-primary);
+}
+
 .cm-btn-danger {
   background: var(--cm-red-bg);
   color: var(--cm-red);
@@ -54,19 +68,20 @@
 }
 
 .cm-btn-danger:hover:not(:disabled) {
-  background: #fee2e2;
+  background: var(--cm-red-bg);
+  box-shadow: inset 0 0 0 1px var(--cm-red-border);
 }
 
 .cm-btn-sm {
   min-height: 34px;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.82rem;
+  padding: 0 0.85rem;
+  font-size: var(--font-size-xs);
 }
 
 .cm-btn-md {
   min-height: 40px;
-  padding: 0.5rem 1rem;
-  font-size: 0.87rem;
+  padding: 0 1rem;
+  font-size: var(--font-size-sm);
 }
 
 .cm-btn-spinner {

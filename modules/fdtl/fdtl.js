@@ -139,13 +139,11 @@ function showMessage(message) {
 
 function switchTab(tabName) {
   if (!activeView) return;
-  activeView.querySelectorAll('.fdtl-tab').forEach((tab) => {
-    const isActive = tab.dataset.fdtlTab === tabName;
-    tab.classList.toggle('active', isActive);
-    tab.setAttribute('aria-selected', String(isActive));
-  });
   activeView.querySelectorAll('.fdtl-pane').forEach((pane) => {
     pane.classList.toggle('hidden', pane.dataset.fdtlPane !== tabName);
+  });
+  activeView.querySelectorAll('[data-fdtl-tab]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.fdtlTab === tabName);
   });
   if (tabName === 'dashboard') {
     renderFlightsDashboard();
@@ -1232,12 +1230,60 @@ async function handleRecordSubmit(event) {
   }
 }
 
+function timeToMinutes(timeValue) {
+  if (!timeValue) return null;
+  const [hours, minutes] = String(timeValue).split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  return hours * 60 + minutes;
+}
+
+const MANUAL_TIME_FIELDS = [
+  { key: 'chocksOff', label: 'Chocks Off', id: 'fdtl-manual-chocks-off' },
+  { key: 'takeoff', label: 'Takeoff', id: 'fdtl-manual-takeoff' },
+  { key: 'landing', label: 'Landing', id: 'fdtl-manual-landing' },
+  { key: 'chocksOn', label: 'Chocks On', id: 'fdtl-manual-chocks-on' }
+];
+
+function validateManualTimes() {
+  const form = activeView?.querySelector('#fdtl-manual-form');
+  const warning = activeView?.querySelector('#fdtl-manual-time-warning');
+  const values = {};
+
+  MANUAL_TIME_FIELDS.forEach(({ key, id }) => {
+    const field = form?.querySelector(`#${id}`);
+    values[key] = timeToMinutes(field?.value);
+    field?.classList.remove('fdtl-field-invalid');
+  });
+  if (warning) warning.classList.add('hidden');
+
+  for (let index = 1; index < MANUAL_TIME_FIELDS.length; index += 1) {
+    const prev = MANUAL_TIME_FIELDS[index - 1];
+    const curr = MANUAL_TIME_FIELDS[index];
+    if (values[curr.key] != null && values[prev.key] != null && values[curr.key] <= values[prev.key]) {
+      const message = `${curr.label} cannot be at or before ${prev.label}.`;
+      form?.querySelector(`#${curr.id}`)?.classList.add('fdtl-field-invalid');
+      if (warning) {
+        warning.textContent = message;
+        warning.classList.remove('hidden');
+      }
+      return message;
+    }
+  }
+  return null;
+}
+
 async function handleManualSubmit(event) {
   event.preventDefault();
   if (!activeCompanyId) return;
 
   const form = activeView.querySelector('#fdtl-manual-form');
   if (!form) return;
+
+  const validationError = validateManualTimes();
+  if (validationError) {
+    showMessage(validationError);
+    return;
+  }
 
   const read = (selector) => form.querySelector(selector)?.value;
 
@@ -1257,9 +1303,9 @@ async function handleManualSubmit(event) {
   };
 
   const fops = {};
-  ['chocksOff', 'chocksOn', 'takeoff', 'landing'].forEach((field) => {
-    const timeValue = read(`#fdtl-manual-${field}`);
-    if (timeValue) fops[field] = toFlightTime(flightDate, timeValue);
+  [['chocksOff', 'chocks-off'], ['takeoff', 'takeoff'], ['landing', 'landing'], ['chocksOn', 'chocks-on']].forEach(([key, suffix]) => {
+    const timeValue = read(`#fdtl-manual-${suffix}`);
+    if (timeValue) fops[key] = toFlightTime(flightDate, timeValue);
   });
 
   try {
@@ -1279,8 +1325,8 @@ async function handleManualSubmit(event) {
         chocksOn: fops.chocksOn,
         takeoff: fops.takeoff,
         landing: fops.landing,
-        irTimeMinutes: Number(read('#fdtl-manual-ir')) || 0,
-        xcTimeMinutes: Number(read('#fdtl-manual-xc')) || 0,
+        irTimeMinutes: timeToMinutes(read('#fdtl-manual-ir')) || 0,
+        xcTimeMinutes: timeToMinutes(read('#fdtl-manual-xc')) || 0,
         distanceNM: Number(read('#fdtl-manual-distance')) || 0,
         operationType: read('#fdtl-manual-op-type') || 'commercial',
         remarks: read('#fdtl-manual-remarks') || null,
@@ -1303,10 +1349,13 @@ async function handleManualSubmit(event) {
       form.querySelector('#fdtl-manual-departure').value = '';
       form.querySelector('#fdtl-manual-destination').value = '';
       form.querySelector('#fdtl-manual-chocks-off').value = '';
-      form.querySelector('#fdtl-manual-chocks-on').value = '';
       form.querySelector('#fdtl-manual-takeoff').value = '';
       form.querySelector('#fdtl-manual-landing').value = '';
+      form.querySelector('#fdtl-manual-chocks-on').value = '';
+      form.querySelector('#fdtl-manual-ir').value = '';
+      form.querySelector('#fdtl-manual-xc').value = '';
     }
+    validateManualTimes();
     showMessage('Historical flight added. It will appear with the Manual / Historical source badge.');
   } catch (error) {
     console.error('Add historical flight failed:', error);
@@ -1425,14 +1474,17 @@ export async function init(view, context) {
     heading.textContent = 'FDTL Monitoring';
   }
 
-  view.querySelectorAll('[data-fdtl-tab]').forEach((tab) => {
-    tab.addEventListener('click', () => switchTab(tab.dataset.fdtlTab));
-  });
-  view.querySelectorAll('[data-fdtl-subtab]').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      view.querySelectorAll('[data-fdtl-subtab]').forEach((item) => item.classList.toggle('active', item === tab));
-      view.querySelectorAll('[data-fdtl-subpane]').forEach((pane) => pane.classList.toggle('active', pane.dataset.fdtlSubpane === tab.dataset.fdtlSubtab));
-    });
+  view.addEventListener('click', (event) => {
+    const tabButton = event.target.closest('[data-fdtl-tab]');
+    if (tabButton) {
+      switchTab(tabButton.dataset.fdtlTab);
+      return;
+    }
+    const subTab = event.target.closest('[data-fdtl-subtab]');
+    if (subTab) {
+      view.querySelectorAll('[data-fdtl-subtab]').forEach((item) => item.classList.toggle('active', item === subTab));
+      view.querySelectorAll('[data-fdtl-subpane]').forEach((pane) => pane.classList.toggle('active', pane.dataset.fdtlSubpane === subTab.dataset.fdtlSubtab));
+    }
   });
   view.querySelector('#fdtl-filter-toggle')?.addEventListener('click', () => view.querySelector('#fdtl-filters')?.classList.toggle('hidden'));
   view.querySelector('#fdtl-sync-now')?.addEventListener('click', refreshFlights);
@@ -1447,9 +1499,23 @@ export async function init(view, context) {
   view.querySelector('#fdtl-fatigue-form')?.addEventListener('submit', handleFatigueSubmit);
 
   view.querySelector('#fdtl-manual-form')?.addEventListener('submit', handleManualSubmit);
+  ['chocks-off', 'takeoff', 'landing', 'chocks-on'].forEach((suffix) => {
+    const input = view.querySelector(`#fdtl-manual-${suffix}`);
+    if (input) {
+      input.addEventListener('input', validateManualTimes);
+      input.addEventListener('change', validateManualTimes);
+    }
+  });
+  view.querySelector('#fdtl-manual-entry')?.addEventListener('toggle', () => {
+    if (activeView?.querySelector('#fdtl-manual-entry')?.open) {
+      populateSelects();
+      validateManualTimes();
+    }
+  });
   view.querySelector('#fdtl-manual-cancel')?.addEventListener('click', () => {
     const form = activeView?.querySelector('#fdtl-manual-form');
     if (form) form.reset();
+    validateManualTimes();
     const entry = activeView?.querySelector('#fdtl-manual-entry');
     if (entry) entry.removeAttribute('open');
   });
@@ -1496,8 +1562,16 @@ export async function init(view, context) {
   });
 
   try {
-    const [crewList, scheme, states, records, fatigue, audit, flights] = await Promise.all([
-      getCrew(companyId),
+    const crewList = await getCrew(companyId);
+    latestCrew = Array.isArray(crewList) ? crewList : [];
+  } catch (error) {
+    console.error('FDTL crew load failed:', error);
+    latestCrew = [];
+  }
+  populateSelects();
+
+  try {
+    const [scheme, states, records, fatigue, audit, flights] = await Promise.all([
       getFdtlScheme(companyId),
       listDutyStates(companyId),
       listDutyRecords(companyId),
@@ -1506,7 +1580,6 @@ export async function init(view, context) {
       listFlights(companyId)
     ]);
 
-    latestCrew = Array.isArray(crewList) ? crewList : [];
     activeScheme = scheme && typeof scheme === 'object' ? { ...getDefaultScheme(), ...scheme } : getDefaultScheme();
     latestStates = Array.isArray(states) ? states : [];
     latestRecords = Array.isArray(records) ? records : [];
