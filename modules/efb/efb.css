@@ -1,3 +1,70 @@
 ﻿#efb-content {
   margin-top: 1rem;
 }
+
+.efb-table-wrap {
+  margin-top: 0.8rem;
+  overflow-x: auto;
+}
+
+.efb-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.efb-table-wrap th,
+.efb-table-wrap td {
+  text-align: left;
+  padding: 0.6rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  white-space: nowrap;
+}
+
+.efb-flight-row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.efb-flight-row:hover {
+  background: #f1f5f9;
+}
+
+.efb-flight-row.selected {
+  background: #eff6ff;
+}
+
+.efb-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+}
+
+.efb-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.efb-form-field input {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: #ffffff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.efb-form-field input[readonly] {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.efb-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}

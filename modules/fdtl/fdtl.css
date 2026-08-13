@@ -1216,3 +1216,297 @@
 .fdtl-board-table tbody tr:last-child td {
   border-bottom: none;
 }
+
+/* FDTL Monitoring dashboard */
+
+.fdtl-overview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+}
+
+.fdtl-crew-filter-field {
+  min-width: 220px;
+  max-width: 320px;
+}
+
+.fdtl-sync-status {
+  font-size: 0.78rem;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+}
+
+.fdtl-kpi-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.fdtl-kpi-ok {
+  color: #166534;
+}
+
+.fdtl-kpi-watch {
+  color: #92400e;
+}
+
+.fdtl-kpi-critical {
+  color: #991b1b;
+}
+
+.fdtl-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.fdtl-filter-search {
+  flex: 1 1 220px;
+  min-width: 200px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: #ffffff;
+}
+
+.fdtl-filter-select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: #ffffff;
+  min-width: 140px;
+}
+
+.fdtl-flights-table th,
+.fdtl-flights-table td {
+  white-space: nowrap;
+}
+
+.fdtl-flight-row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.fdtl-flight-row:hover {
+  background: #f1f5f9;
+}
+
+.fdtl-flight-row.selected {
+  background: #eff6ff;
+}
+
+.fdtl-flight-status-cell {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.fdtl-status-mark {
+  font-weight: 700;
+}
+
+.fdtl-status-mark--within {
+  color: #16a34a;
+}
+
+.fdtl-status-mark--attention {
+  color: #d97706;
+}
+
+.fdtl-status-mark--exceeded {
+  color: #dc2626;
+}
+
+.fdtl-manual-details {
+  margin-top: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.fdtl-manual-summary {
+  cursor: pointer;
+  padding: 0.8rem 1rem;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  user-select: none;
+}
+
+.fdtl-manual-summary::-webkit-details-marker {
+  display: none;
+}
+
+.fdtl-manual-summary > span:first-child {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.fdtl-manual-summary > .muted {
+  font-size: 0.78rem;
+}
+
+.fdtl-manual-body {
+  padding: 0 1rem 1rem;
+  border-top: 1px dashed rgba(15, 23, 42, 0.1);
+  padding-top: 0.9rem;
+}
+
+.fdtl-form-field--full {
+  grid-column: 1 / -1;
+}
+
+.fdtl-manual-options {
+  grid-column: 1 / -1;
+}
+
+.fdtl-manual-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #334155;
+  cursor: pointer;
+}
+
+.fdtl-manual-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.fdtl-flight-details {
+  margin-top: 1rem;
+}
+
+.fdtl-details-empty {
+  border: 1px dashed rgba(15, 23, 42, 0.15);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.fdtl-details-card {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.fdtl-details-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  background: #f1f5f9;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.fdtl-details-head h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.fdtl-details-head p {
+  margin: 0.1rem 0 0;
+}
+
+.fdtl-details-head-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.fdtl-details-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.fdtl-details-col {
+  min-width: 0;
+}
+
+.fdtl-details-col h5 {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.fdtl-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.35rem 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.fdtl-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.fdtl-detail-row span {
+  font-size: 0.68rem;
+}
+
+.fdtl-detail-row strong {
+  font-size: 0.85rem;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.fdtl-details-col--audit {
+  grid-column: 1 / -1;
+}
+
+.fdtl-mismatch-box {
+  margin-top: 0.6rem;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+}
+
+.fdtl-mismatch-box strong {
+  color: #991b1b;
+  font-size: 0.85rem;
+}
+
+.fdtl-mismatch-table {
+  margin: 0.5rem 0;
+  overflow-x: auto;
+}
+
+.fdtl-mismatch-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.fdtl-mismatch-table th,
+.fdtl-mismatch-table td {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid rgba(153, 27, 27, 0.12);
+}
+
+.fdtl-mismatch-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+

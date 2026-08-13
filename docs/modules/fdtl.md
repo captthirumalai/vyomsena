@@ -39,6 +39,57 @@ The module is now operating as an organisation-wide FDTL monitoring system with 
 - CAR Note 2 (layover-station acclimatisation when proceeding to farther time zones after a 3–7 zone crossing) is not implemented; time-zone rest is applied from the reported crossing only. This exclusion is recorded as a note in the default scheme document.
 - The module now keeps the approved scheme as the protected live source of truth and stores draft adjustments separately until approval, so the active company rule set cannot be overwritten in place.
 
+## Flight Monitoring Architecture
+
+The FDTL module is a **compliance monitoring and verification layer** over operational flight data — it does not duplicate flight entry.
+
+Normal flow:
+
+```
+Dispatch (creates planned flight)
+        │  companies/{companyId}/flights  (source: dispatch)
+        ▼
+EFB (records actuals) ──►  sync to Firestore  (source: efb, status → completed)
+        ▼
+FDTL (monitors & evaluates compliance)
+```
+
+- Planned flights are created in the **Dispatch** module and stored in the shared `companies/{companyId}/flights` collection.
+- **EFB** records actual times (chocks off/on, takeoff/landing, IR/XC) against those flights.
+- **FDTL** subscribes to the same collection and evaluates every flight live: flight time, duty time, FDP, rest, 7/28-day cumulative limits and overall FDTL status per crew member.
+
+### Data source badges
+
+Every flight record shows its source:
+
+- **Flight Ops + EFB** — planned in Dispatch and actuals recorded in EFB; treated as verified/completed.
+- **Manual / Historical** — entered via the FDTL manual entry form; used for legacy data, imports, or reconciliation only.
+
+### Data integrity reconciliation
+
+Because times can be entered in two places (Flight Ops planning vs EFB actuals), FDTL compares the chocks off/on and takeoff/landing fields. When they differ by more than the tolerance (default 5 minutes) the flight is flagged with a mismatch banner offering two resolutions:
+
+- **Accept EFB Data** — keeps the EFB actuals as authoritative.
+- **Accept Flight Ops Data** — keeps the Flight Ops planned times.
+
+The resolution choice is audited and stored on the flight record.
+
+### Manual / historical entry
+
+A collapsible **"＋ Add Historical / Manual Flight"** panel lets operations staff record legacy flights. A **"Keep entry form open"** checkbox supports continuous bulk entry during imports. Manual records are tagged `source: manual` and are evaluated the same way as operational records.
+
+### Main compliance table
+
+The primary table is compliance-focused:
+
+`Date | Flight | Route | Crew | Source | Flight Time | FDP | Rest | 7/28-Day | FDTL`
+
+- Clicking a row opens the full flight detail panel (FDTL calculation, source, audit history).
+- Filters: crew, search, status, source.
+- KPI cards summarize flight time, duty time, 7-day, 28-day, rest and overall status.
+
+Header actions remain: **FDTL Scheme** | **Flight Calculator** | **Audit Trail**.
+
 ## UX Decision: Scheme as a rare-action control
 
 The FDTL scheme should not live as a standard tab in the main workflow. Because the company scheme is set once and then governs all calculations, it is better presented as a top-right action button labelled `Scheme` that opens only when needed.
@@ -64,6 +115,8 @@ and treats scheme changes as a deliberate administrative action rather than a ro
 
 `services/fdtl/` — the engine reads all limits from the active scheme.
 
+- `services/flightService.js` — shared flight records layer used by FDTL, Dispatch and EFB. Reads/writes `companies/{companyId}/flights`, computes block time, reconciles Flight Ops vs EFB times, and converts flights into duty records for compliance evaluation (`flightsToDutyRecords`).
+- `services/fdtl/timeUtils.js` — date/duration helpers (`parseDate`, `diffMinutes`, `toIso`, `formatDurationMinutes`).
 - `scheme.js` — default FDTL Scheme document (CAR-derived values) + read/save `companies/{companyId}/fdtl_scheme/current`.
 - `fdpEngine.js` — pure functions:
 - `resolveFdpBaseLimit` — two-pilot FDP tables keyed by flight time and landings (e.g. 8h: 6 landings → 11:00, 5 → 11:30, 4 → 12:00, 3 → 12:30; 10h with 1/2 landings → 13:30). The single-pilot table is no longer modelled — the FDTL module assumes two-pilot operations only.
@@ -82,6 +135,7 @@ and treats scheme changes as a deliberate administrative action rather than a ro
 - `companies/{companyId}/fdtl_records/{recordId}` — historical duty records.
 - `companies/{companyId}/fdtl_audit/{auditId}` — audit trail.
 - `companies/{companyId}/fdtl_fatigue/{fatigueId}` — fatigue reports.
+- `companies/{companyId}/flights` — shared operational flights (planned by Dispatch, actuals from EFB, evaluated by FDTL). See `docs/database.md` for the full contract.
 - Crew roster read from existing crew profiles (no second pilot database).
 
 ## FDTL Scheme Document (default values, all minutes)

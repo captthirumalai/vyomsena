@@ -14,6 +14,8 @@ import {
   resolveFdpBaseLimit,
   simulateFlightSequence,
   summarizeCrewFdtl,
+  computeRestStatus,
+  computeCumulativeStatus,
   submitFatigueReport,
   setDutyState,
   listDutyStates,
@@ -27,6 +29,20 @@ import {
   listAuditEntries,
   onAuditSnapshot
 } from '../../services/fdtl/index.js';
+import {
+  listFlights,
+  onFlightsSnapshot,
+  addFlight,
+  updateFlight,
+  deleteFlight,
+  recordEfbActuals,
+  resolveActualTimes,
+  computeBlockTimeMinutes,
+  reconcileFlight,
+  flightsToDutyRecords,
+  FLIGHT_STATUSES,
+  FLIGHT_SOURCES
+} from '../../services/flightService.js';
 
 let activeView = null;
 let activeCompanyId = null;
@@ -37,6 +53,9 @@ let latestStates = [];
 let latestRecords = [];
 let latestFatigue = [];
 let latestAudit = [];
+let latestFlights = [];
+let selectedFlightId = null;
+let overviewCrewFilter = '__all__';
 let messageTimer = null;
 
 let schemeUnsubscribe = null;
@@ -45,6 +64,14 @@ let statesUnsubscribe = null;
 let recordsUnsubscribe = null;
 let fatigueUnsubscribe = null;
 let auditUnsubscribe = null;
+let flightsUnsubscribe = null;
+
+const SOURCE_LABELS = {
+  [FLIGHT_SOURCES.DISPATCH]: 'Flight Ops',
+  [FLIGHT_SOURCES.EFB]: 'EFB',
+  [FLIGHT_SOURCES.DISPATCH_EFB]: 'Flight Ops + EFB',
+  [FLIGHT_SOURCES.MANUAL]: 'Manual / Historical'
+};
 
 function escapeHtml(value) {
   return `${value ?? ''}`
@@ -66,6 +93,18 @@ function formatDateTime(value) {
   const date = toDate(value);
   if (!date || Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString();
+}
+
+function formatTimeOfDay(value) {
+  const date = toDate(value);
+  if (!date || Number.isNaN(date.getTime())) return '—';
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatDayShort(value) {
+  const date = toDate(value);
+  if (!date || Number.isNaN(date.getTime())) return '—';
+  return `${String(date.getDate()).padStart(2, '0')} ${date.toLocaleString('default', { month: 'short' })}`;
 }
 
 function toIso(value) {
@@ -109,60 +148,9 @@ function switchTab(tabName) {
   activeView.querySelectorAll('.fdtl-pane').forEach((pane) => {
     pane.classList.toggle('hidden', pane.dataset.fdtlPane !== tabName);
   });
-}
-
-function computeCrewMetrics(member, state) {
-  const now = new Date();
-  const crewId = getCrewId(member);
-  const memberRecords = latestRecords.filter((record) => record.crewProfileId === crewId);
-  const summary = summarizeCrewFdtl(activeScheme, {
-    crewProfileId: crewId,
-    state,
-    records: memberRecords,
-    now
-  });
-
-  if (summary.tone === 'exceeded') {
-    return {
-      tone: 'exceeded',
-      attentionLabel: summary.alertText
-    };
+  if (tabName === 'dashboard') {
+    renderFlightsDashboard();
   }
-
-  if (summary.tone === 'attention') {
-    return {
-      tone: 'attention',
-      attentionLabel: summary.alertText
-    };
-  }
-
-  if (state?.state === DUTY_STATES.ON_DUTY) {
-    const dutyStarted = toDate(state.dutyStartedAt);
-    if (!dutyStarted) {
-      return { tone: 'attention', attentionLabel: 'On duty without a recorded start time' };
-    }
-    const dutyUsedMinutes = Math.max(0, Math.floor((now.getTime() - dutyStarted.getTime()) / 60000));
-    const base = resolveFdpBaseLimit(activeScheme, {
-      flightTimeMinutes: 0,
-      landings: 0
-    });
-    const applicable = base ?? 480;
-    const threshold = Math.round(applicable * (activeScheme.fdp?.warningThresholdPct ?? 0.8));
-    if (dutyUsedMinutes > applicable) {
-      return {
-        tone: 'exceeded',
-        attentionLabel: `FDP exceeded by ${formatDurationMinutes(dutyUsedMinutes - applicable)}`
-      };
-    }
-    if (dutyUsedMinutes >= threshold) {
-      return {
-        tone: 'attention',
-        attentionLabel: `Approaching FDP limit ${formatDurationMinutes(dutyUsedMinutes)} / ${formatDurationMinutes(applicable)}`
-      };
-    }
-  }
-
-  return { tone: 'within' };
 }
 
 function renderSchemeLine() {
@@ -184,6 +172,587 @@ function fmtMinutes(minutes) {
   const hours = Math.floor(safe / 60);
   const mins = safe % 60;
   return mins ? `${hours}:${String(mins).padStart(2, '0')}` : `${hours}:00`;
+}
+
+function getSourceLabel(flight) {
+  return SOURCE_LABELS[flight.source] || flight.source || 'Unknown';
+}
+
+function getCrewLabelForFlight(flight) {
+  if (flight.p1?.name) return flight.p1.name;
+  return flight.p1?.crewProfileId || '—';
+}
+
+function buildFlightCompliance(flight, scheme, crewFlights) {
+  const { takeoff, landing, chocksOff, chocksOn } = resolveActualTimes(flight);
+  const blockTime = computeBlockTimeMinutes(flight) ?? 0;
+  const postFlight = Number(scheme.operationalAdjustments?.postFlightAllowanceMinutes ?? 0);
+  const minRest = Number(scheme.rest?.minimumMinutes ?? 720);
+  const warningThresholdPct = Number(scheme.fdp?.warningThresholdPct ?? 0.8);
+
+  const index = crewFlights.indexOf(flight);
+  const previous = index > 0 ? crewFlights[index - 1] : null;
+  const flightDateMs = toDate(flight.flightDate)?.getTime() || Date.now();
+
+  const rules = {};
+
+  const fdpAllowed = resolveFdpBaseLimit(scheme, { flightTimeMinutes: blockTime, landings: 1 });
+  const fdpUsed = blockTime + postFlight;
+  const fdp = {
+    used: fdpUsed,
+    allowed: fdpAllowed,
+    status: fdpAllowed == null
+      ? VERDICTS.EXCEEDED
+      : fdpUsed > fdpAllowed
+        ? VERDICTS.EXCEEDED
+        : fdpUsed >= Math.round(fdpAllowed * warningThresholdPct)
+          ? VERDICTS.ATTENTION
+          : VERDICTS.WITHIN
+  };
+  rules.fdp = fdp;
+
+  const cumulativeTotals = { 7: 0, 28: 0 };
+  const sevenMs = 7 * 24 * 60 * 60 * 1000;
+  const twentyEightMs = 28 * 24 * 60 * 60 * 1000;
+  crewFlights.slice(0, index + 1).forEach((candidate) => {
+    const candidateMs = toDate(candidate.flightDate)?.getTime() || 0;
+    const candidateBlock = computeBlockTimeMinutes(candidate) ?? 0;
+    if (flightDateMs - candidateMs <= sevenMs) cumulativeTotals[7] += candidateBlock;
+    if (flightDateMs - candidateMs <= twentyEightMs) cumulativeTotals[28] += candidateBlock;
+  });
+
+  const cumulative = {
+    7: {
+      used: cumulativeTotals[7],
+      allowed: Number(scheme.cumulative?.[7]?.flightTimeMinutes ?? 0),
+      status: cumulativeTotals[7] > Number(scheme.cumulative?.[7]?.flightTimeMinutes ?? 0)
+        ? VERDICTS.EXCEEDED
+        : cumulativeTotals[7] >= Math.round(Number(scheme.cumulative?.[7]?.flightTimeMinutes ?? 0) * 0.8)
+          ? VERDICTS.ATTENTION
+          : VERDICTS.WITHIN
+    },
+    28: {
+      used: cumulativeTotals[28],
+      allowed: Number(scheme.cumulative?.[28]?.flightTimeMinutes ?? 0),
+      status: cumulativeTotals[28] > Number(scheme.cumulative?.[28]?.flightTimeMinutes ?? 0)
+        ? VERDICTS.EXCEEDED
+        : cumulativeTotals[28] >= Math.round(Number(scheme.cumulative?.[28]?.flightTimeMinutes ?? 0) * 0.8)
+          ? VERDICTS.ATTENTION
+          : VERDICTS.WITHIN
+    }
+  };
+  rules.cumulative = cumulative;
+
+  let rest = { used: null, allowed: minRest, status: VERDICTS.WITHIN };
+  if (previous) {
+    const prevBlock = computeBlockTimeMinutes(previous) ?? 0;
+    const prevEnd = toDate(previous.chocksOn || previous.landing);
+    const thisStart = toDate(flight.chocksOff || flight.takeoff);
+    if (prevEnd && thisStart) {
+      const available = Math.max(0, Math.round((thisStart.getTime() - prevEnd.getTime()) / 60000));
+      const required = Math.max(minRest, prevBlock);
+      rest = {
+        used: available,
+        allowed: required,
+        status: available < required ? VERDICTS.EXCEEDED : available < Math.round(required * 1.15) ? VERDICTS.ATTENTION : VERDICTS.WITHIN
+      };
+    }
+  }
+  rules.rest = rest;
+
+  const statuses = [fdp.status, cumulative[7].status, cumulative[28].status, rest.status];
+  const verdict = statuses.includes(VERDICTS.EXCEEDED)
+    ? VERDICTS.EXCEEDED
+    : statuses.includes(VERDICTS.ATTENTION)
+      ? VERDICTS.ATTENTION
+      : VERDICTS.WITHIN;
+
+  return {
+    blockTime,
+    fdp,
+    rest,
+    cumulative,
+    verdict,
+    takeoff,
+    landing,
+    chocksOff,
+    chocksOn
+  };
+}
+
+function computeCrewFlightComplianceMap() {
+  const map = new Map();
+  latestCrew.forEach((member) => {
+    const crewId = getCrewId(member);
+    const crewFlights = latestFlights
+      .filter((flight) => flight.status === FLIGHT_STATUSES.COMPLETED && flight.p1?.crewProfileId === crewId)
+      .sort((left, right) => (toDate(left.flightDate)?.getTime() || 0) - (toDate(right.flightDate)?.getTime() || 0));
+    map.set(crewId, crewFlights.map((flight) => ({ flight, compliance: buildFlightCompliance(flight, activeScheme, crewFlights) })));
+  });
+  return map;
+}
+
+function getFlightCompliance(flight, crewFlights) {
+  return buildFlightCompliance(flight, activeScheme, crewFlights);
+}
+
+function renderFlightsDashboard() {
+  if (!activeView) return;
+
+  const crewId = overviewCrewFilter === '__all__' ? null : overviewCrewFilter;
+  const scopeFlights = latestFlights.filter((flight) => {
+    if (crewId && flight.p1?.crewProfileId !== crewId && flight.p2?.crewProfileId !== crewId) return false;
+    return true;
+  });
+
+  const completed = scopeFlights.filter((flight) => flight.status === FLIGHT_STATUSES.COMPLETED);
+  const dutyRecords = flightsToDutyRecords(activeScheme, latestFlights);
+  const crewScopedRecords = crewId
+    ? dutyRecords.filter((record) => record.crewProfileId === crewId)
+    : dutyRecords;
+
+  const now = new Date();
+  const restSummary = computeRestStatus(activeScheme, { records: crewScopedRecords, now });
+  const cumulativeSummary = computeCumulativeStatus(activeScheme, { records: crewScopedRecords, now });
+  const sevenPeriod = cumulativeSummary.periods.find((period) => period.days === 7);
+  const twentyEightPeriod = cumulativeSummary.periods.find((period) => period.days === 28);
+
+  const todayKey = now.toISOString().slice(0, 10);
+  const todayFlights = completed.filter((flight) => (flight.flightDate || '').slice(0, 10) === todayKey);
+  const flightTimeToday = todayFlights.reduce((sum, flight) => sum + (computeBlockTimeMinutes(flight) ?? 0), 0);
+  const dutyTimeToday = todayFlights.reduce((sum, flight) => {
+    const compliance = getFlightCompliance(flight, completed);
+    return sum + (compliance.fdp.used || 0);
+  }, 0);
+
+  const kpiStatus = crewScopedRecords.some((record) => !restSummary.ok)
+    ? 'Exceeded'
+    : cumulativeSummary.periods.some((period) => period.flightExceeded || period.dutyExceeded)
+      ? 'Exceeded'
+      : restSummary.ok && cumulativeSummary.ok
+        ? 'OK'
+        : 'Attention';
+
+  const setText = (id, value) => {
+    const element = activeView.querySelector(`#${id}`);
+    if (element) element.textContent = value;
+  };
+  setText('fdtl-kpi-flight-time', fmtMinutes(flightTimeToday));
+  setText('fdtl-kpi-duty-time', fmtMinutes(dutyTimeToday));
+  setText('fdtl-kpi-7day', sevenPeriod ? `${fmtMinutes(sevenPeriod.flightUsed)} / ${fmtMinutes(sevenPeriod.flightLimit)}` : '--:--');
+  setText('fdtl-kpi-28day', twentyEightPeriod ? `${fmtMinutes(twentyEightPeriod.flightUsed)} / ${fmtMinutes(twentyEightPeriod.flightLimit)}` : '--:--');
+  setText('fdtl-kpi-rest', restSummary.restUntil ? `Until ${formatTimeOfDay(restSummary.restUntil)}` : '—');
+  setText('fdtl-kpi-status', kpiStatus);
+
+  const kpiStatusEl = activeView.querySelector('#fdtl-kpi-status');
+  if (kpiStatusEl) {
+    kpiStatusEl.className = kpiStatus === 'OK'
+      ? 'fdtl-kpi-ok'
+      : kpiStatus === 'Attention'
+        ? 'fdtl-kpi-watch'
+        : 'fdtl-kpi-critical';
+  }
+
+  const statusEl = activeView.querySelector('#fdtl-sync-status');
+  if (statusEl) {
+    const completedCount = completed.length;
+    const plannedCount = latestFlights.filter((flight) => flight.status === FLIGHT_STATUSES.PLANNED).length;
+    const efbLinked = latestFlights.filter((flight) => flight.efb && (flight.efb.chocksOff || flight.efb.chocksOn)).length;
+    statusEl.textContent = `${latestFlights.length} flight records · ${completedCount} completed · ${plannedCount} planned · ${efbLinked} with EFB actuals`;
+  }
+
+  renderFlightsTable();
+  renderFlightDetails();
+}
+
+function applyFlightFilters() {
+  const search = activeView?.querySelector('#fdtl-flight-search')?.value?.trim().toLowerCase() || '';
+  const statusFilter = activeView?.querySelector('#fdtl-flight-status-filter')?.value || '__all__';
+  const sourceFilter = activeView?.querySelector('#fdtl-flight-source-filter')?.value || '__all__';
+
+  const crewFlightsMap = new Map();
+  latestCrew.forEach((member) => {
+    const crewId = getCrewId(member);
+    const sorted = latestFlights
+      .filter((flight) => flight.status === FLIGHT_STATUSES.COMPLETED && flight.p1?.crewProfileId === crewId)
+      .sort((left, right) => (toDate(left.flightDate)?.getTime() || 0) - (toDate(right.flightDate)?.getTime() || 0));
+    crewFlightsMap.set(crewId, sorted);
+  });
+
+  const rows = latestFlights
+    .filter((flight) => {
+      if (overviewCrewFilter !== '__all__') {
+        if (flight.p1?.crewProfileId !== overviewCrewFilter && flight.p2?.crewProfileId !== overviewCrewFilter) return false;
+      }
+      if (statusFilter !== '__all__' && flight.status !== statusFilter) return false;
+      if (sourceFilter !== '__all__' && flight.source !== sourceFilter) return false;
+      if (search) {
+        const haystack = [
+          flight.flightNumber,
+          flight.route,
+          flight.departure,
+          flight.destination,
+          flight.p1?.name,
+          flight.p2?.name
+        ].join(' ').toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      return true;
+    })
+    .map((flight) => {
+      const crewFlights = crewFlightsMap.get(flight.p1?.crewProfileId) || [];
+      const compliance = flight.status === FLIGHT_STATUSES.COMPLETED
+        ? getFlightCompliance(flight, crewFlights)
+        : null;
+      return { flight, compliance };
+    });
+
+  const body = activeView?.querySelector('#fdtl-flights-body');
+  if (!body) return;
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="10" class="fdtl-empty">No flight records match the current filters.</td></tr>';
+    return;
+  }
+
+  const verdictBadge = (verdict) => {
+    const map = {
+      [VERDICTS.WITHIN]: 'good',
+      [VERDICTS.ATTENTION]: 'watch',
+      [VERDICTS.EXCEEDED]: 'critical'
+    };
+    const label = {
+      [VERDICTS.WITHIN]: 'OK',
+      [VERDICTS.ATTENTION]: 'Attention',
+      [VERDICTS.EXCEEDED]: 'Exceeded'
+    };
+    return `<span class="fdtl-badge fdtl-badge--${map[verdict] || 'good'}">${label[verdict] || 'OK'}</span>`;
+  };
+
+  const sourceBadge = (flight) => {
+    const recon = flight.reconciliation || reconcileFlight(flight);
+    const manual = flight.source === FLIGHT_SOURCES.MANUAL;
+    const cls = manual ? 'fdtl-badge--watch' : recon.status === 'mismatch' ? 'fdtl-badge--critical' : 'fdtl-badge--good';
+    const mismatchNote = recon.status === 'mismatch' ? ' ⚠ mismatch' : '';
+    return `<span class="fdtl-badge ${cls}" title="${escapeHtml(JSON.stringify(recon))}">${escapeHtml(getSourceLabel(flight))}${mismatchNote}</span>`;
+  };
+
+  const statusCell = (compliance) => {
+    if (!compliance) return '—';
+    const mark = (verdict) => verdict === VERDICTS.WITHIN ? '✓' : verdict === VERDICTS.ATTENTION ? '⚠' : '✗';
+    return `
+      <span class="fdtl-flight-status-cell">
+        <span class="fdtl-status-mark fdtl-status-mark--${compliance.fdp.status}">${mark(compliance.fdp.status)}</span>
+        <span class="fdtl-status-mark fdtl-status-mark--${compliance.rest.status}">${mark(compliance.rest.status)}</span>
+        <span class="fdtl-status-mark fdtl-status-mark--${compliance.cumulative[7].status}">${mark(compliance.cumulative[7].status)}</span>
+        <span class="fdtl-status-mark fdtl-status-mark--${compliance.cumulative[28].status}">${mark(compliance.cumulative[28].status)}</span>
+      </span>`;
+  };
+
+  body.innerHTML = rows
+    .map(({ flight, compliance }) => {
+      const route = [flight.departure, flight.destination].filter(Boolean).join('–') || '—';
+      const block = compliance ? fmtMinutes(compliance.blockTime) : (flight.flightTimeMinutes ? fmtMinutes(flight.flightTimeMinutes) : '—');
+      const fdpCell = compliance
+        ? compliance.fdp.allowed == null
+          ? '<span class="muted">—</span>'
+          : `${fmtMinutes(compliance.fdp.used)} / ${fmtMinutes(compliance.fdp.allowed)}`
+        : '—';
+      const restCell = compliance?.rest?.used != null
+        ? `${fmtMinutes(compliance.rest.used)} / ${fmtMinutes(compliance.rest.allowed)}`
+        : '✓';
+      const cumCell = compliance
+        ? `${compliance.cumulative[7].status === VERDICTS.WITHIN ? '✓' : '⚠'}/${compliance.cumulative[28].status === VERDICTS.WITHIN ? '✓' : '⚠'}`
+        : '—';
+      return `<tr class="fdtl-flight-row${selectedFlightId === flight.flightId ? ' selected' : ''}" data-flight="${escapeHtml(flight.flightId)}">
+        <td>${escapeHtml(formatDayShort(flight.flightDate))}</td>
+        <td><strong>${escapeHtml(flight.flightNumber || '—')}</strong></td>
+        <td>${escapeHtml(route)}</td>
+        <td>${escapeHtml(getCrewLabelForFlight(flight))}</td>
+        <td>${sourceBadge(flight)}</td>
+        <td>${escapeHtml(block)}</td>
+        <td>${escapeHtml(fdpCell)}</td>
+        <td>${escapeHtml(restCell)}</td>
+        <td>${escapeHtml(cumCell)}</td>
+        <td>${compliance ? verdictBadge(compliance.verdict) : escapeHtml((flight.status || 'planned').toUpperCase())}</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+function renderFlightsTable() {
+  applyFlightFilters();
+}
+
+function renderFlightDetails() {
+  const container = activeView?.querySelector('#fdtl-flight-details');
+  if (!container) return;
+
+  if (!selectedFlightId) {
+    container.innerHTML = '<div class="fdtl-details-empty muted">Select a flight record to view source, FDTL calculation, and audit history.</div>';
+    return;
+  }
+
+  const flight = latestFlights.find((item) => item.flightId === selectedFlightId);
+  if (!flight) {
+    container.innerHTML = '<div class="fdtl-details-empty muted">Selected flight no longer available.</div>';
+    return;
+  }
+
+  const recon = flight.reconciliation || reconcileFlight(flight);
+  const crewFlights = latestFlights
+    .filter((item) => item.status === FLIGHT_STATUSES.COMPLETED && item.p1?.crewProfileId === flight.p1?.crewProfileId)
+    .sort((left, right) => (toDate(left.flightDate)?.getTime() || 0) - (toDate(right.flightDate)?.getTime() || 0));
+  const compliance = flight.status === FLIGHT_STATUSES.COMPLETED
+    ? getFlightCompliance(flight, crewFlights)
+    : null;
+
+  const flightAudit = latestAudit.filter((entry) => entry.entityType === 'flight' && entry.entityId === flight.flightId);
+  const auditHtml = flightAudit.length
+    ? flightAudit.map((entry) => `
+        <div class="fdtl-audit-entry">
+          <div class="fdtl-audit-head">
+            <strong>${escapeHtml(entry.actorName || 'Unknown')}</strong>
+            <span>${escapeHtml(entry.field || '')} · ${formatDateTime(entry.timestamp)}</span>
+          </div>
+          ${entry.reason ? `<div class="fdtl-audit-reason">Reason: ${escapeHtml(entry.reason)}</div>` : ''}
+        </div>`).join('')
+    : '<p class="muted">No audit entries for this flight yet.</p>';
+
+  const ruleBlock = (label, rule) => `
+    <div class="fdtl-rule fdtl-rule--${rule.status === VERDICTS.WITHIN ? 'ok' : rule.status === VERDICTS.ATTENTION ? 'watch' : 'fail'}">
+      <div class="fdtl-rule-head"><span class="fdtl-rule-label">${escapeHtml(label)}</span></div>
+      <div class="fdtl-rule-meter">
+        <span class="fdtl-meter-cell"><small>Allowed</small><b>${rule.allowed == null ? '—' : rule.allowed && rule.allowed > 200 ? fmtMinutes(rule.allowed) : rule.allowed}</b></span>
+        <span class="fdtl-meter-cell"><small>Actual</small><b>${rule.used == null ? '—' : rule.used > 200 ? fmtMinutes(rule.used) : rule.used}</b></span>
+        <span class="fdtl-meter-cell fdtl-meter-margin"><small>Status</small><b>${rule.status === VERDICTS.WITHIN ? 'OK' : rule.status === VERDICTS.ATTENTION ? 'Attention' : 'Exceeded'}</b></span>
+      </div>
+    </div>`;
+
+  const calculationsHtml = compliance
+    ? `<div class="fdtl-flight-rules">
+        ${ruleBlock('FDP (flight time + post-flight allowance)', compliance.fdp)}
+        ${ruleBlock('Rest before next duty', compliance.rest)}
+        ${ruleBlock('7-Day flight time', { ...compliance.cumulative[7], allowed: compliance.cumulative[7].allowed, used: compliance.cumulative[7].used, status: compliance.cumulative[7].status })}
+        ${ruleBlock('28-Day flight time', { ...compliance.cumulative[28], allowed: compliance.cumulative[28].allowed, used: compliance.cumulative[28].used, status: compliance.cumulative[28].status })}
+      </div>`
+    : '<p class="muted">Compliance is evaluated for completed flights only.</p>';
+
+  const mismatchHtml = recon.status === 'mismatch' && recon.mismatches.length
+    ? `<div class="fdtl-mismatch-box">
+        <strong>⚠ Data Mismatch</strong>
+        <p class="muted">Flight Operations and EFB disagree on the following times:</p>
+        <div class="fdtl-mismatch-table">
+          <table>
+            <thead><tr><th>Field</th><th>Flight Operations</th><th>EFB</th></tr></thead>
+            <tbody>
+              ${recon.mismatches.map((mismatch) => `
+                <tr>
+                  <td>${escapeHtml(mismatch.field)}</td>
+                  <td>${escapeHtml(formatTimeOfDay(mismatch.fops))}</td>
+                  <td>${escapeHtml(formatTimeOfDay(mismatch.efb))}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="fdtl-mismatch-actions">
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" data-resolve-flight="${escapeHtml(flight.flightId)}" data-source="efb">Accept EFB Data</button>
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" data-resolve-flight="${escapeHtml(flight.flightId)}" data-source="fops">Accept Flight Ops Data</button>
+        </div>
+      </div>`
+    : '';
+
+  const sourceRow = (label, value) => value
+    ? `<div class="fdtl-detail-row"><span class="muted">${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`
+    : '';
+
+  const manualActions = flight.source === FLIGHT_SOURCES.MANUAL
+    ? `<button type="button" class="vs-button vs-button--secondary vs-button--sm" data-delete-flight="${escapeHtml(flight.flightId)}">Delete Historical Flight</button>`
+    : '';
+
+  const detailFields = `
+    <div class="fdtl-detail-grid">
+      ${sourceRow('Flight Number', flight.flightNumber)}
+      ${sourceRow('Route', [flight.departure, flight.destination].filter(Boolean).join('–'))}
+      ${sourceRow('Aircraft', flight.aircraftReg)}
+      ${sourceRow('Date', formatDayShort(flight.flightDate))}
+      ${sourceRow('P1', flight.p1?.name)}
+      ${sourceRow('P2', flight.p2?.name)}
+      ${sourceRow('Operation', flight.operationType)}
+      ${sourceRow('IR Time', flight.irTimeMinutes ? `${fmtMinutes(flight.irTimeMinutes)}` : null)}
+      ${sourceRow('XC Time', flight.xcTimeMinutes ? `${fmtMinutes(flight.xcTimeMinutes)}` : null)}
+      ${sourceRow('Distance', flight.distanceNM ? `${flight.distanceNM} NM` : null)}
+      ${sourceRow('Remarks', flight.remarks)}
+    </div>`;
+
+  container.innerHTML = `
+    <div class="fdtl-details-card">
+      <div class="fdtl-details-head">
+        <div>
+          <h4>${escapeHtml(flight.flightNumber || 'Flight')}</h4>
+          <p class="muted">${escapeHtml([flight.departure, flight.destination].filter(Boolean).join('–') || '')} · ${escapeHtml(getSourceLabel(flight))}</p>
+        </div>
+        <div class="fdtl-details-head-actions">
+          ${manualActions}
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="fdtl-details-close">Close</button>
+        </div>
+      </div>
+      <div class="fdtl-details-body">
+        <div class="fdtl-details-col">
+          <h5>Flight Data</h5>
+          ${detailFields}
+          <div class="fdtl-detail-row"><span class="muted">Times</span><strong>${escapeHtml(`CO ${formatTimeOfDay(flight.chocksOff)} → ON ${formatTimeOfDay(flight.chocksOn)} · TO ${formatTimeOfDay(flight.takeoff)} → LDG ${formatTimeOfDay(flight.landing)}`)}</strong></div>
+          ${mismatchHtml}
+        </div>
+        <div class="fdtl-details-col">
+          <h5>FDTL Calculation</h5>
+          ${calculationsHtml}
+        </div>
+        <div class="fdtl-details-col fdtl-details-col--audit">
+          <h5>Audit History</h5>
+          <div class="fdtl-audit-list">${auditHtml}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function populateSelects() {
+  if (!activeView) return;
+
+  const crewOptions = latestCrew
+    .map((member) => `<option value="${escapeHtml(getCrewId(member))}">${escapeHtml(getCrewName(member))}</option>`)
+    .join('');
+  const crewFallback = '<option value="">No crew</option>';
+
+  ['#fdtl-record-crew', '#fdtl-check-crew', '#fdtl-fatigue-crew', '#fdtl-manual-p1', '#fdtl-manual-p2'].forEach((selector) => {
+    const select = activeView.querySelector(selector);
+    if (select) {
+      const isP2 = selector === '#fdtl-manual-p2';
+      select.innerHTML = (isP2 ? '<option value="">— None —</option>' : '') + (crewOptions || crewFallback);
+    }
+  });
+
+  const opTypeSelects = activeView.querySelectorAll('#fdtl-record-op-type, #fdtl-manual-op-type');
+  opTypeSelects.forEach((select) => {
+    select.innerHTML = Object.entries(OPERATION_TYPE_LABELS)
+      .map(([value, label]) => `<option value="${value}">${label}</option>`)
+      .join('');
+  });
+
+  const overviewSelect = activeView.querySelector('#fdtl-overview-crew');
+  if (overviewSelect) {
+    const selected = overviewCrewFilter;
+    overviewSelect.innerHTML =
+      '<option value="__all__">All Crew</option>' +
+      latestCrew
+        .map((member) => `<option value="${escapeHtml(getCrewId(member))}" ${selected === getCrewId(member) ? 'selected' : ''}>${escapeHtml(getCrewName(member))}</option>`)
+        .join('');
+  }
+}
+
+function createFlightSequenceRow(index, defaults = {}) {
+  const date = defaults.date || '';
+  const departure = defaults.departure || '';
+  const landing = defaults.landing || '';
+  const flightNumber = defaults.flightNumber ?? index + 1;
+  const newDuty = defaults.newDuty ? 'checked' : '';
+  const breakMinutes = defaults.breakMinutes || '';
+
+  return `
+    <tr data-row-index="${index}">
+      <td><input type="date" class="fdtl-sequence-date" value="${escapeHtml(date)}" /></td>
+      <td><input type="time" class="fdtl-sequence-departure" value="${escapeHtml(departure)}" /></td>
+      <td><input type="time" class="fdtl-sequence-landing" value="${escapeHtml(landing)}" /></td>
+      <td><span class="fdtl-sequence-flight-number">${flightNumber}</span></td>
+      <td>
+        <input type="number" class="fdtl-sequence-break" min="0" max="600" step="5" value="${escapeHtml(breakMinutes)}" placeholder="min" title="Split-duty break before this flight (3–10h). Break counts in full as FDP." />
+        <span class="fdtl-gap-hint"></span>
+      </td>
+      <td>
+        <label class="fdtl-switch" title="Start a new duty period before this flight">
+          <input type="checkbox" class="fdtl-sequence-new-duty" ${newDuty} />
+          <span class="fdtl-switch-track"></span>
+        </label>
+      </td>
+      <td><button type="button" class="fdtl-remove-sequence-row">Remove</button></td>
+    </tr>`;
+}
+
+function computeSequenceGaps(rows) {
+  const parsed = rows.map((row) => {
+    const date = row.querySelector('.fdtl-sequence-date')?.value;
+    const departure = row.querySelector('.fdtl-sequence-departure')?.value;
+    const landing = row.querySelector('.fdtl-sequence-landing')?.value;
+    if (!date || !departure || !landing) return null;
+    return {
+      dep: new Date(`${date}T${departure}:00`),
+      land: new Date(`${date}T${landing}:00`)
+    };
+  });
+  return parsed.map((entry, index) => {
+    if (index === 0 || !entry) return { gapMinutes: null };
+    const prev = parsed[index - 1];
+    if (!prev) return { gapMinutes: null };
+    return { gapMinutes: Math.max(0, Math.round((entry.dep.getTime() - prev.land.getTime()) / 60000)) };
+  });
+}
+
+function updateSequenceHints() {
+  const body = activeView?.querySelector('#fdtl-flight-sequence-body');
+  if (!body) return;
+  const rows = [...body.querySelectorAll('tr')];
+  const gaps = computeSequenceGaps(rows);
+
+  rows.forEach((row, index) => {
+    const hint = row.querySelector('.fdtl-gap-hint');
+    const breakInput = row.querySelector('.fdtl-sequence-break');
+    if (!hint) return;
+
+    const gap = gaps[index]?.gapMinutes;
+    if (gap == null) {
+      hint.textContent = '';
+      hint.className = 'fdtl-gap-hint';
+      return;
+    }
+
+    const label = `${Math.floor(gap / 60)}:${String(gap % 60).padStart(2, '0')} gap`;
+    if (gap > 600) {
+      hint.textContent = `${label} — over 10h: next sector starts a new duty cycle; split duty does not apply. Check FDP/rest warnings.`;
+      hint.className = 'fdtl-gap-hint fdtl-gap-hint--warn';
+      if (breakInput) breakInput.disabled = true;
+    } else if (gap >= 180) {
+      hint.textContent = `${label} — split-duty eligible (3–10h break)`;
+      hint.className = 'fdtl-gap-hint fdtl-gap-hint--split';
+      if (breakInput) breakInput.disabled = false;
+    } else {
+      hint.textContent = `${label}`;
+      hint.className = 'fdtl-gap-hint';
+      if (breakInput) breakInput.disabled = true;
+    }
+  });
+}
+
+function ensureFlightSequenceRows() {
+  const body = activeView?.querySelector('#fdtl-flight-sequence-body');
+  if (!body) return;
+  if (body.children.length > 0) return;
+
+  body.innerHTML = [
+    createFlightSequenceRow(0, { flightNumber: 1, date: new Date().toISOString().slice(0, 10) }),
+    createFlightSequenceRow(1, { flightNumber: 2, date: new Date().toISOString().slice(0, 10) })
+  ].join('');
+}
+
+function renderAll() {
+  renderSchemeLine();
+  renderSchemeEditor();
+  renderCrew();
+  renderRecords();
+  renderAudit();
+  populateSelects();
+  ensureFlightSequenceRows();
+  updateSequenceHints();
+  renderFlightsDashboard();
 }
 
 function renderSchemeEditor() {
@@ -417,59 +986,6 @@ function renderSchemeBoard() {
   );
 }
 
-function renderDashboard() {
-  if (!activeView) return;
-
-  const attentionRows = [];
-  let within = 0;
-  let attention = 0;
-  let exceeded = 0;
-
-  latestCrew.forEach((member) => {
-    const state = latestStates.find((item) => item.crewProfileId === getCrewId(member)) || null;
-    const metrics = computeCrewMetrics(member, state);
-    if (metrics.tone === 'exceeded') {
-      exceeded += 1;
-      attentionRows.push({ member, label: metrics.attentionLabel, tone: 'exceeded' });
-    } else if (metrics.tone === 'attention') {
-      attention += 1;
-      attentionRows.push({ member, label: metrics.attentionLabel, tone: 'attention' });
-    } else {
-      within += 1;
-    }
-  });
-
-  const setText = (id, value) => {
-    const element = activeView.querySelector(`#${id}`);
-    if (element) element.textContent = value;
-  };
-  setText('fdtl-stat-within', String(within));
-  setText('fdtl-stat-attention', String(attention));
-  setText('fdtl-stat-exceeded', String(exceeded));
-  setText('fdtl-stat-fatigue', String(latestFatigue.length));
-
-  const listElement = activeView.querySelector('#fdtl-attention-list');
-  if (!listElement) return;
-
-  if (!latestCrew.length) {
-    listElement.innerHTML = '<p class="muted">No crew profiles found for this operator.</p>';
-    return;
-  }
-  if (!attentionRows.length) {
-    listElement.innerHTML = '<p class="fdtl-all-clear">All crew are within applicable FDTL limits.</p>';
-    return;
-  }
-  listElement.innerHTML = attentionRows
-    .map(
-      ({ member, label, tone }) => `
-      <div class="fdtl-attention-item">
-        <span class="fdtl-badge fdtl-badge--${tone}">${escapeHtml(label)}</span>
-        <strong>${escapeHtml(getCrewName(member))}</strong>
-      </div>`
-    )
-    .join('');
-}
-
 function renderCrew() {
   const body = activeView?.querySelector('#fdtl-crew-body');
   if (!body) return;
@@ -582,132 +1098,6 @@ function renderAudit() {
       </div>`;
     })
     .join('');
-}
-
-function populateSelects() {
-  if (!activeView) return;
-
-  const crewOptions = latestCrew
-    .map((member) => `<option value="${escapeHtml(getCrewId(member))}">${escapeHtml(getCrewName(member))}</option>`)
-    .join('');
-  const crewFallback = '<option value="">No crew</option>';
-
-  ['#fdtl-record-crew', '#fdtl-check-crew', '#fdtl-fatigue-crew'].forEach((selector) => {
-    const select = activeView.querySelector(selector);
-    if (select) select.innerHTML = crewOptions || crewFallback;
-  });
-
-  const opTypeSelect = activeView.querySelector('#fdtl-record-op-type');
-  if (opTypeSelect) {
-    opTypeSelect.innerHTML = Object.entries(OPERATION_TYPE_LABELS)
-      .map(([value, label]) => `<option value="${value}">${label}</option>`)
-      .join('');
-  }
-}
-
-function createFlightSequenceRow(index, defaults = {}) {
-  const date = defaults.date || '';
-  const departure = defaults.departure || '';
-  const landing = defaults.landing || '';
-  const flightNumber = defaults.flightNumber ?? index + 1;
-  const newDuty = defaults.newDuty ? 'checked' : '';
-  const breakMinutes = defaults.breakMinutes || '';
-
-  return `
-    <tr data-row-index="${index}">
-      <td><input type="date" class="fdtl-sequence-date" value="${escapeHtml(date)}" /></td>
-      <td><input type="time" class="fdtl-sequence-departure" value="${escapeHtml(departure)}" /></td>
-      <td><input type="time" class="fdtl-sequence-landing" value="${escapeHtml(landing)}" /></td>
-      <td><span class="fdtl-sequence-flight-number">${flightNumber}</span></td>
-      <td>
-        <input type="number" class="fdtl-sequence-break" min="0" max="600" step="5" value="${escapeHtml(breakMinutes)}" placeholder="min" title="Split-duty break before this flight (3–10h). Break counts in full as FDP." />
-        <span class="fdtl-gap-hint"></span>
-      </td>
-      <td>
-        <label class="fdtl-switch" title="Start a new duty period before this flight">
-          <input type="checkbox" class="fdtl-sequence-new-duty" ${newDuty} />
-          <span class="fdtl-switch-track"></span>
-        </label>
-      </td>
-      <td><button type="button" class="fdtl-remove-sequence-row">Remove</button></td>
-    </tr>`;
-}
-
-function computeSequenceGaps(rows) {
-  const parsed = rows.map((row) => {
-    const date = row.querySelector('.fdtl-sequence-date')?.value;
-    const departure = row.querySelector('.fdtl-sequence-departure')?.value;
-    const landing = row.querySelector('.fdtl-sequence-landing')?.value;
-    if (!date || !departure || !landing) return null;
-    return {
-      dep: new Date(`${date}T${departure}:00`),
-      land: new Date(`${date}T${landing}:00`)
-    };
-  });
-  return parsed.map((entry, index) => {
-    if (index === 0 || !entry) return { gapMinutes: null };
-    const prev = parsed[index - 1];
-    if (!prev) return { gapMinutes: null };
-    return { gapMinutes: Math.max(0, Math.round((entry.dep.getTime() - prev.land.getTime()) / 60000)) };
-  });
-}
-
-function updateSequenceHints() {
-  const body = activeView?.querySelector('#fdtl-flight-sequence-body');
-  if (!body) return;
-  const rows = [...body.querySelectorAll('tr')];
-  const gaps = computeSequenceGaps(rows);
-
-  rows.forEach((row, index) => {
-    const hint = row.querySelector('.fdtl-gap-hint');
-    const breakInput = row.querySelector('.fdtl-sequence-break');
-    if (!hint) return;
-
-    const gap = gaps[index]?.gapMinutes;
-    if (gap == null) {
-      hint.textContent = '';
-      hint.className = 'fdtl-gap-hint';
-      return;
-    }
-
-    const label = `${Math.floor(gap / 60)}:${String(gap % 60).padStart(2, '0')} gap`;
-    if (gap > 600) {
-      hint.textContent = `${label} — over 10h: next sector starts a new duty cycle; split duty does not apply. Check FDP/rest warnings.`;
-      hint.className = 'fdtl-gap-hint fdtl-gap-hint--warn';
-      if (breakInput) breakInput.disabled = true;
-    } else if (gap >= 180) {
-      hint.textContent = `${label} — split-duty eligible (3–10h break)`;
-      hint.className = 'fdtl-gap-hint fdtl-gap-hint--split';
-      if (breakInput) breakInput.disabled = false;
-    } else {
-      hint.textContent = `${label}`;
-      hint.className = 'fdtl-gap-hint';
-      if (breakInput) breakInput.disabled = true;
-    }
-  });
-}
-
-function ensureFlightSequenceRows() {
-  const body = activeView?.querySelector('#fdtl-flight-sequence-body');
-  if (!body) return;
-  if (body.children.length > 0) return;
-
-  body.innerHTML = [
-    createFlightSequenceRow(0, { flightNumber: 1, date: new Date().toISOString().slice(0, 10) }),
-    createFlightSequenceRow(1, { flightNumber: 2, date: new Date().toISOString().slice(0, 10) })
-  ].join('');
-}
-
-function renderAll() {
-  renderSchemeLine();
-  renderSchemeEditor();
-  renderDashboard();
-  renderCrew();
-  renderRecords();
-  renderAudit();
-  populateSelects();
-  ensureFlightSequenceRows();
-  updateSequenceHints();
 }
 
 async function handleSchemeSubmit(event) {
@@ -1067,6 +1457,137 @@ function handleCheckSubmit(event) {
     </div>`;
 }
 
+async function handleManualSubmit(event) {
+  event.preventDefault();
+  if (!activeCompanyId) return;
+
+  const form = activeView.querySelector('#fdtl-manual-form');
+  if (!form) return;
+
+  const read = (selector) => form.querySelector(selector)?.value;
+
+  const flightDate = read('#fdtl-manual-date');
+  const p1Id = read('#fdtl-manual-p1');
+  const p2Id = read('#fdtl-manual-p2');
+  const member1 = latestCrew.find((item) => getCrewId(item) === p1Id);
+
+  if (!flightDate || !p1Id || !member1) {
+    showMessage('Date and P1 are required for a historical flight.');
+    return;
+  }
+
+  const toFlightTime = (date, time) => {
+    if (!time) return null;
+    return `${date}T${time}:00`;
+  };
+
+  const fops = {};
+  ['chocksOff', 'chocksOn', 'takeoff', 'landing'].forEach((field) => {
+    const timeValue = read(`#fdtl-manual-${field}`);
+    if (timeValue) fops[field] = toFlightTime(flightDate, timeValue);
+  });
+
+  try {
+    await addFlight(
+      activeCompanyId,
+      {
+        flightNumber: read('#fdtl-manual-flight-number'),
+        departure: read('#fdtl-manual-departure'),
+        destination: read('#fdtl-manual-destination'),
+        route: [read('#fdtl-manual-departure'), read('#fdtl-manual-destination')].filter(Boolean).join('-') || null,
+        flightDate,
+        status: FLIGHT_STATUSES.COMPLETED,
+        source: FLIGHT_SOURCES.MANUAL,
+        p1: { crewProfileId: p1Id, name: getCrewName(member1) },
+        p2: p2Id ? { crewProfileId: p2Id, name: getCrewName(latestCrew.find((item) => getCrewId(item) === p2Id)) } : null,
+        chocksOff: fops.chocksOff,
+        chocksOn: fops.chocksOn,
+        takeoff: fops.takeoff,
+        landing: fops.landing,
+        irTimeMinutes: Number(read('#fdtl-manual-ir')) || 0,
+        xcTimeMinutes: Number(read('#fdtl-manual-xc')) || 0,
+        distanceNM: Number(read('#fdtl-manual-distance')) || 0,
+        operationType: read('#fdtl-manual-op-type') || 'commercial',
+        remarks: read('#fdtl-manual-remarks') || null,
+        fops
+      },
+      activeActor,
+      'Historical flight added from FDTL module'
+    );
+
+    const keepOpen = form.querySelector('#fdtl-manual-keep-open')?.checked;
+    if (!keepOpen) {
+      form.reset();
+      const entry = activeView.querySelector('#fdtl-manual-entry');
+      if (entry) entry.removeAttribute('open');
+    } else {
+      form.querySelector('#fdtl-manual-date').value = flightDate;
+      form.querySelector('#fdtl-manual-p1').value = p1Id;
+      if (p2Id) form.querySelector('#fdtl-manual-p2').value = p2Id;
+      form.querySelector('#fdtl-manual-flight-number').value = '';
+      form.querySelector('#fdtl-manual-departure').value = '';
+      form.querySelector('#fdtl-manual-destination').value = '';
+      form.querySelector('#fdtl-manual-chocks-off').value = '';
+      form.querySelector('#fdtl-manual-chocks-on').value = '';
+      form.querySelector('#fdtl-manual-takeoff').value = '';
+      form.querySelector('#fdtl-manual-landing').value = '';
+    }
+    showMessage('Historical flight added. It will appear with the Manual / Historical source badge.');
+  } catch (error) {
+    console.error('Add historical flight failed:', error);
+    showMessage('Failed to add the historical flight.');
+  }
+}
+
+async function handleResolveMismatch(event) {
+  const button = event.target.closest('[data-resolve-flight]');
+  if (!button || !activeCompanyId) return;
+  const flightId = button.dataset.resolveFlight;
+  const source = button.dataset.source;
+
+  const flight = latestFlights.find((item) => item.flightId === flightId);
+  if (!flight) return;
+
+  const recon = flight.reconciliation || reconcileFlight(flight);
+  const chosen = recon[source] || {};
+
+  try {
+    await updateFlight(
+      activeCompanyId,
+      flightId,
+      {
+        chocksOff: chosen.chocksOff || null,
+        chocksOn: chosen.chocksOn || null,
+        takeoff: chosen.takeoff || null,
+        landing: chosen.landing || null,
+        fops: recon.fops,
+        efb: recon.efb
+      },
+      activeActor,
+      `Data mismatch resolved in FDTL; accepted ${source === 'efb' ? 'EFB' : 'Flight Ops'} data`
+    );
+    showMessage(`Mismatch resolved — ${source === 'efb' ? 'EFB' : 'Flight Ops'} data accepted.`);
+  } catch (error) {
+    console.error('Resolve mismatch failed:', error);
+    showMessage('Failed to resolve the mismatch.');
+  }
+}
+
+async function handleDeleteFlight(event) {
+  const button = event.target.closest('[data-delete-flight]');
+  if (!button || !activeCompanyId) return;
+  if (!window.confirm('Delete this historical flight record? The change is recorded in the audit trail.')) return;
+
+  try {
+    await deleteFlight(activeCompanyId, button.dataset.deleteFlight, activeActor, 'Historical flight deleted from FDTL module');
+    selectedFlightId = null;
+    showMessage('Historical flight deleted.');
+  } catch (error) {
+    console.error('Delete flight failed:', error);
+    showMessage('Failed to delete the historical flight.');
+  }
+}
+
 export async function init(view, context) {
   activeView = view;
 
@@ -1081,6 +1602,9 @@ export async function init(view, context) {
   latestRecords = [];
   latestFatigue = [];
   latestAudit = [];
+  latestFlights = [];
+  selectedFlightId = null;
+  overviewCrewFilter = '__all__';
   renderAll();
 
   const orgContext = getCurrentOrganizationContext(currentUser);
@@ -1149,14 +1673,52 @@ export async function init(view, context) {
   });
   view.querySelector('#fdtl-fatigue-form')?.addEventListener('submit', handleFatigueSubmit);
 
+  view.querySelector('#fdtl-manual-form')?.addEventListener('submit', handleManualSubmit);
+  view.querySelector('#fdtl-manual-cancel')?.addEventListener('click', () => {
+    const form = activeView?.querySelector('#fdtl-manual-form');
+    if (form) form.reset();
+    const entry = activeView?.querySelector('#fdtl-manual-entry');
+    if (entry) entry.removeAttribute('open');
+  });
+  view.querySelector('#fdtl-overview-crew')?.addEventListener('change', (event) => {
+    overviewCrewFilter = event.target.value || '__all__';
+    renderFlightsDashboard();
+  });
+  view.querySelector('#fdtl-flight-search')?.addEventListener('input', renderFlightsTable);
+  view.querySelector('#fdtl-flight-status-filter')?.addEventListener('change', renderFlightsTable);
+  view.querySelector('#fdtl-flight-source-filter')?.addEventListener('change', renderFlightsTable);
+  view.querySelector('#fdtl-flights-body')?.addEventListener('click', (event) => {
+    const row = event.target.closest('.fdtl-flight-row');
+    if (!row) return;
+    selectedFlightId = row.dataset.flight;
+    renderFlightsTable();
+    renderFlightDetails();
+  });
+  view.querySelector('#fdtl-flight-details')?.addEventListener('click', (event) => {
+    if (event.target.closest('[data-resolve-flight]')) {
+      handleResolveMismatch(event);
+      return;
+    }
+    if (event.target.closest('[data-delete-flight]')) {
+      handleDeleteFlight(event);
+      return;
+    }
+    if (event.target.closest('#fdtl-details-close')) {
+      selectedFlightId = null;
+      renderFlightsTable();
+      renderFlightDetails();
+    }
+  });
+
   try {
-    const [crewList, scheme, states, records, fatigue, audit] = await Promise.all([
+    const [crewList, scheme, states, records, fatigue, audit, flights] = await Promise.all([
       getCrew(companyId),
       getFdtlScheme(companyId),
       listDutyStates(companyId),
       listDutyRecords(companyId),
       listFatigueReports(companyId),
-      listAuditEntries(companyId)
+      listAuditEntries(companyId),
+      listFlights(companyId)
     ]);
 
     latestCrew = Array.isArray(crewList) ? crewList : [];
@@ -1165,6 +1727,7 @@ export async function init(view, context) {
     latestRecords = Array.isArray(records) ? records : [];
     latestFatigue = Array.isArray(fatigue) ? fatigue : [];
     latestAudit = Array.isArray(audit) ? audit : [];
+    latestFlights = Array.isArray(flights) ? flights : [];
     renderAll();
   } catch (error) {
     console.error('FDTL initial load failed:', error);
@@ -1174,6 +1737,7 @@ export async function init(view, context) {
     latestRecords = [];
     latestFatigue = [];
     latestAudit = [];
+    latestFlights = [];
     renderAll();
     showMessage('Unable to load FDTL monitoring data right now.');
   }
@@ -1226,11 +1790,19 @@ export async function init(view, context) {
     },
     (error) => console.error('FDTL audit snapshot error:', error)
   );
+  flightsUnsubscribe = onFlightsSnapshot(
+    companyId,
+    (flights) => {
+      latestFlights = flights;
+      renderAll();
+    },
+    (error) => console.error('FDTL flights snapshot error:', error)
+  );
 
   return {
     destroy() {
-      [schemeUnsubscribe, crewUnsubscribe, statesUnsubscribe, recordsUnsubscribe, fatigueUnsubscribe, auditUnsubscribe].forEach((fn) => fn?.());
-      schemeUnsubscribe = crewUnsubscribe = statesUnsubscribe = recordsUnsubscribe = fatigueUnsubscribe = auditUnsubscribe = null;
+      [schemeUnsubscribe, crewUnsubscribe, statesUnsubscribe, recordsUnsubscribe, fatigueUnsubscribe, auditUnsubscribe, flightsUnsubscribe].forEach((fn) => fn?.());
+      schemeUnsubscribe = crewUnsubscribe = statesUnsubscribe = recordsUnsubscribe = fatigueUnsubscribe = auditUnsubscribe = flightsUnsubscribe = null;
       if (messageTimer) clearTimeout(messageTimer);
       activeView = null;
       activeCompanyId = null;
@@ -1241,6 +1813,8 @@ export async function init(view, context) {
       latestRecords = [];
       latestFatigue = [];
       latestAudit = [];
+      latestFlights = [];
+      selectedFlightId = null;
     }
   };
 }

@@ -1,5 +1,69 @@
 ﻿<section class="card">
-  <h2>Electronic Flight Bag</h2>
-  <p class="muted">Access digital briefings, route packs, and mission notes.</p>
-  <div id="efb-content" class="module-placeholder"></div>
+  <div class="card-heading">
+    <h2>Electronic Flight Bag</h2>
+    <p>Record actual flight details against dispatched flights. Actuals sync to Firestore and are evaluated by the FDTL module for compliance.</p>
+  </div>
+  <div id="efb-status" class="muted">Loading flight assignments...</div>
+</section>
+
+<section class="card">
+  <div class="card-heading">
+    <h3>Flight Assignments</h3>
+    <p class="muted">Planned flights created by Dispatch. Select a flight to record actuals below.</p>
+  </div>
+  <div class="efb-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Flight</th>
+          <th>Route</th>
+          <th>P1</th>
+          <th>Status</th>
+          <th>EFB Actuals</th>
+        </tr>
+      </thead>
+      <tbody id="efb-flights-body"></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-heading">
+    <h3>Record Actuals</h3>
+    <p class="muted" id="efb-selected-hint">Select a flight from the list above.</p>
+  </div>
+  <form id="efb-actuals-form" class="efb-form" novalidate>
+    <label class="efb-form-field">
+      <span>Chocks Off</span>
+      <input type="time" id="efb-actual-chocks-off" />
+    </label>
+    <label class="efb-form-field">
+      <span>Chocks On</span>
+      <input type="time" id="efb-actual-chocks-on" />
+    </label>
+    <label class="efb-form-field">
+      <span>Takeoff</span>
+      <input type="time" id="efb-actual-takeoff" />
+    </label>
+    <label class="efb-form-field">
+      <span>Landing</span>
+      <input type="time" id="efb-actual-landing" />
+    </label>
+    <label class="efb-form-field">
+      <span>IR Time (min)</span>
+      <input type="number" id="efb-actual-ir" min="0" step="1" value="0" />
+    </label>
+    <label class="efb-form-field">
+      <span>XC Time (min)</span>
+      <input type="number" id="efb-actual-xc" min="0" step="1" value="0" />
+    </label>
+    <label class="efb-form-field">
+      <span>Block Time</span>
+      <input type="text" id="efb-actual-block" placeholder="Auto-computed" readonly />
+    </label>
+    <div class="efb-form-actions">
+      <button type="submit" class="vs-button vs-button--primary vs-button--sm" id="efb-save-actuals" disabled>Save Actuals</button>
+    </div>
+  </form>
 </section>

@@ -39,3 +39,40 @@
   padding: 0.6rem;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
+
+.dispatch-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+}
+
+.dispatch-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.dispatch-form-field input,
+.dispatch-form-field select,
+.dispatch-form-field textarea {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: #ffffff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dispatch-form-field--full {
+  grid-column: 1 / -1;
+}
+
+.dispatch-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}

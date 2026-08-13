@@ -2,10 +2,12 @@
   <div class="fdtl-header-row">
     <div class="card-heading">
       <h2>FDTL Monitoring</h2>
-      <p>Flight Duty Time Limit monitoring under the operator's approved FDTL Scheme.</p>
+      <p>Flight Duty Time Limit compliance over operational data from Flight Operations, EFB, and manual history.</p>
     </div>
     <div class="fdtl-header-actions">
-      <button type="button" class="fdtl-tab fdtl-header-action" data-fdtl-tab="scheme" role="tab" aria-selected="false">Scheme</button>
+      <button type="button" class="fdtl-tab fdtl-header-action" data-fdtl-tab="scheme" role="tab" aria-selected="false">FDTL Scheme</button>
+      <button type="button" class="fdtl-tab fdtl-header-action" data-fdtl-tab="flight-check" role="tab" aria-selected="false">Flight Calculator</button>
+      <button type="button" class="fdtl-tab fdtl-header-action" data-fdtl-tab="audit" role="tab" aria-selected="false">Audit Trail</button>
     </div>
   </div>
   <div id="fdtl-scheme-line" class="fdtl-scheme-line">Scheme: loading...</div>
@@ -14,42 +16,177 @@
     <button type="button" class="fdtl-tab active" data-fdtl-tab="dashboard" role="tab" aria-selected="true">Dashboard</button>
     <button type="button" class="fdtl-tab" data-fdtl-tab="crew" role="tab" aria-selected="false">Crew</button>
     <button type="button" class="fdtl-tab" data-fdtl-tab="duty-records" role="tab" aria-selected="false">Duty Records</button>
-    <button type="button" class="fdtl-tab" data-fdtl-tab="flight-check" role="tab" aria-selected="false">Flight Check</button>
   </nav>
 </section>
 
 <section class="fdtl-pane" data-fdtl-pane="dashboard">
   <div class="card">
     <div class="card-heading">
-      <h3>Current Crew Situation</h3>
-      <p class="muted">Computed against the applicable FDTL limits from the active scheme.</p>
+      <h3>Compliance Overview</h3>
+      <p class="muted">Automatically synchronized from Flight Operations + EFB. Manual flights carry a <strong>Historical</strong> source badge.</p>
     </div>
-    <div class="fdtl-summary">
+    <div class="fdtl-overview-toolbar">
+      <label class="fdtl-form-field fdtl-crew-filter-field">
+        <span>Crew Filter</span>
+        <select id="fdtl-overview-crew">
+          <option value="__all__">All Crew</option>
+        </select>
+      </label>
+      <span id="fdtl-sync-status" class="fdtl-sync-status">Loading flight records…</span>
+    </div>
+    <div class="fdtl-summary fdtl-kpi-grid">
       <div class="fdtl-stat">
-        <strong id="fdtl-stat-within">0</strong>
-        <span>Within Limits</span>
+        <strong id="fdtl-kpi-flight-time">--:--</strong>
+        <span>Flight Time</span>
       </div>
       <div class="fdtl-stat">
-        <strong id="fdtl-stat-attention">0</strong>
-        <span>Attention</span>
+        <strong id="fdtl-kpi-duty-time">--:--</strong>
+        <span>Duty Time</span>
       </div>
       <div class="fdtl-stat">
-        <strong id="fdtl-stat-exceeded">0</strong>
-        <span>Exceeded</span>
+        <strong id="fdtl-kpi-7day">--:--</strong>
+        <span>7-Day</span>
       </div>
       <div class="fdtl-stat">
-        <strong id="fdtl-stat-fatigue">0</strong>
-        <span>Fatigue Reports</span>
+        <strong id="fdtl-kpi-28day">--:--</strong>
+        <span>28-Day</span>
+      </div>
+      <div class="fdtl-stat">
+        <strong id="fdtl-kpi-rest">--:--</strong>
+        <span>Rest</span>
+      </div>
+      <div class="fdtl-stat">
+        <strong id="fdtl-kpi-status">—</strong>
+        <span>Overall Status</span>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <h3>Needs Attention</h3>
-    <div id="fdtl-attention-list" class="fdtl-attention-list">
-      <p class="muted">Loading crew attention state...</p>
+    <div class="card-heading">
+      <h3>Flight Records</h3>
+      <p class="muted">Compliance-focused view. Click a row to open full flight details, FDTL calculation, source, and audit history.</p>
+    </div>
+    <div class="fdtl-filters">
+      <input type="search" id="fdtl-flight-search" class="fdtl-filter-search" placeholder="Search flight no / route / crew…" aria-label="Search flights" />
+      <select id="fdtl-flight-status-filter" class="fdtl-filter-select" aria-label="Filter by status">
+        <option value="__all__">All Status</option>
+        <option value="planned">Planned</option>
+        <option value="active">Active</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <select id="fdtl-flight-source-filter" class="fdtl-filter-select" aria-label="Filter by source">
+        <option value="__all__">All Sources</option>
+        <option value="dispatch+efb">Flight Ops + EFB</option>
+        <option value="efb">EFB</option>
+        <option value="dispatch">Flight Ops</option>
+        <option value="manual">Manual / Historical</option>
+      </select>
+    </div>
+    <div class="fdtl-table-wrap">
+      <table class="fdtl-flights-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Flight</th>
+            <th>Route</th>
+            <th>Crew</th>
+            <th>Source</th>
+            <th>Flight Time</th>
+            <th>FDP</th>
+            <th>Rest</th>
+            <th>7/28-Day</th>
+            <th>FDTL</th>
+          </tr>
+        </thead>
+        <tbody id="fdtl-flights-body"></tbody>
+      </table>
     </div>
   </div>
+
+  <details class="fdtl-manual-details" id="fdtl-manual-entry">
+    <summary class="fdtl-manual-summary">
+      <span>＋ Add Historical / Manual Flight</span>
+      <span class="muted">For legacy logbook data, corrections, and reconciliation — normal flights arrive automatically from Flight Ops and EFB.</span>
+    </summary>
+    <div class="fdtl-manual-body">
+      <form id="fdtl-manual-form" class="fdtl-form">
+        <label class="fdtl-form-field">
+          <span>Date</span>
+          <input type="date" id="fdtl-manual-date" required />
+        </label>
+        <label class="fdtl-form-field">
+          <span>Flight No.</span>
+          <input type="text" id="fdtl-manual-flight-number" placeholder="e.g. VT-IIC-001" required />
+        </label>
+        <label class="fdtl-form-field">
+          <span>Departure</span>
+          <input type="text" id="fdtl-manual-departure" placeholder="HYD" required />
+        </label>
+        <label class="fdtl-form-field">
+          <span>Destination</span>
+          <input type="text" id="fdtl-manual-destination" placeholder="BOM" required />
+        </label>
+        <label class="fdtl-form-field">
+          <span>P1</span>
+          <select id="fdtl-manual-p1" required></select>
+        </label>
+        <label class="fdtl-form-field">
+          <span>P2</span>
+          <select id="fdtl-manual-p2"></select>
+        </label>
+        <label class="fdtl-form-field">
+          <span>Chocks Off</span>
+          <input type="time" id="fdtl-manual-chocks-off" />
+        </label>
+        <label class="fdtl-form-field">
+          <span>Chocks On</span>
+          <input type="time" id="fdtl-manual-chocks-on" />
+        </label>
+        <label class="fdtl-form-field">
+          <span>Takeoff</span>
+          <input type="time" id="fdtl-manual-takeoff" />
+        </label>
+        <label class="fdtl-form-field">
+          <span>Landing</span>
+          <input type="time" id="fdtl-manual-landing" />
+        </label>
+        <label class="fdtl-form-field">
+          <span>IR Time (min)</span>
+          <input type="number" id="fdtl-manual-ir" min="0" step="1" value="0" />
+        </label>
+        <label class="fdtl-form-field">
+          <span>XC Time (min)</span>
+          <input type="number" id="fdtl-manual-xc" min="0" step="1" value="0" />
+        </label>
+        <label class="fdtl-form-field">
+          <span>Distance (NM)</span>
+          <input type="number" id="fdtl-manual-distance" min="0" step="1" value="0" />
+        </label>
+        <label class="fdtl-form-field">
+          <span>Operation Type</span>
+          <select id="fdtl-manual-op-type"></select>
+        </label>
+        <label class="fdtl-form-field fdtl-form-field--full">
+          <span>Remarks</span>
+          <textarea id="fdtl-manual-remarks" rows="2" placeholder="e.g. Legacy logbook reconciliation"></textarea>
+        </label>
+        <div class="fdtl-manual-options">
+          <label class="fdtl-manual-checkbox">
+            <input type="checkbox" id="fdtl-manual-keep-open" />
+            <span>Keep entry form open <em class="muted">(continuous entry for bulk historical data)</em></span>
+          </label>
+        </div>
+        <div class="fdtl-manual-actions">
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="fdtl-manual-cancel">Cancel</button>
+          <button type="submit" class="vs-button vs-button--primary vs-button--sm" id="fdtl-manual-submit">Add Historical Flight</button>
+        </div>
+      </form>
+    </div>
+  </details>
+
+  <div id="fdtl-flight-details" class="fdtl-flight-details"></div>
 </section>
 
 <section class="fdtl-pane hidden" data-fdtl-pane="crew">
@@ -163,23 +300,13 @@
       </table>
     </div>
   </div>
-
-  <div class="card">
-    <div class="card-heading">
-      <h3>Audit Trail</h3>
-      <p class="muted">Every change tracked to its source: who, when, what, before, after, and reason.</p>
-    </div>
-    <div id="fdtl-audit-list" class="fdtl-audit-list">
-      <p class="muted">Loading audit trail...</p>
-    </div>
-  </div>
 </section>
 
 <section class="fdtl-pane hidden" data-fdtl-pane="flight-check">
   <div class="card">
     <div class="card-heading">
-      <h3>Crew Flight Eligibility</h3>
-      <p class="muted">Determines whether the crew member remains within the applicable FDP, flight time, and landing limits before a flight is operated.</p>
+      <h3>Crew Flight Eligibility — Flight Calculator</h3>
+      <p class="muted">Used <strong>before</strong> a flight or roster is operated. Enter the planned flight sequence and the FDTL engine simulates it against the approved scheme.</p>
     </div>
     <form id="fdtl-check-form" class="fdtl-check-form">
       <div class="fdtl-info-note">All FDTL calculations assume <strong>two-pilot operations</strong> (commercial NSOP). Single-pilot calculations are not supported in this module — contact the developer if required.</div>
@@ -230,6 +357,18 @@
       </div>
     </form>
     <div id="fdtl-check-result" class="fdtl-check-result"></div>
+  </div>
+</section>
+
+<section class="fdtl-pane hidden" data-fdtl-pane="audit">
+  <div class="card">
+    <div class="card-heading">
+      <h3>Audit Trail</h3>
+      <p class="muted">Every change tracked to its source: who, when, what, before, after, and reason. Covers scheme edits, duty records, duty states, fatigue reports, and flight records.</p>
+    </div>
+    <div id="fdtl-audit-list" class="fdtl-audit-list">
+      <p class="muted">Loading audit trail...</p>
+    </div>
   </div>
 </section>
 

@@ -318,9 +318,56 @@ Module records are written under `companies/{companyId}/{module}` subcollections
 
 - `companies/{companyId}/crew` — crew roster mirror (copied from `crew_profiles`)
 - `companies/{companyId}/aircraft` — fleet records
+- `companies/{companyId}/flights` — shared operational flights (see contract below)
 - Additional modules (`dispatch`, `maintenance`, etc.) follow the same subcollection shape.
 
 Field conventions reuse the shared rules from the crew/document model: `companyId`, `createdAt`, `lastModified`, plus module-specific fields.
+
+### companies/{companyId}/flights (web-only, cross-module)
+
+Shared operational flight record used by the Dispatch (creation), EFB (actuals) and FDTL (compliance monitoring) modules.
+
+Document key: generated `flightId`
+
+Fields:
+
+- `flightId`
+- `companyId`
+- `flightNumber`
+- `aircraftReg` (optional)
+- `departure` (ICAO code)
+- `destination` (ICAO code)
+- `route` (optional, free text)
+- `flightDate` (ISO date, e.g. `2026-08-14`)
+- `scheduledDeparture` / `scheduledArrival` (optional ISO timestamps)
+- `distanceNM` (optional number)
+- `operationType` (optional; e.g. commercial / positioning / training / test)
+- `p1` (object `{ name, crewProfileId, uid? }`)
+- `p2` (object `{ name, crewProfileId, uid? }`, optional)
+- `crewProfileIds` (array of involved `crewProfileId`s)
+- `remarks` (optional)
+- `status` (`planned` | `active` | `completed` | `cancelled`)
+- `source` (`dispatch` | `efb` | `manual`)
+- `fops` (Flight Ops planned times, optional object):
+  - `chocksOff`, `chocksOn`, `takeoff`, `landing` (ISO timestamps)
+- `efb` (EFB actuals, optional object):
+  - `chocksOff`, `chocksOn`, `takeoff`, `landing` (ISO timestamps)
+  - `irTimeMinutes`, `xcTimeMinutes` (numbers)
+  - `recordedByUid`, `recordedByName` (optional)
+  - `recordedAt` (timestamp)
+- `reconciliation` (optional object):
+  - `status` (`verified` | `mismatch` | `resolved`)
+  - `toleranceMinutes` (number, default 5)
+  - `field` (the first differing field, when in `mismatch`)
+  - `resolution` (`efb` | `fops`), `resolvedAt`, `resolvedByUid`
+- `flightTimeMinutes` / `blockTimeMinutes` (optional numbers, computed)
+- `createdByUid`
+- `createdAt`
+- `lastModified`
+
+Subcollections:
+
+- `companies/{companyId}/flights/{flightId}/audit` — per-flight audit entries (who, when, entity, field, before, after, reason, source).
 
 ## Service ownership
 

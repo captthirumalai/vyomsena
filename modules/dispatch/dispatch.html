@@ -1,7 +1,7 @@
 ﻿<section class="card">
   <div class="card-heading">
     <h2>Dispatch Control</h2>
-    <p>Live readiness view from fleet and crew data.</p>
+    <p>Create planned flights that flow to the EFB (actuals) and FDTL (compliance) modules via the shared flight record.</p>
   </div>
 
   <div id="dispatch-status" class="muted">Loading dispatch readiness...</div>
@@ -27,6 +27,81 @@
 </section>
 
 <section class="card">
+  <div class="card-heading">
+    <h3>Create Planned Flight</h3>
+    <p class="muted">Writes to <code>companies/{companyId}/flights</code>. The EFB module records actuals against the same record and FDTL evaluates it for compliance.</p>
+  </div>
+  <form id="dispatch-flight-form" class="dispatch-form">
+    <label class="dispatch-form-field">
+      <span>Flight No.</span>
+      <input type="text" id="dispatch-flight-number" placeholder="e.g. VT-IIC-001" required />
+    </label>
+    <label class="dispatch-form-field">
+      <span>Aircraft Reg</span>
+      <select id="dispatch-flight-aircraft" required>
+        <option value="">Select aircraft</option>
+      </select>
+    </label>
+    <label class="dispatch-form-field">
+      <span>Departure</span>
+      <input type="text" id="dispatch-flight-departure" placeholder="HYD" required />
+    </label>
+    <label class="dispatch-form-field">
+      <span>Destination</span>
+      <input type="text" id="dispatch-flight-destination" placeholder="BOM" required />
+    </label>
+    <label class="dispatch-form-field">
+      <span>Flight Date</span>
+      <input type="date" id="dispatch-flight-date" required />
+    </label>
+    <label class="dispatch-form-field">
+      <span>Scheduled Departure (local)</span>
+      <input type="datetime-local" id="dispatch-flight-planned-dep" />
+    </label>
+    <label class="dispatch-form-field">
+      <span>Scheduled Arrival (local)</span>
+      <input type="datetime-local" id="dispatch-flight-planned-arr" />
+    </label>
+    <label class="dispatch-form-field">
+      <span>Distance (NM)</span>
+      <input type="number" id="dispatch-flight-distance" min="0" step="1" value="0" />
+    </label>
+    <label class="dispatch-form-field">
+      <span>Operation Type</span>
+      <select id="dispatch-flight-op-type">
+        <option value="commercial">Commercial</option>
+        <option value="positioning">Positioning</option>
+        <option value="training">Training</option>
+        <option value="base_training">Base Training</option>
+        <option value="familiarisation">Familiarisation</option>
+        <option value="skill_test">Skill Test</option>
+        <option value="instrument_rating">IR</option>
+        <option value="ppc">PPC</option>
+      </select>
+    </label>
+    <label class="dispatch-form-field">
+      <span>P1</span>
+      <select id="dispatch-flight-p1" required>
+        <option value="">Select crew</option>
+      </select>
+    </label>
+    <label class="dispatch-form-field">
+      <span>P2</span>
+      <select id="dispatch-flight-p2">
+        <option value="">— None —</option>
+      </select>
+    </label>
+    <label class="dispatch-form-field dispatch-form-field--full">
+      <span>Remarks</span>
+      <textarea id="dispatch-flight-remarks" rows="2"></textarea>
+    </label>
+    <div class="dispatch-form-actions">
+      <button type="submit" class="vs-button vs-button--primary vs-button--sm">Create Flight</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
   <h3>Dispatch Queue</h3>
   <div class="dispatch-table-wrap">
     <table>
@@ -39,6 +114,28 @@
         </tr>
       </thead>
       <tbody id="dispatch-queue-body"></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-heading">
+    <h3>Flight Board</h3>
+    <p class="muted">Planned and active flights created by dispatch. Completed flights carry EFB actuals and feed the FDTL module.</p>
+  </div>
+  <div class="dispatch-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Flight</th>
+          <th>Route</th>
+          <th>P1</th>
+          <th>Status</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody id="dispatch-flights-body"></tbody>
     </table>
   </div>
 </section>
