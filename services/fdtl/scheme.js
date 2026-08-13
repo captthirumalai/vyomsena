@@ -31,7 +31,7 @@ export const DEFAULT_FDTL_SCHEME = {
       { maxFlightTimeMinutes: 600, landings: 1, maxFdpMinutes: 810 },
       { maxFlightTimeMinutes: 600, landings: 2, maxFdpMinutes: 810 }
     ],
-    defaultMaxFlightTimeDayMinutes: 480,
+    defaultMaxFlightTimeDayMinutes: 600,
     warningThresholdPct: 0.8
   },
   wocl: {
@@ -95,7 +95,12 @@ export const DEFAULT_FDTL_SCHEME = {
   splitDuty: {
     breakLessThanMinutes: 180,
     breakGreaterThanMinutes: 600,
-    extensionFactor: 0.5
+    extensionFactor: 0.5,
+    preAndPostBreakMaxMinutes: 600,
+    accommodationBreakMinutes: 360,
+    ruleLabel: 'Break under 3h: no extension · 3–10h: extend FDP by half the break · over 10h: no extension. Break counts in full as FDP.',
+    applicabilityNote: 'Split duty applies only to the two-pilot 8h FDP row (CAR 6.1.1). Parts of the FDP before and after the break shall not exceed 10 hours each (CAR 10.4).',
+    accommodationNote: 'Break over 6h or encroaching WOCL: suitable accommodation required. Break under 6h: accommodation required (CAR 10.3).'
   },
   standby: {
     enabled: false,

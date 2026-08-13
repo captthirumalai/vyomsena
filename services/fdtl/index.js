@@ -21,6 +21,7 @@ export {
   computeApplicableFdpLimit,
   checkPlannedFdp,
   computeTwoLandingProvisionMinutes,
+  computeDutySplitDuty,
   simulateFlightSequence,
   computeRestStatus,
   computeNightDutyStatus,

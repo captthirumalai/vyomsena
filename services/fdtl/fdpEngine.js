@@ -17,6 +17,16 @@ export function formatDurationMinutes(minutes) {
   return `${hours}:${String(mins).padStart(2, '0')}`;
 }
 
+function ruleMarginText(actual, allowed, unit = 'minutes', inverted = false) {
+  const safeActual = Number(actual) || 0;
+  const safeAllowed = Number(allowed) || 0;
+  const diff = inverted ? safeActual - safeAllowed : safeAllowed - safeActual;
+  const format = (value) => (unit === 'count' ? String(value) : formatDurationMinutes(value));
+  if (diff >= 0) return `within by ${format(diff)}`;
+  if (inverted) return `short by ${format(Math.abs(diff))}`;
+  return `over by ${format(Math.abs(diff))}`;
+}
+
 function pickTable(scheme) {
   const fdp = scheme.fdp || {};
   return fdp.twoPilot;
@@ -478,6 +488,123 @@ export function computeTwoLandingProvisionMinutes(scheme, { landings = 0, breakM
   return Number(provision.increaseMinutes ?? 360) || 0;
 }
 
+function breakOverlapsWindow(start, end, startHour, endHour) {
+  if (!start || !end) return false;
+  const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  for (let offset = 0; offset <= 1; offset += 1) {
+    const cursor = new Date(startDate);
+    cursor.setDate(startDate.getDate() + offset);
+    const window = getNightWindowForDate(cursor, startHour, endHour);
+    if (intervalOverlapMinutes(start, end, window.start, window.end) > 0) return true;
+  }
+  return false;
+}
+
+export function computeDutySplitDuty(scheme, { dutyFlights = [], reportTime = null, finalLanding = null } = {}) {
+  const config = scheme.splitDuty || {};
+  const minBreak = Number(config.breakLessThanMinutes ?? 180);
+  const maxBreak = Number(config.breakGreaterThanMinutes ?? 600);
+  const extensionFactor = Number(config.extensionFactor ?? 0.5);
+  const partMaxMinutes = Number(config.preAndPostBreakMaxMinutes ?? 600);
+  const accommodationBreakMinutes = Number(config.accommodationBreakMinutes ?? 360);
+
+  const normalizedFlights = (dutyFlights || [])
+    .map((flight) => {
+      const departure = parseDate(flight.departure || flight.departureTime || flight.start);
+      const landing = parseDate(flight.landing || flight.landingTime || flight.end);
+      return {
+        ...flight,
+        departure,
+        landing,
+        breakMinutes: Number(flight.breakMinutes ?? flight.splitBreakMinutes ?? 0) || 0,
+        flightMinutes: Number(flight.flightMinutes ?? 0) || (departure && landing ? diffMinutes(departure, landing) : 0)
+      };
+    })
+    .filter((flight) => flight.departure && flight.landing);
+
+  let best = null;
+  normalizedFlights.forEach((flight, index) => {
+    if (index === 0) return;
+    const breakMinutes = flight.breakMinutes;
+    if (breakMinutes <= 0) return;
+    if (breakMinutes < minBreak || breakMinutes > maxBreak) return;
+    if (!best || breakMinutes > best.breakMinutes) {
+      best = {
+        breakMinutes,
+        breakStart: normalizedFlights[index - 1].landing,
+        breakEnd: flight.departure,
+        prevLanding: normalizedFlights[index - 1].landing
+      };
+    }
+  });
+
+  if (!best) {
+    return {
+      applies: false,
+      eligible: false,
+      breakMinutes: 0,
+      extensionMinutes: 0,
+      preBreakPartMinutes: null,
+      postBreakPartMinutes: null,
+      preBreakPartOk: null,
+      postBreakPartOk: null,
+      breakEncroachesWocl: false,
+      accommodationNote: null,
+      reason: null,
+      violation: false
+    };
+  }
+
+  const report = parseDate(reportTime);
+  const final = parseDate(finalLanding);
+  const flightTimeMinutes = normalizedFlights.reduce((sum, flight) => sum + flight.flightMinutes, 0);
+  const flightTimeTiers = (scheme.fdp?.twoPilot || []).map((row) => Number(row.maxFlightTimeMinutes)).filter(Number.isFinite);
+  const sixPointOneOneMaxFlightTime = flightTimeTiers.length ? Math.min(...flightTimeTiers) : 480;
+  const withinSixPointOneOne = flightTimeMinutes <= sixPointOneOneMaxFlightTime;
+
+  const extensionMinutes = withinSixPointOneOne ? Math.round(best.breakMinutes * extensionFactor) : 0;
+  const preBreakPartMinutes = report ? diffMinutes(report, best.prevLanding) : null;
+  const postBreakPartMinutes = final ? diffMinutes(best.breakEnd, final) : null;
+  const preBreakPartOk = preBreakPartMinutes != null ? preBreakPartMinutes <= partMaxMinutes : null;
+  const postBreakPartOk = postBreakPartMinutes != null ? postBreakPartMinutes <= partMaxMinutes : null;
+
+  const breakEncroachesWocl = breakOverlapsWindow(best.breakStart, best.breakEnd, Number(scheme.wocl?.startHour ?? 2), Number(scheme.wocl?.endHour ?? 6));
+
+  let accommodationNote = null;
+  if (best.breakMinutes > accommodationBreakMinutes || breakEncroachesWocl) {
+    accommodationNote = 'Suitable accommodation required (break over 6h or WOCL encroachment)';
+  } else {
+    accommodationNote = 'Accommodation required (break under 6h)';
+  }
+
+  let reason = null;
+  let violation = false;
+  if (!withinSixPointOneOne) {
+    reason = 'Split duty does not apply: duty flight time exceeds the 8h two-pilot row (CAR 6.1.2 / 10.5)';
+  } else if (preBreakPartMinutes != null && !preBreakPartOk) {
+    reason = `Split duty: FDP part before break ${formatDurationMinutes(preBreakPartMinutes)} exceeds 10h (CAR 10.4)`;
+    violation = true;
+  } else if (postBreakPartMinutes != null && !postBreakPartOk) {
+    reason = `Split duty: FDP part after break ${formatDurationMinutes(postBreakPartMinutes)} exceeds 10h (CAR 10.4)`;
+    violation = true;
+  }
+
+  return {
+    applies: withinSixPointOneOne,
+    eligible: true,
+    breakMinutes: best.breakMinutes,
+    extensionMinutes,
+    preBreakPartMinutes,
+    postBreakPartMinutes,
+    preBreakPartOk,
+    postBreakPartOk,
+    breakEncroachesWocl,
+    accommodationNote,
+    reason,
+    violation
+  };
+}
+
 export function computeStandbyAdjustment(scheme, { standbyMinutes = 0, standbyType = 'home' } = {}) {
   const standby = scheme.standby || {};
   const totalStandbyMinutes = Number(standbyMinutes) || 0;
@@ -614,18 +741,32 @@ function buildFlightComplianceRecord({
 }) {
   const issueTexts = [];
   const ruleRefs = [];
+  const rules = [];
 
+  let fdpStatus = VERDICTS.WITHIN;
   if (runningFdpMinutes > applicableLimitMinutes) {
+    fdpStatus = VERDICTS.EXCEEDED;
     issueTexts.push(`FDP ${formatDurationMinutes(runningFdpMinutes)} exceeds applicable ${formatDurationMinutes(applicableLimitMinutes)}`);
     ruleRefs.push('CAR §7.2 – FDP limit');
   } else if (runningFdpMinutes >= fdpThreshold) {
+    fdpStatus = VERDICTS.ATTENTION;
     issueTexts.push(`FDP ${formatDurationMinutes(runningFdpMinutes)} is approaching the applicable limit of ${formatDurationMinutes(applicableLimitMinutes)}`);
     ruleRefs.push('CAR §7.2 – FDP watch threshold');
   } else {
     issueTexts.push(`FDP ${formatDurationMinutes(runningFdpMinutes)} remains within the applicable limit of ${formatDurationMinutes(applicableLimitMinutes)}`);
     ruleRefs.push('CAR §7.2 – FDP within limit');
   }
+  rules.push({
+    key: 'fdp',
+    label: 'FDP',
+    ref: 'CAR §7.2 – FDP limit',
+    allowed: applicableLimitMinutes,
+    actual: runningFdpMinutes,
+    status: fdpStatus,
+    margin: ruleMarginText(runningFdpMinutes, applicableLimitMinutes)
+  });
 
+  const flightTimeStatus = runningFlightTime > dayMaxFlightTime ? VERDICTS.EXCEEDED : VERDICTS.WITHIN;
   if (runningFlightTime > dayMaxFlightTime) {
     issueTexts.push(`Flight time ${formatDurationMinutes(runningFlightTime)} exceeds daily maximum ${formatDurationMinutes(dayMaxFlightTime)}`);
     ruleRefs.push('CAR §7.3 – Daily flight-time limit');
@@ -633,13 +774,35 @@ function buildFlightComplianceRecord({
     issueTexts.push(`Flight time ${formatDurationMinutes(runningFlightTime)} remains within daily maximum ${formatDurationMinutes(dayMaxFlightTime)}`);
     ruleRefs.push('CAR §7.3 – Daily flight-time within limit');
   }
+  rules.push({
+    key: 'flightTime',
+    label: 'Flight time',
+    ref: 'CAR §7.3 – Daily flight-time limit',
+    allowed: dayMaxFlightTime,
+    actual: runningFlightTime,
+    status: flightTimeStatus,
+    margin: ruleMarginText(runningFlightTime, dayMaxFlightTime)
+  });
 
-  if (maxLandings != null && flightOffset + 1 > maxLandings) {
-    issueTexts.push(`Landings ${flightOffset + 1} exceed the table maximum of ${maxLandings}`);
-    ruleRefs.push('CAR §7.4 – Landing count');
-  } else if (maxLandings != null) {
-    issueTexts.push(`Landings ${flightOffset + 1} remain within the table maximum of ${maxLandings}`);
-    ruleRefs.push('CAR §7.4 – Landing count within limit');
+  if (maxLandings != null) {
+    const landingStatus = flightOffset + 1 > maxLandings ? VERDICTS.EXCEEDED : VERDICTS.WITHIN;
+    if (landingStatus === VERDICTS.EXCEEDED) {
+      issueTexts.push(`Landings ${flightOffset + 1} exceed the table maximum of ${maxLandings}`);
+      ruleRefs.push('CAR §7.4 – Landing count');
+    } else {
+      issueTexts.push(`Landings ${flightOffset + 1} remain within the table maximum of ${maxLandings}`);
+      ruleRefs.push('CAR §7.4 – Landing count within limit');
+    }
+    rules.push({
+      key: 'landings',
+      label: 'Landings',
+      ref: 'CAR §7.4 – Landing count',
+      allowed: maxLandings,
+      actual: flightOffset + 1,
+      status: landingStatus,
+      margin: ruleMarginText(flightOffset + 1, maxLandings, 'count'),
+      count: true
+    });
   }
 
   const violationFlags = [
@@ -657,6 +820,7 @@ function buildFlightComplianceRecord({
     date: flight.departure ? asYmd(flight.departure) : flight.date || null,
     dutyIndex,
     verdict,
+    rules,
     ruleRefs: uniqueRuleRefs,
     reason,
     complianceText: verdict === VERDICTS.EXCEEDED
@@ -665,6 +829,7 @@ function buildFlightComplianceRecord({
         ? `Attention: ${reason}`
         : `Complied: ${reason}`,
     applicableLimitMinutes,
+    dayMaxFlightTime,
     usedFdpMinutes: runningFdpMinutes,
     usedFlightTimeMinutes: runningFlightTime,
     maxLandings,
@@ -710,9 +875,13 @@ export function simulateFlightSequence(scheme, {
 
   const reportingMinutes = Number(scheme.operationalAdjustments?.reportingTimeMinutes ?? 0);
   const postFlightAllowanceMinutes = Number(scheme.operationalAdjustments?.postFlightAllowanceMinutes ?? 0);
-  const dutyBreakMinutes = Math.max(360, reportingMinutes + 180);
+  const splitDutyConfig = scheme.splitDuty || {};
+  const dutyBreakThreshold = Math.max(
+    Number(splitDutyConfig.breakGreaterThanMinutes ?? 600),
+    reportingMinutes + Number(splitDutyConfig.breakLessThanMinutes ?? 180)
+  );
   const minimumRestMinutes = Number(scheme.rest?.minimumMinutes ?? 720);
-  const dayMaxFlightTime = Number(scheme.fdp?.defaultMaxFlightTimeDayMinutes ?? 480);
+  const dayMaxFlightTime = Number(scheme.fdp?.defaultMaxFlightTimeDayMinutes ?? 600);
   const warningThresholdPct = Number(scheme.fdp?.warningThresholdPct ?? 0.8);
   const weeklyWindowMs = (Number(scheme.rest?.weekly?.maxSpanHours) || 168) * 60 * 60 * 1000;
   const weeklyMinMinutes = Number(scheme.rest?.weekly?.minimumMinutes) || 2160;
@@ -735,7 +904,7 @@ export function simulateFlightSequence(scheme, {
     }
     const lastFlight = currentDuty[currentDuty.length - 1];
     const gapMinutes = diffMinutes(lastFlight.landing, flight.departure);
-    if (gapMinutes > dutyBreakMinutes) {
+    if (gapMinutes > dutyBreakThreshold) {
       dutiesRaw.push(currentDuty);
       currentDuty = [flight];
     } else {
@@ -771,6 +940,16 @@ export function simulateFlightSequence(scheme, {
   const weeklyRestGaps = [];
   let firstReportTime = null;
 
+  const gapByFlight = new Map();
+  normalizedFlights.forEach((flight, index) => {
+    if (index === 0) {
+      gapByFlight.set(flight, null);
+      return;
+    }
+    const prev = normalizedFlights[index - 1];
+    gapByFlight.set(flight, diffMinutes(prev.landing, flight.departure));
+  });
+
   dutiesRaw.forEach((dutyFlights, dutyIndex) => {
     const firstFlight = dutyFlights[0];
     const lastFlight = dutyFlights[dutyFlights.length - 1];
@@ -785,13 +964,19 @@ export function simulateFlightSequence(scheme, {
     const landings = dutyFlights.length;
 
     const plannedFdpMinutes = Math.max(0, diffMinutes(reportTime, finalLanding));
+    const splitDuty = computeDutySplitDuty(scheme, {
+      dutyFlights,
+      reportTime,
+      finalLanding
+    });
     const fdpResult = checkPlannedFdp(scheme, {
       flightTimeMinutes,
       landings,
       fdpStart: reportTime,
       fdpEnd: finalLanding,
       plannedFdpMinutes,
-      isAcclimatised: true
+      isAcclimatised: true,
+      breakMinutes: splitDuty.applies ? splitDuty.breakMinutes : 0
     });
     const applicableLimitMinutes = fdpResult.applicableLimitMinutes;
     const fdpThreshold = Math.round(applicableLimitMinutes * warningThresholdPct);
@@ -905,10 +1090,97 @@ export function simulateFlightSequence(scheme, {
       reasons.push(restReason);
       dutyRuleRefs.push('CAR §8.2 – Minimum rest between duties');
     }
+    if (splitDuty.eligible && splitDuty.violation) {
+      dutyVerdict = VERDICTS.EXCEEDED;
+      reasons.push(splitDuty.reason);
+      dutyRuleRefs.push('CAR §10.4 – Split duty part limit');
+    } else if (splitDuty.eligible && splitDuty.reason && dutyVerdict !== VERDICTS.EXCEEDED) {
+      dutyVerdict = VERDICTS.ATTENTION;
+      reasons.push(splitDuty.reason);
+      dutyRuleRefs.push('CAR §10.5 – Split duty applicability');
+    }
+
+    const dutyRules = [];
+    if (previousDuty) {
+      dutyRules.push({
+        key: 'rest',
+        label: 'Rest',
+        ref: 'CAR §8.2 – Minimum rest between duties',
+        allowed: restRequiredMinutes,
+        actual: restAvailableMinutes,
+        status: restOk ? VERDICTS.WITHIN : VERDICTS.EXCEEDED,
+        margin: ruleMarginText(restAvailableMinutes, restRequiredMinutes, 'minutes', true),
+        note: restOk ? null : restReason
+      });
+    }
+    const cumulativeApproachThreshold = 0.8;
+    cumulative.periods.forEach((period) => {
+      const flightOver = period.flightUsed > period.flightLimit;
+      const dutyOver = period.dutyUsed > period.dutyLimit;
+      const flightNear = !flightOver && period.flightLimit > 0 && period.flightUsed >= period.flightLimit * cumulativeApproachThreshold;
+      const dutyNear = !dutyOver && period.dutyLimit > 0 && period.dutyUsed >= period.dutyLimit * cumulativeApproachThreshold;
+      if (!flightOver && !dutyOver && !flightNear && !dutyNear) return;
+      const useFlight = flightOver || flightNear;
+      const allowed = useFlight ? period.flightLimit : period.dutyLimit;
+      const actual = useFlight ? period.flightUsed : period.dutyUsed;
+      const status = flightOver || dutyOver ? VERDICTS.EXCEEDED : VERDICTS.ATTENTION;
+      dutyRules.push({
+        key: `cumulative${period.days}`,
+        label: `Cumulative ${period.days}d ${useFlight ? 'flight' : 'duty'}`,
+        ref: `CAR §15.4 – ${period.days}-day cumulative limit`,
+        allowed,
+        actual,
+        status,
+        margin: ruleMarginText(actual, allowed),
+        note: useFlight
+          ? `Flight ${formatDurationMinutes(period.flightUsed)} / ${formatDurationMinutes(period.flightLimit)}`
+          : `Duty ${formatDurationMinutes(period.dutyUsed)} / ${formatDurationMinutes(period.dutyLimit)}`
+      });
+    });
+    dutyRules.push({
+      key: 'weekly',
+      label: 'Weekly rest',
+      ref: 'CAR §11.2 – Weekly rest',
+      allowed: weeklyRequiredMinutes,
+      actual: weekly.totalRestMinutes,
+      status: weeklyOk ? VERDICTS.WITHIN : VERDICTS.EXCEEDED,
+      margin: weekly.enforce ? ruleMarginText(weekly.totalRestMinutes, weeklyRequiredMinutes, 'minutes', true) : null,
+      note: weekly.alert
+    });
+    dutyRules.push({
+      key: 'night',
+      label: 'Night duty',
+      ref: 'CAR §10.1 – Night duty',
+      allowed: night.maxConsecutiveNights,
+      actual: night.consecutiveNights,
+      status: night.ok ? VERDICTS.WITHIN : VERDICTS.ATTENTION,
+      margin: ruleMarginText(night.consecutiveNights, night.maxConsecutiveNights, 'count'),
+      count: true,
+      note: night.alert
+    });
+    if (splitDuty.eligible && splitDuty.breakMinutes > 0) {
+      const splitPartMax = Number(scheme.splitDuty?.preAndPostBreakMaxMinutes ?? 600);
+      const worstPart = Math.max(
+        splitDuty.preBreakPartMinutes != null ? splitDuty.preBreakPartMinutes : 0,
+        splitDuty.postBreakPartMinutes != null ? splitDuty.postBreakPartMinutes : 0
+      );
+      dutyRules.push({
+        key: 'split',
+        label: 'Split duty',
+        ref: splitDuty.violation ? 'CAR §10.4 – Split duty part limit' : 'CAR §10.5 – Split duty applicability',
+        allowed: splitDuty.violation ? splitPartMax : null,
+        actual: splitDuty.violation ? worstPart : null,
+        status: splitDuty.violation ? VERDICTS.EXCEEDED : splitDuty.reason ? VERDICTS.ATTENTION : VERDICTS.WITHIN,
+        margin: splitDuty.violation ? ruleMarginText(worstPart, splitPartMax) : null,
+        note: splitDuty.reason || `Break ${formatDurationMinutes(splitDuty.breakMinutes)} → FDP +${formatDurationMinutes(splitDuty.extensionMinutes)}${splitDuty.accommodationNote ? ` · ${splitDuty.accommodationNote}` : ''}`
+      });
+    }
 
     duty.flights = dutyFlights.map((flight, flightOffset) => {
       const runningFlightTime = dutyFlights.slice(0, flightOffset + 1).reduce((sum, item) => sum + item.flightMinutes, 0);
       const runningFdpMinutes = Math.max(0, diffMinutes(reportTime, flight.landing));
+      const prevFlight = flightOffset === 0 ? null : dutyFlights[flightOffset - 1];
+      const gapBeforeMinutes = gapByFlight.get(flight) ?? (prevFlight ? diffMinutes(prevFlight.landing, flight.departure) : null);
       const maxLandings = resolveMaxLandings(scheme, { flightTimeMinutes: runningFlightTime });
       const flightCompliance = buildFlightComplianceRecord({
         flight,
@@ -951,6 +1223,9 @@ export function simulateFlightSequence(scheme, {
         usedFlightTimeMinutes: flightCompliance.usedFlightTimeMinutes,
         maxLandings: flightCompliance.maxLandings,
         landingCount: flightCompliance.landingCount,
+        rules: flightCompliance.rules || [],
+        gapBeforeMinutes,
+        splitBreakMarked: Number(flight.breakMinutes) > 0,
         dutyRuleRefs
       };
     });
@@ -962,10 +1237,12 @@ export function simulateFlightSequence(scheme, {
       verdict: dutyVerdict,
       reasons,
       dutyRuleRefs,
+      rules: dutyRules,
       restRequiredMinutes,
       restAvailableMinutes,
       restOk,
       restReason,
+      splitDuty,
       cumulative,
       weekly,
       night,

@@ -344,8 +344,13 @@ function renderSchemeBoard() {
     <ul class="fdtl-rule-list">
       <li><span>Break under ${fmtMinutes(split.breakLessThanMinutes)}</span><strong>No extension</strong></li>
       <li><span>Break ${fmtMinutes(split.breakLessThanMinutes)} – ${fmtMinutes(split.breakGreaterThanMinutes)}</span><strong>Extend ${Math.round((split.extensionFactor ?? 0.5) * 100)}% of break</strong></li>
-      <li><span>Break over ${fmtMinutes(split.breakGreaterThanMinutes)}</span><strong>No extension</strong></li>
+      <li><span>Break over ${fmtMinutes(split.breakGreaterThanMinutes)}</span><strong>No extension · new duty</strong></li>
+      <li><span>FDP part before / after break</span><strong>Max ${fmtMinutes(split.preAndPostBreakMaxMinutes)} each</strong></li>
+      <li><span>Break over ${fmtMinutes(split.accommodationBreakMinutes)} or WOCL</span><strong>Suitable accommodation</strong></li>
     </ul>
+    <p class="fdtl-rule-note">${escapeHtml(split.ruleLabel || '')}</p>
+    <p class="fdtl-rule-note">${escapeHtml(split.applicabilityNote || '')}</p>
+    <p class="fdtl-rule-note">${escapeHtml(split.accommodationNote || '')}</p>
     `
   );
 
@@ -606,6 +611,7 @@ function createFlightSequenceRow(index, defaults = {}) {
   const landing = defaults.landing || '';
   const flightNumber = defaults.flightNumber ?? index + 1;
   const newDuty = defaults.newDuty ? 'checked' : '';
+  const breakMinutes = defaults.breakMinutes || '';
 
   return `
     <tr data-row-index="${index}">
@@ -614,6 +620,10 @@ function createFlightSequenceRow(index, defaults = {}) {
       <td><input type="time" class="fdtl-sequence-landing" value="${escapeHtml(landing)}" /></td>
       <td><span class="fdtl-sequence-flight-number">${flightNumber}</span></td>
       <td>
+        <input type="number" class="fdtl-sequence-break" min="0" max="600" step="5" value="${escapeHtml(breakMinutes)}" placeholder="min" title="Split-duty break before this flight (3–10h). Break counts in full as FDP." />
+        <span class="fdtl-gap-hint"></span>
+      </td>
+      <td>
         <label class="fdtl-switch" title="Start a new duty period before this flight">
           <input type="checkbox" class="fdtl-sequence-new-duty" ${newDuty} />
           <span class="fdtl-switch-track"></span>
@@ -621,6 +631,60 @@ function createFlightSequenceRow(index, defaults = {}) {
       </td>
       <td><button type="button" class="fdtl-remove-sequence-row">Remove</button></td>
     </tr>`;
+}
+
+function computeSequenceGaps(rows) {
+  const parsed = rows.map((row) => {
+    const date = row.querySelector('.fdtl-sequence-date')?.value;
+    const departure = row.querySelector('.fdtl-sequence-departure')?.value;
+    const landing = row.querySelector('.fdtl-sequence-landing')?.value;
+    if (!date || !departure || !landing) return null;
+    return {
+      dep: new Date(`${date}T${departure}:00`),
+      land: new Date(`${date}T${landing}:00`)
+    };
+  });
+  return parsed.map((entry, index) => {
+    if (index === 0 || !entry) return { gapMinutes: null };
+    const prev = parsed[index - 1];
+    if (!prev) return { gapMinutes: null };
+    return { gapMinutes: Math.max(0, Math.round((entry.dep.getTime() - prev.land.getTime()) / 60000)) };
+  });
+}
+
+function updateSequenceHints() {
+  const body = activeView?.querySelector('#fdtl-flight-sequence-body');
+  if (!body) return;
+  const rows = [...body.querySelectorAll('tr')];
+  const gaps = computeSequenceGaps(rows);
+
+  rows.forEach((row, index) => {
+    const hint = row.querySelector('.fdtl-gap-hint');
+    const breakInput = row.querySelector('.fdtl-sequence-break');
+    if (!hint) return;
+
+    const gap = gaps[index]?.gapMinutes;
+    if (gap == null) {
+      hint.textContent = '';
+      hint.className = 'fdtl-gap-hint';
+      return;
+    }
+
+    const label = `${Math.floor(gap / 60)}:${String(gap % 60).padStart(2, '0')} gap`;
+    if (gap > 600) {
+      hint.textContent = `${label} — over 10h: next sector starts a new duty cycle; split duty does not apply. Check FDP/rest warnings.`;
+      hint.className = 'fdtl-gap-hint fdtl-gap-hint--warn';
+      if (breakInput) breakInput.disabled = true;
+    } else if (gap >= 180) {
+      hint.textContent = `${label} — split-duty eligible (3–10h break)`;
+      hint.className = 'fdtl-gap-hint fdtl-gap-hint--split';
+      if (breakInput) breakInput.disabled = false;
+    } else {
+      hint.textContent = `${label}`;
+      hint.className = 'fdtl-gap-hint';
+      if (breakInput) breakInput.disabled = true;
+    }
+  });
 }
 
 function ensureFlightSequenceRows() {
@@ -643,6 +707,7 @@ function renderAll() {
   renderAudit();
   populateSelects();
   ensureFlightSequenceRows();
+  updateSequenceHints();
 }
 
 async function handleSchemeSubmit(event) {
@@ -853,7 +918,8 @@ function handleCheckSubmit(event) {
         date,
         departure: `${date}T${departure}:00`,
         landing: `${date}T${landing}:00`,
-        newDuty: Boolean(row.querySelector('.fdtl-sequence-new-duty')?.checked)
+        newDuty: Boolean(row.querySelector('.fdtl-sequence-new-duty')?.checked),
+        breakMinutes: Number(row.querySelector('.fdtl-sequence-break')?.value) || 0
       };
     })
     .filter(Boolean);
@@ -898,37 +964,90 @@ function handleCheckSubmit(event) {
     { within: 0, attention: 0, exceeded: 0, notEvaluated: 0 }
   );
 
-  const renderRulePills = (ruleRefs, isViolation) =>
-    Array.isArray(ruleRefs) && ruleRefs.length
-      ? `<div class="fdtl-rule-pills">${ruleRefs.map((ref) => `<span class="fdtl-rule-pill${isViolation ? ' violation' : ''}">${escapeHtml(ref)}</span>`).join('')}</div>`
-      : '<span class="muted">—</span>';
+  const formatTime = (value) => {
+    const date = toDate(value);
+    if (!date || Number.isNaN(date.getTime())) return '—';
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+  const formatDayTime = (value) => {
+    const date = toDate(value);
+    if (!date || Number.isNaN(date.getTime())) return '—';
+    return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${formatTime(date)}`;
+  };
+  const statusClass = (verdict) =>
+    verdict === VERDICTS.EXCEEDED ? 'fail' : verdict === VERDICTS.ATTENTION ? 'watch' : 'ok';
+  const badgeClass = (verdict) =>
+    verdict === VERDICTS.EXCEEDED ? 'critical' : verdict === VERDICTS.ATTENTION ? 'watch' : 'good';
 
-  const renderFlightRow = (flight, dutyIndex) => {
-    const rowClass = flight.verdict === VERDICTS.EXCEEDED ? 'fail' : flight.verdict === VERDICTS.ATTENTION ? 'watch' : 'ok';
-    const badgeClass = flight.verdict === VERDICTS.EXCEEDED ? 'critical' : flight.verdict === VERDICTS.ATTENTION ? 'watch' : 'good';
-    const isViolation = flight.verdict === VERDICTS.EXCEEDED;
-    const reason = flight.reason || flight.complianceText || '—';
-
+  const renderRuleBlock = (rule) => {
+    if (!rule) return '';
+    const status = statusClass(rule.status);
+    const formatValue = (value) => (value == null ? '—' : rule.count ? String(value) : fmtMinutes(value));
     return `
-      <tr class="${rowClass}">
-        <td>F${flight.flightNumber}</td>
-        <td>Duty ${dutyIndex}</td>
-        <td><span class="fdtl-badge fdtl-badge--${badgeClass}">${escapeHtml(VERDICT_LABELS[flight.verdict] || 'Within Limits')}</span></td>
-        <td>${escapeHtml(flight.departure ? formatDateTime(flight.departure) : '—')}</td>
-        <td>${escapeHtml(flight.landing ? formatDateTime(flight.landing) : '—')}</td>
-        <td>${renderRulePills(flight.ruleRefs, isViolation)}</td>
-        <td class="fdtl-td-reason">${escapeHtml(reason)}</td>
-      </tr>`;
+      <div class="fdtl-rule fdtl-rule--${status}">
+        <div class="fdtl-rule-head">
+          <span class="fdtl-rule-label">${escapeHtml(rule.label)}</span>
+          <span class="fdtl-rule-ref">${escapeHtml(rule.ref)}</span>
+        </div>
+        <div class="fdtl-rule-meter">
+          <span class="fdtl-meter-cell"><small>Allowed</small><b>${formatValue(rule.allowed)}</b></span>
+          <span class="fdtl-meter-cell"><small>Actual</small><b>${formatValue(rule.actual)}</b></span>
+          <span class="fdtl-meter-cell fdtl-meter-margin"><small>Margin</small><b>${escapeHtml(rule.margin || '—')}</b></span>
+        </div>
+        ${rule.note ? `<div class="fdtl-rule-note">${escapeHtml(rule.note)}</div>` : ''}
+      </div>`;
   };
 
-  const flightTableRows = simulation.duties
-    .flatMap((duty) => duty.flights.map((flight) => renderFlightRow(flight, duty.dutyIndex)))
-    .join('');
+  const renderFlightCard = (flight) => {
+    const status = statusClass(flight.verdict);
+    const rules = (Array.isArray(flight.rules) && flight.rules.length ? flight.rules : []).map(renderRuleBlock).join('');
+    const range = flight.departure && flight.landing
+      ? `${formatDayTime(flight.departure)} → ${formatTime(flight.landing)}`
+      : '—';
+    return `
+      <div class="fdtl-flight-card fdtl-flight-card--${status}">
+        <div class="fdtl-flight-head">
+          <span class="fdtl-flight-id">F${escapeHtml(flight.flightNumber)}</span>
+          <span class="fdtl-flight-range">${escapeHtml(range)}</span>
+          <span class="fdtl-badge fdtl-badge--${badgeClass(flight.verdict)}">${escapeHtml(VERDICT_LABELS[flight.verdict] || 'Within Limits')}</span>
+        </div>
+        ${rules ? `<div class="fdtl-flight-rules">${rules}</div>` : ''}
+      </div>`;
+  };
+
+  const renderDutyCard = (duty) => {
+    const status = statusClass(duty.verdict);
+    const dutyRules = (Array.isArray(duty.rules) && duty.rules.length ? duty.rules : []).map(renderRuleBlock).join('');
+    const flights = (duty.flights || []).map(renderFlightCard).join('');
+    const span = duty.reportTime && duty.finalLanding
+      ? `report ${formatDayTime(duty.reportTime)} · land ${formatTime(duty.finalLanding)}`
+      : '';
+    return `
+      <div class="fdtl-duty-card fdtl-duty-card--${status}">
+        <div class="fdtl-duty-head">
+          <div class="fdtl-duty-title">
+            <strong>Duty ${duty.dutyIndex}</strong>
+            <span>${escapeHtml(span)}</span>
+          </div>
+          <span class="fdtl-badge fdtl-badge--${badgeClass(duty.verdict)}">${escapeHtml(VERDICT_LABELS[duty.verdict] || 'Within Limits')}</span>
+        </div>
+        ${dutyRules ? `<div class="fdtl-duty-rules">${dutyRules}</div>` : ''}
+        ${flights ? `<div class="fdtl-flight-list">${flights}</div>` : ''}
+      </div>`;
+  };
+
+  const dutyCards = simulation.duties.map(renderDutyCard).join('');
 
   const violatedDuties = simulation.duties.filter((d) => d.verdict === VERDICTS.EXCEEDED);
   const violationSummaryLine = violatedDuties.length
     ? violatedDuties.map((d) => `Duty ${d.dutyIndex}: ${d.reasons.join(' · ')}`).join('<br>')
     : '';
+
+  const boundaryWarnings = simulation.duties
+    .flatMap((d) => d.flights)
+    .filter((f) => f.gapBeforeMinutes != null && f.gapBeforeMinutes > 600)
+    .map((f) => `Gap before F${f.flightNumber} is ${fmtMinutes(f.gapBeforeMinutes)} (>10h) — a new duty cycle starts there; split duty does not apply. Watch FDP and rest warnings on that duty.`)
+    .join('<br>');
 
   resultElement.innerHTML = `
     <div class="fdtl-check-card">
@@ -942,23 +1061,9 @@ function handleCheckSubmit(event) {
         <div class="fdtl-check-summary-stat"><span>Attention</span><strong style="color:#92400e">${flightCounts.attention}</strong></div>
         <div class="fdtl-check-summary-stat"><span>Exceeded</span><strong style="color:#991b1b">${flightCounts.exceeded}</strong></div>
       </div>
-      ${violationSummaryLine ? `<div class="fdtl-check-reason" style="margin-top:0.7rem;font-size:0.82rem;line-height:1.5">${violationSummaryLine}</div>` : ''}
-      <div class="fdtl-check-table-wrap">
-        <table class="fdtl-check-table">
-          <thead>
-            <tr>
-              <th>Flight</th>
-              <th>Duty</th>
-              <th>Result</th>
-              <th>Departure</th>
-              <th>Landing</th>
-              <th>Rule refs</th>
-              <th>Reason</th>
-            </tr>
-          </thead>
-          <tbody>${flightTableRows}</tbody>
-        </table>
-      </div>
+      ${violationSummaryLine ? `<div class="fdtl-check-reason">${violationSummaryLine}</div>` : ''}
+      ${boundaryWarnings ? `<div class="fdtl-check-note-block">${boundaryWarnings}</div>` : ''}
+      <div class="fdtl-duty-list">${dutyCards}</div>
     </div>`;
 }
 
@@ -1005,6 +1110,23 @@ export async function init(view, context) {
     if (!body) return;
     const nextIndex = body.children.length;
     body.insertAdjacentHTML('beforeend', createFlightSequenceRow(nextIndex, { flightNumber: nextIndex + 1 }));
+    updateSequenceHints();
+  });
+  view.querySelector('#fdtl-flight-sequence-body')?.addEventListener('input', (event) => {
+    if (event.target.closest('.fdtl-sequence-break')) {
+      const row = event.target.closest('tr');
+      const newDuty = row?.querySelector('.fdtl-sequence-new-duty');
+      if (Number(event.target.value) > 0 && newDuty?.checked) newDuty.checked = false;
+    }
+    updateSequenceHints();
+  });
+  view.querySelector('#fdtl-flight-sequence-body')?.addEventListener('change', (event) => {
+    if (event.target.closest('.fdtl-sequence-new-duty')) {
+      const row = event.target.closest('tr');
+      const breakField = row?.querySelector('.fdtl-sequence-break');
+      if (event.target.checked && breakField) breakField.value = '';
+    }
+    updateSequenceHints();
   });
   view.querySelector('#fdtl-flight-sequence-body')?.addEventListener('click', (event) => {
     const button = event.target.closest('.fdtl-remove-sequence-row');
@@ -1017,6 +1139,7 @@ export async function init(view, context) {
       const numberEl = currentRow.querySelector('.fdtl-sequence-flight-number');
       if (numberEl) numberEl.textContent = String(index + 1);
     });
+    updateSequenceHints();
   });
   view.querySelector('#fdtl-check-form')?.addEventListener('submit', handleCheckSubmit);
   view.querySelector('#fdtl-scheme-form')?.addEventListener('submit', handleSchemeSubmit);
