@@ -63,11 +63,6 @@ export const OPERATION_TYPE_LABELS = {
   ppc: 'PPC'
 };
 
-export const OPERATION_CREW_LABELS = {
-  single: 'Single Pilot',
-  two: 'Two Pilot'
-};
-
 const STATE_IGNORED_KEYS = ['id', 'companyId', 'updatedAt', 'lastModified'];
 
 function cleanState(raw) {

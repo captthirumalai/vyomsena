@@ -492,3 +492,232 @@
   font-size: 1.05rem;
   color: #0f172a;
 }
+
+/* Modernised flight-check form */
+
+.fdtl-check-form {
+  margin-top: 0.9rem;
+}
+
+.fdtl-check-setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: end;
+}
+
+.fdtl-check-crew-field {
+  min-width: 0;
+}
+
+.fdtl-info-note {
+  grid-column: 1 / -1;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin-bottom: 0.9rem;
+}
+
+.fdtl-advanced {
+  margin-top: 0.9rem;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.fdtl-advanced summary {
+  cursor: pointer;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  user-select: none;
+}
+
+.fdtl-advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.fdtl-advanced summary::before {
+  content: '\25B8';
+  display: inline-block;
+  transition: transform 0.15s ease;
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+.fdtl-advanced[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.fdtl-advanced-body {
+  padding: 0 0.8rem 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem;
+  align-items: end;
+}
+
+.fdtl-advanced-body > .muted {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.fdtl-check-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.fdtl-sequence-wrap {
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem 0.75rem;
+  background: #ffffff;
+}
+
+.fdtl-sequence-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.82rem;
+}
+
+.fdtl-sequence-table th,
+.fdtl-sequence-table td {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  vertical-align: middle;
+}
+
+.fdtl-sequence-table thead th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  font-weight: 700;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+.fdtl-sequence-table tbody td {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.fdtl-sequence-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.fdtl-sequence-table input[type='date'],
+.fdtl-sequence-table input[type='time'] {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fdtl-sequence-table input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.fdtl-sequence-flight-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.fdtl-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.fdtl-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.fdtl-switch .fdtl-switch-track {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 0.2s ease;
+  position: relative;
+}
+
+.fdtl-switch .fdtl-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.fdtl-switch input:checked + .fdtl-switch-track {
+  background: #2563eb;
+}
+
+.fdtl-switch input:checked + .fdtl-switch-track::after {
+  transform: translateX(16px);
+}
+
+.fdtl-remove-sequence-row {
+  appearance: none;
+  border: 1px solid rgba(153, 27, 27, 0.3);
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.fdtl-remove-sequence-row:hover {
+  background: #fecaca;
+}
+
+.fdtl-sequence-wrap > #fdtl-add-flight-row {
+  margin-top: 0.6rem;
+}

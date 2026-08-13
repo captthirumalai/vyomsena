@@ -23,11 +23,6 @@ export const DEFAULT_FDTL_SCHEME = {
     approvedBy: null
   },
   fdp: {
-    singlePilot: [
-      { maxFlightTimeMinutes: 420, maxFdpMinutes: 510, maxLandings: 8 },
-      { maxFlightTimeMinutes: 480, landings: 6, maxFdpMinutes: 570 },
-      { maxFlightTimeMinutes: 480, landings: 4, maxFdpMinutes: 660 }
-    ],
     twoPilot: [
       { maxFlightTimeMinutes: 480, landings: 6, maxFdpMinutes: 660 },
       { maxFlightTimeMinutes: 480, landings: 5, maxFdpMinutes: 690 },
@@ -50,7 +45,15 @@ export const DEFAULT_FDTL_SCHEME = {
     minimumMinutes: 720,
     ruleLabel: 'At least as long as the preceding duty period OR 12 hours, whichever is greater.',
     timeZoneCrossing3To7Minutes: 1080,
-    timeZoneCrossingOver7Minutes: 1440,
+    timeZoneCrossingOver7Minutes: 2160,
+    twoLandingProvision: {
+      enabled: true,
+      increaseMinutes: 360,
+      note: 'Minimum rest increased by 6 hours when the preceding duty period utilized the split-duty provision with 2 landings.'
+    },
+    notes: [
+      'CAR Note 2 (layover-station acclimatization when proceeding to farther time zones after a 3–7 zone crossing) is NOT implemented. Time-zone rest is applied from the reported crossing only.'
+    ],
     weekly: {
       minimumMinutes: 2160,
       localNights: 2,
@@ -61,7 +64,7 @@ export const DEFAULT_FDTL_SCHEME = {
   },
   timeZoneCrossing: {
     zone3To7Minutes: 1080,
-    over7Minutes: 1440
+    over7Minutes: 2160
   },
   acclimatisation: {
     defaultIsAcclimatised: true,

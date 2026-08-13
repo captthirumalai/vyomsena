@@ -81,7 +81,7 @@
   <div class="card">
     <div class="card-heading">
       <h3>New Duty Record</h3>
-      <p class="muted">Captures report time, FDP, duty period, flight time, landings, and operation type for the crew member.</p>
+      <p class="muted">Captures report time, FDP, duty period, flight time, landings, and operation type for the crew member. All limits assume two-pilot operations (commercial NSOP).</p>
     </div>
     <form id="fdtl-record-form" class="fdtl-form">
       <label class="fdtl-form-field">
@@ -91,10 +91,6 @@
       <label class="fdtl-form-field">
         <span>Operation Type</span>
         <select id="fdtl-record-op-type" required></select>
-      </label>
-      <label class="fdtl-form-field">
-        <span>Single / Two Pilot</span>
-        <select id="fdtl-record-op-crew" required></select>
       </label>
       <label class="fdtl-form-field">
         <span>Duty Date</span>
@@ -156,7 +152,6 @@
             <th>Date</th>
             <th>Crew</th>
             <th>Operation</th>
-            <th>Crew Type</th>
             <th>FDP</th>
             <th>Flight Time</th>
             <th>Landings</th>
@@ -186,35 +181,26 @@
       <h3>Crew Flight Eligibility</h3>
       <p class="muted">Determines whether the crew member remains within the applicable FDP, flight time, and landing limits before a flight is operated.</p>
     </div>
-    <form id="fdtl-check-form" class="fdtl-form">
-      <label class="fdtl-form-field">
-        <span>Crew</span>
-        <select id="fdtl-check-crew" required></select>
-      </label>
-      <label class="fdtl-form-field">
-        <span>Single / Two Pilot</span>
-        <select id="fdtl-check-op-crew" required></select>
-      </label>
-      <label class="fdtl-form-field">
-        <span>Report Time Override (advanced)</span>
-        <input type="datetime-local" id="fdtl-check-report-override" title="Optional. Overrides the scheme-derived report time for the first duty period." />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Report Time</span>
-        <input type="datetime-local" id="fdtl-check-report" />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Planned Duty End</span>
-        <input type="datetime-local" id="fdtl-check-fdp-end" />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Planned Flight Time (minutes)</span>
-        <input type="number" id="fdtl-check-flight-time" min="0" step="1" value="0" />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Planned Landings</span>
-        <input type="number" id="fdtl-check-landings" min="0" step="1" value="0" />
-      </label>
+    <form id="fdtl-check-form" class="fdtl-check-form">
+      <div class="fdtl-info-note">All FDTL calculations assume <strong>two-pilot operations</strong> (commercial NSOP). Single-pilot calculations are not supported in this module — contact the developer if required.</div>
+      <div class="fdtl-check-setup">
+        <label class="fdtl-form-field fdtl-check-crew-field">
+          <span>Crew</span>
+          <select id="fdtl-check-crew" required></select>
+        </label>
+      </div>
+
+      <details class="fdtl-advanced">
+        <summary>Report time override <span class="muted">(advanced)</span></summary>
+        <div class="fdtl-advanced-body">
+          <p class="muted">Optional. Overrides the scheme-derived report time for the first duty period.</p>
+          <label class="fdtl-form-field">
+            <span>Report Time Override</span>
+            <input type="datetime-local" id="fdtl-check-report-override" />
+          </label>
+        </div>
+      </details>
+
       <div class="fdtl-flight-sequence-card">
         <div class="card-heading compact">
           <h4>Flight Sequence</h4>
@@ -237,7 +223,10 @@
           <button type="button" id="fdtl-add-flight-row" class="vs-button vs-button--secondary vs-button--sm">+ Add Flight</button>
         </div>
       </div>
-      <button type="submit" class="vs-button vs-button--primary vs-button--sm">Check Sequence</button>
+
+      <div class="fdtl-check-actions">
+        <button type="submit" class="vs-button vs-button--primary vs-button--md">Check Sequence</button>
+      </div>
     </form>
     <div id="fdtl-check-result" class="fdtl-check-result"></div>
   </div>

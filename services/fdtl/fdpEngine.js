@@ -1,8 +1,3 @@
-export const OPERATION_CREW = {
-  SINGLE: 'single',
-  TWO: 'two'
-};
-
 export const VERDICTS = {
   WITHIN: 'within',
   ATTENTION: 'attention',
@@ -22,13 +17,13 @@ export function formatDurationMinutes(minutes) {
   return `${hours}:${String(mins).padStart(2, '0')}`;
 }
 
-function pickTable(scheme, operationCrew) {
+function pickTable(scheme) {
   const fdp = scheme.fdp || {};
-  return operationCrew === OPERATION_CREW.SINGLE ? fdp.singlePilot : fdp.twoPilot;
+  return fdp.twoPilot;
 }
 
-export function resolveFdpBaseLimit(scheme, { operationCrew, flightTimeMinutes, landings }) {
-  const table = pickTable(scheme, operationCrew);
+export function resolveFdpBaseLimit(scheme, { flightTimeMinutes, landings }) {
+  const table = pickTable(scheme);
   if (!Array.isArray(table) || table.length === 0) return null;
 
   const plannedFlightTime = Number(flightTimeMinutes) || 0;
@@ -53,8 +48,8 @@ export function resolveFdpBaseLimit(scheme, { operationCrew, flightTimeMinutes, 
   );
 }
 
-export function resolveMaxLandings(scheme, { operationCrew, flightTimeMinutes }) {
-  const table = pickTable(scheme, operationCrew);
+export function resolveMaxLandings(scheme, { flightTimeMinutes }) {
+  const table = pickTable(scheme);
   if (!Array.isArray(table) || table.length === 0) return null;
   const plannedFlightTime = Number(flightTimeMinutes) || 0;
   const covering = table.filter((row) => row.maxFlightTimeMinutes >= plannedFlightTime);
@@ -94,9 +89,9 @@ function isWithinNightWindow(date, startHour, endHour) {
 function asYmd(date) {
   const parsed = parseDate(date);
   if (!parsed) return null;
-  const year = parsed.getUTCFullYear();
-  const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(parsed.getUTCDate()).padStart(2, '0');
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
@@ -108,23 +103,19 @@ function getRecordInterval(record) {
 }
 
 function getNightWindowForDate(date, startHour, endHour) {
-  const base = new Date(Date.UTC(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate()
-  ));
+  const base = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const start = new Date(base);
-  start.setUTCHours(startHour, 0, 0, 0);
+  start.setHours(startHour, 0, 0, 0);
 
   const end = new Date(base);
-  end.setUTCHours(endHour, 0, 0, 0);
+  end.setHours(endHour, 0, 0, 0);
 
   if (startHour <= endHour) {
     return { start, end };
   }
 
   const nextDay = new Date(base);
-  nextDay.setUTCDate(base.getUTCDate() + 1);
+  nextDay.setDate(base.getDate() + 1);
   return { start, end: new Date(nextDay.getTime() + endHour * 60 * 60 * 1000) };
 }
 
@@ -140,11 +131,11 @@ function countLocalNightsInRange(startTime, endTime, localNightStartHour, localN
   const rangeEnd = parseDate(endTime) || new Date();
   if (!rangeStart || !rangeEnd || rangeEnd <= rangeStart) return 0;
 
-  const startDate = new Date(Date.UTC(rangeStart.getUTCFullYear(), rangeStart.getUTCMonth(), rangeStart.getUTCDate()));
-  const endDate = new Date(Date.UTC(rangeEnd.getUTCFullYear(), rangeEnd.getUTCMonth(), rangeEnd.getUTCDate()));
+  const startDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
+  const endDate = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate());
   let count = 0;
 
-  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
     const window = getNightWindowForDate(cursor, localNightStartHour, localNightEndHour);
     const overlapStart = new Date(Math.max(rangeStart.getTime(), window.start.getTime()));
     const overlapEnd = new Date(Math.min(rangeEnd.getTime(), window.end.getTime()));
@@ -159,10 +150,10 @@ function collectNightDutyDates(record, localNightStartHour, localNightEndHour, r
   if (!interval) return [];
 
   const dates = new Set();
-  const startDate = new Date(Date.UTC(interval.start.getUTCFullYear(), interval.start.getUTCMonth(), interval.start.getUTCDate()));
-  const endDate = new Date(Date.UTC(interval.end.getUTCFullYear(), interval.end.getUTCMonth(), interval.end.getUTCDate()));
+  const startDate = new Date(interval.start.getFullYear(), interval.start.getMonth(), interval.start.getDate());
+  const endDate = new Date(interval.end.getFullYear(), interval.end.getMonth(), interval.end.getDate());
 
-  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
     const localWindow = getNightWindowForDate(cursor, localNightStartHour, localNightEndHour);
     const regulatedWindow = getNightWindowForDate(cursor, regulatedStartHour, regulatedEndHour);
     const localOverlap = intervalOverlapMinutes(interval.start, interval.end, localWindow.start, localWindow.end);
@@ -173,6 +164,22 @@ function collectNightDutyDates(record, localNightStartHour, localNightEndHour, r
   }
 
   return [...dates].filter(Boolean);
+}
+
+function dutyEncroachesNightOrWocl(duty, nightStartHour, nightEndHour, woclStartHour, woclEndHour) {
+  const start = parseDate(duty.reportTime || duty.fdpStart || duty.dutyStart);
+  const end = parseDate(duty.finalLanding || duty.fdpEnd || duty.dutyEnd);
+  if (!start || !end) return false;
+
+  const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
+    const night = getNightWindowForDate(cursor, nightStartHour, nightEndHour);
+    const wocl = getNightWindowForDate(cursor, woclStartHour, woclEndHour);
+    if (intervalOverlapMinutes(start, end, night.start, night.end) > 0) return true;
+    if (intervalOverlapMinutes(start, end, wocl.start, wocl.end) > 0) return true;
+  }
+  return false;
 }
 
 function getTimeZoneCrossingRequirementMinutes(scheme, record) {
@@ -186,7 +193,7 @@ function getTimeZoneCrossingRequirementMinutes(scheme, record) {
   );
 
   const standard3To7 = Number(scheme.rest?.timeZoneCrossing3To7Minutes ?? scheme.timeZoneCrossing?.zone3To7Minutes ?? 1080);
-  const standardOver7 = Number(scheme.rest?.timeZoneCrossingOver7Minutes ?? scheme.timeZoneCrossing?.over7Minutes ?? 1440);
+  const standardOver7 = Number(scheme.rest?.timeZoneCrossingOver7Minutes ?? scheme.timeZoneCrossing?.over7Minutes ?? 2160);
 
   if (zoneChange > 7) {
     return standardOver7;
@@ -217,7 +224,13 @@ export function computeRestStatus(scheme, { state, records, now = new Date() }) 
     : 0;
 
   const timezoneMinimumMinutes = getTimeZoneCrossingRequirementMinutes(scheme, latest);
-  const requiredRestMinutes = Math.max(minimumMinutes, previousDutyPeriodMinutes, timezoneMinimumMinutes);
+  const twoLandingIncreaseMinutes = latest
+    ? computeTwoLandingProvisionMinutes(scheme, {
+        landings: Number(latest.landings) || 0,
+        breakMinutes: Number(latest.breakMinutes ?? latest.splitDutyBreakMinutes ?? 0)
+      })
+    : 0;
+  const requiredRestMinutes = Math.max(minimumMinutes + twoLandingIncreaseMinutes, previousDutyPeriodMinutes, timezoneMinimumMinutes);
   const actualRestMinutes = lastDutyEndedAt ? diffMinutes(lastDutyEndedAt, now) : 0;
   const restUntil = lastDutyEndedAt ? new Date(lastDutyEndedAt.getTime() + requiredRestMinutes * 60000) : null;
 
@@ -225,6 +238,7 @@ export function computeRestStatus(scheme, { state, records, now = new Date() }) 
     minimumMinutes,
     previousDutyPeriodMinutes,
     timezoneMinimumMinutes,
+    twoLandingIncreaseMinutes,
     requiredRestMinutes,
     actualRestMinutes,
     restUntil,
@@ -353,9 +367,9 @@ export function computeWeeklyRestStatus(scheme, { records = [], now = new Date()
   for (const record of recent) {
     const interval = getRecordInterval(record);
     if (!interval) continue;
-    const startDate = new Date(Date.UTC(interval.start.getUTCFullYear(), interval.start.getUTCMonth(), interval.start.getUTCDate()));
-    const endDate = new Date(Date.UTC(interval.end.getUTCFullYear(), interval.end.getUTCMonth(), interval.end.getUTCDate()));
-    for (let cursor = new Date(startDate); cursor <= endDate; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const startDate = new Date(interval.start.getFullYear(), interval.start.getMonth(), interval.start.getDate());
+    const endDate = new Date(interval.end.getFullYear(), interval.end.getMonth(), interval.end.getDate());
+    for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
       const window = getNightWindowForDate(cursor, localNightStart, localNightEnd);
       const overlap = intervalOverlapMinutes(interval.start, interval.end, window.start, window.end);
       if (overlap > 0) {
@@ -445,6 +459,23 @@ export function computeSplitDutyAdjustment(scheme, { breakMinutes = 0 } = {}) {
     applies: extensionMinutes > 0,
     rule: 'split_duty'
   };
+}
+
+export function computeTwoLandingProvisionMinutes(scheme, { landings = 0, breakMinutes = 0 } = {}) {
+  const provision = scheme.rest?.twoLandingProvision || {};
+  if (provision.enabled === false) return 0;
+
+  const splitDuty = scheme.splitDuty || {};
+  const minBreak = Number(splitDuty.breakLessThanMinutes ?? 180);
+  const maxBreak = Number(splitDuty.breakGreaterThanMinutes ?? 600);
+  const requiredLandings = Number(provision.landings ?? 2);
+  const breakLength = Number(breakMinutes) || 0;
+  const landingCount = Number(landings) || 0;
+
+  if (breakLength < minBreak || breakLength > maxBreak) return 0;
+  if (landingCount !== requiredLandings) return 0;
+
+  return Number(provision.increaseMinutes ?? 360) || 0;
 }
 
 export function computeStandbyAdjustment(scheme, { standbyMinutes = 0, standbyType = 'home' } = {}) {
@@ -645,7 +676,6 @@ function buildFlightComplianceRecord({
 
 export function simulateFlightSequence(scheme, {
   flights = [],
-  operationCrew = OPERATION_CREW.TWO,
   crewName = null,
   historicalRecords = [],
   reportOverrides = {}
@@ -692,6 +722,8 @@ export function simulateFlightSequence(scheme, {
   const localNightEnd = Number(scheme.operationalAdjustments?.localNightEndHour ?? 6);
   const nightStart = Number(scheme.nightDuty?.startHour ?? 0);
   const nightEnd = Number(scheme.nightDuty?.endHour ?? 5);
+  const woclStart = Number(scheme.wocl?.startHour ?? 2);
+  const woclEnd = Number(scheme.wocl?.endHour ?? 6);
 
   const dutiesRaw = [];
   let currentDuty = [];
@@ -737,6 +769,7 @@ export function simulateFlightSequence(scheme, {
   const completedDuties = [];
   const duties = [];
   const weeklyRestGaps = [];
+  let firstReportTime = null;
 
   dutiesRaw.forEach((dutyFlights, dutyIndex) => {
     const firstFlight = dutyFlights[0];
@@ -745,6 +778,7 @@ export function simulateFlightSequence(scheme, {
     const reportTime = reportOverride
       ? parseDate(reportOverride)
       : new Date(firstFlight.departure.getTime() - reportingMinutes * 60000);
+    if (firstReportTime == null) firstReportTime = reportTime.getTime();
     const finalLanding = lastFlight.landing;
     const dutyEnd = new Date(finalLanding.getTime() + postFlightAllowanceMinutes * 60000);
     const flightTimeMinutes = dutyFlights.reduce((sum, flight) => sum + flight.flightMinutes, 0);
@@ -752,7 +786,6 @@ export function simulateFlightSequence(scheme, {
 
     const plannedFdpMinutes = Math.max(0, diffMinutes(reportTime, finalLanding));
     const fdpResult = checkPlannedFdp(scheme, {
-      operationCrew,
       flightTimeMinutes,
       landings,
       fdpStart: reportTime,
@@ -771,13 +804,23 @@ export function simulateFlightSequence(scheme, {
     if (previousDuty) {
       const previousDutyPeriodMinutes = diffMinutes(previousDuty.reportTime, previousDuty.dutyEnd);
       const timezoneMinimum = getTimeZoneCrossingRequirementMinutes(scheme, toSimRecord(previousDuty));
-      restRequiredMinutes = Math.max(minimumRestMinutes, previousDutyPeriodMinutes, timezoneMinimum);
+      const twoLandingIncreaseMinutes = Number(previousDuty.twoLandingProvisionMinutes) || 0;
+      restRequiredMinutes = Math.max(minimumRestMinutes + twoLandingIncreaseMinutes, previousDutyPeriodMinutes, timezoneMinimum);
       restAvailableMinutes = diffMinutes(previousDuty.dutyEnd, reportTime);
       restOk = restAvailableMinutes >= restRequiredMinutes;
       if (!restOk) {
         restReason = `Rest shortfall ${formatDurationMinutes(restRequiredMinutes - restAvailableMinutes)} (required ${formatDurationMinutes(restRequiredMinutes)}, available ${formatDurationMinutes(restAvailableMinutes)})`;
       }
     }
+
+    const dutyBreakMinutes = dutyFlights.reduce((maxGap, flight, index) => {
+      if (index === 0) return maxGap;
+      return Math.max(maxGap, diffMinutes(dutyFlights[index - 1].landing, flight.departure));
+    }, 0);
+    const twoLandingProvisionMinutes = computeTwoLandingProvisionMinutes(scheme, {
+      landings: landings,
+      breakMinutes: dutyBreakMinutes
+    });
 
     const duty = {
       dutyIndex: dutyIndex + 1,
@@ -787,6 +830,8 @@ export function simulateFlightSequence(scheme, {
       plannedFdpMinutes,
       flightTimeMinutes,
       landings,
+      dutyBreakMinutes,
+      twoLandingProvisionMinutes,
       applicableLimitMinutes,
       fdpRemainingMinutes: fdpResult.remainingMinutes,
       timeZoneCrossingHours: firstFlight.timeZoneCrossingHours || lastFlight.timeZoneCrossingHours || 0
@@ -800,22 +845,33 @@ export function simulateFlightSequence(scheme, {
     }
     const weeklyWindowStart = reportTime.getTime() - weeklyWindowMs;
     const activeGaps = weeklyRestGaps.filter((gap) => gap.end >= weeklyWindowStart);
-    const weeklyNightCount = completedDuties.reduce(
-      (count, completed) =>
-        count + collectNightDutyDates(toSimRecord(completed), localNightStart, localNightEnd, nightStart, nightEnd).length,
-      0
+    const weeklyEncroachingDuties = completedDuties.filter(
+      (completed) =>
+        completed.reportTime.getTime() >= weeklyWindowStart &&
+        dutyEncroachesNightOrWocl(completed, nightStart, nightEnd, woclStart, woclEnd)
     );
-    const weeklyRequiredMinutes = weeklyNightCount >= nightDutyTriggerCount ? weeklyExtendedMinutes : weeklyMinMinutes;
-    const qualifyingWeeklyRest = activeGaps.find((gap) => gap.end - gap.start >= weeklyRequiredMinutes * 60000) || null;
-    const weeklyOk = completedDuties.length === 0 || Boolean(qualifyingWeeklyRest);
+    const weeklyEncroachingCount = weeklyEncroachingDuties.length;
+    const weeklyRequiredMinutes = weeklyEncroachingCount > nightDutyTriggerCount ? weeklyExtendedMinutes : weeklyMinMinutes;
+    const qualifiesWeeklyRest = (gap) => {
+      if (gap.end - gap.start < weeklyRequiredMinutes * 60000) return false;
+      return countLocalNightsInRange(new Date(gap.start), new Date(gap.end), localNightStart, localNightEnd) >= 2;
+    };
+    const qualifyingWeeklyRest = activeGaps.find(qualifiesWeeklyRest) || null;
+    const weeklyEnforce = reportTime.getTime() - firstReportTime >= weeklyWindowMs;
+    const weeklyOk = !weeklyEnforce || completedDuties.length === 0 || Boolean(qualifyingWeeklyRest);
     const weeklyRestMinutes = activeGaps.reduce((sum, gap) => sum + Math.round((gap.end - gap.start) / 60000), 0);
     const weekly = {
       ok: weeklyOk,
+      enforce: weeklyEnforce,
       requiredMinutes: weeklyRequiredMinutes,
       totalRestMinutes: qualifyingWeeklyRest ? Math.round((qualifyingWeeklyRest.end - qualifyingWeeklyRest.start) / 60000) : weeklyRestMinutes,
       maxSpanHours: Math.round(weeklyWindowMs / 3600000),
-      nightCount: weeklyNightCount,
-      alert: weeklyOk ? 'Weekly rest within scheme' : `No qualifying rest of ${formatDurationMinutes(weeklyRequiredMinutes)} in ${Math.round(weeklyWindowMs / 3600000)}h window`
+      nightCount: weeklyEncroachingCount,
+      alert: !weeklyEnforce
+        ? 'Weekly rest due after 168h of duty history'
+        : weeklyOk
+          ? 'Weekly rest within scheme'
+          : `No qualifying rest of ${formatDurationMinutes(weeklyRequiredMinutes)} in ${Math.round(weeklyWindowMs / 3600000)}h window`
     };
 
     const priorProposedRecords = completedDuties.map(toSimRecord);
@@ -853,7 +909,7 @@ export function simulateFlightSequence(scheme, {
     duty.flights = dutyFlights.map((flight, flightOffset) => {
       const runningFlightTime = dutyFlights.slice(0, flightOffset + 1).reduce((sum, item) => sum + item.flightMinutes, 0);
       const runningFdpMinutes = Math.max(0, diffMinutes(reportTime, flight.landing));
-      const maxLandings = resolveMaxLandings(scheme, { operationCrew, flightTimeMinutes: runningFlightTime });
+      const maxLandings = resolveMaxLandings(scheme, { flightTimeMinutes: runningFlightTime });
       const flightCompliance = buildFlightComplianceRecord({
         flight,
         dutyIndex: dutyIndex + 1,

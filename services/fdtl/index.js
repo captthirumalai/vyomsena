@@ -12,7 +12,6 @@ export {
 } from './scheme.js';
 export { buildAuditEntry, writeAuditEntry, listAuditEntries, onAuditSnapshot, diffObject } from './audit.js';
 export {
-  OPERATION_CREW,
   VERDICTS,
   VERDICT_LABELS,
   formatDurationMinutes,
@@ -21,6 +20,7 @@ export {
   computeWoclAdjustment,
   computeApplicableFdpLimit,
   checkPlannedFdp,
+  computeTwoLandingProvisionMinutes,
   simulateFlightSequence,
   computeRestStatus,
   computeNightDutyStatus,
@@ -33,7 +33,6 @@ export {
   DUTY_STATE_LABELS,
   OPERATION_TYPES,
   OPERATION_TYPE_LABELS,
-  OPERATION_CREW_LABELS,
   getDutyState,
   setDutyState,
   listDutyStates,

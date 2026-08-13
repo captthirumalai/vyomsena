@@ -36,7 +36,7 @@ The module is now operating as an organisation-wide FDTL monitoring system with 
 - Approval workflow for scheme saving and approval tracking.
 
 ### Current limitation
-- Time-zone crossing rest rules are still being tightened to production-grade standards.
+- CAR Note 2 (layover-station acclimatisation when proceeding to farther time zones after a 3–7 zone crossing) is not implemented; time-zone rest is applied from the reported crossing only. This exclusion is recorded as a note in the default scheme document.
 - The module now keeps the approved scheme as the protected live source of truth and stores draft adjustments separately until approval, so the active company rule set cannot be overwritten in place.
 
 ## UX Decision: Scheme as a rare-action control
@@ -57,7 +57,7 @@ and treats scheme changes as a deliberate administrative action rather than a ro
 1. **Dashboard** — who needs attention. Counts of crew Within Limits / Attention / Exceeded and fatigue reports, plus the attention list.
 2. **Crew** — current duty state per crew member (on duty / on rest / available / off duty / sick / leave), duty start, rest completion, and FDTL summary alerts. State is editable and audited.
 3. **Duty Records** — capture report time, duty period, FDP start/end, flight time, landings, operation type (commercial / positioning / training / base training / familiarisation / skill test / IR / PPC), sector, note. Historical records retained for the scheme's retention period. Audit trail view included.
-4. **Flight Check** — pre-flight eligibility gate: given crew, single/two-pilot operation, report time, planned duty end, planned flight time and landings, computes base FDP limit, WOCL adjustment, applicable FDP limit, planned FDP, and verdict (Within / Attention / Exceeded) plus 24-hour flight time and landing checks.
+4. **Flight Check** — pre-flight eligibility gate: given crew (two-pilot operations only), the flight sequence, report time and planned duty end, computes base FDP limit, WOCL adjustment, applicable FDP limit, planned FDP, and verdict (Within / Attention / Exceeded) plus flight-time and landing checks. The form is streamlined: legacy single-field report time, planned duty end, flight time and landings inputs were replaced by a sequence-table flow with an optional advanced report-override block.
 5. **Scheme** — rare admin action, opened via the top-right button only when the operator needs to review or update the approved scheme, approval status, or other policy-driven values.
 
 ## FDTL Engine (scheme-driven)
@@ -66,10 +66,11 @@ and treats scheme changes as a deliberate administrative action rather than a ro
 
 - `scheme.js` — default FDTL Scheme document (CAR-derived values) + read/save `companies/{companyId}/fdtl_scheme/current`.
 - `fdpEngine.js` — pure functions:
-  - `resolveFdpBaseLimit` — single-pilot and two-pilot FDP tables keyed by flight time and landings (e.g. two-pilot 8h: 6 landings → 11:00, 5 → 11:30, 4 → 12:00, 3 → 12:30; 10h with 1/2 landings → 13:30).
-  - `computeWoclAdjustment` — WOCL (02:00–06:00 acclimatized): FDP starting in WOCL is reduced 100% of encroachment (capped per scheme); FDP ending in or fully encompassing WOCL is reduced 50%.
-  - `computeApplicableFdpLimit` / `checkPlannedFdp` — applicable limit and verdict.
-  - `computeRestStatus`, `computeNightDutyStatus`, `computeWeeklyRestStatus`, `computeCumulativeStatus`, `summarizeCrewFdtl` — organisation-wide compliance summaries across rest, night duty, weekly rest, and cumulative limits.
+- `resolveFdpBaseLimit` — two-pilot FDP tables keyed by flight time and landings (e.g. 8h: 6 landings → 11:00, 5 → 11:30, 4 → 12:00, 3 → 12:30; 10h with 1/2 landings → 13:30). The single-pilot table is no longer modelled — the FDTL module assumes two-pilot operations only.
+- `computeWoclAdjustment` — WOCL (02:00–06:00 acclimatized, local time): FDP starting in WOCL is reduced 100% of encroachment (capped per scheme); FDP ending in or fully encompassing WOCL is reduced 50%.
+- `computeApplicableFdpLimit` / `checkPlannedFdp` — applicable limit and verdict.
+- `computeRestStatus`, `computeNightDutyStatus`, `computeWeeklyRestStatus`, `computeCumulativeStatus`, `summarizeCrewFdtl` — organisation-wide compliance summaries across rest, night duty, weekly rest, and cumulative limits.
+- `computeTwoLandingProvisionMinutes` — the 6-hour rest increase required when the preceding duty utilized the split-duty provision with 2 landings (CAR Note 1); applied in both the dashboard rest summary and the flight-sequence simulation.
 - `dutyRecords.js` — duty state doc per crew (`companies/{companyId}/fdtl_duty/{crewProfileId}`) and flat duty records (`companies/{companyId}/fdtl_records/{recordId}`).
 - `audit.js` — audit trail (`companies/{companyId}/fdtl_audit`): who, when, entity, field, before, after, reason, source. Every state/record change writes audit entries.
 - `fatigue.js` — fatigue reports (`companies/{companyId}/fdtl_fatigue`), confidential, non-punitive.
@@ -85,11 +86,11 @@ and treats scheme changes as a deliberate administrative action rather than a ro
 
 ## FDTL Scheme Document (default values, all minutes)
 
-- FDP tables: single pilot (7h → FDP 08:30 / 8 landings; 8h → 6 landings 09:30, 4 landings 11:00) and two pilot (8h → 11:00/11:30/12:00/12:30 for 6/5/4/3 landings; 10h with 1–2 landings → 13:30).
-- WOCL: 02:00–06:00; 100% reduction when starting in WOCL (capped 2h); 50% when ending in or encompassing WOCL.
-- Rest: minimum = max(previous duty period, 12h); time-zone crossing 3–7 zones → 18h.
-- Weekly rest: 36h incl. 2 local nights within 168h span; extended to 48h after more than 3 night duties in 168h.
-- Night duty: 00:00–05:00, max 2 consecutive nights, exception once per 168h.
+- FDP tables: two pilot (8h → 11:00/11:30/12:00/12:30 for 6/5/4/3 landings; 10h with 1–2 landings → 13:30). Single-pilot operations are not modelled.
+- WOCL: 02:00–06:00 (local time); 100% reduction when starting in WOCL (capped 2h); 50% when ending in or encompassing WOCL.
+- Rest: minimum = max(previous duty period, 12h); time-zone crossing 3–7 zones → 18h; >7 zones → 36h; increased by 6h when the preceding duty used the split-duty provision with 2 landings.
+- Weekly rest: 36h incl. 2 local nights within 168h span; extended to 48h when more than 3 duties in the preceding 168h encroach night duty/WOCL. Enforced only once 168h of duty history (from first report time) has elapsed.
+- Night duty: 00:00–05:00 (local time), max 2 consecutive nights, exception once per 168h.
 - Cumulative: 7d FT 35h / Duty 60h; 14d 65h / 100h; 28d 100h / 190h; 90d 300h / 600h; 365d 1000h / 1800h.
 - Split duty: break < 3h no extension; 3–10h extension = half the break; > 10h no extension.
 - Standby: schedule/commuter only, configurable counting toward FDP.
@@ -98,10 +99,10 @@ and treats scheme changes as a deliberate administrative action rather than a ro
 
 ## Next Enhancements
 
-- Tighten time-zone crossing rest rules with a full 3–7 zone rest engine and calendar-based local-night tracking.
+- Implement CAR Note 2 layover-station acclimatisation handling for 3–7 zone crossings.
 - Extend cumulative limit rollup to explicit 7/14/28/90/365-day windows with per-crew dashboard detail.
 - Add a dedicated scheme approval history log and compare view for prior versions.
-- Add crew profile FDTL fields (home base, temporary home base, single/two-pilot operation, acclimatisation status).
+- Add crew profile FDTL fields (home base, temporary home base, acclimatisation status).
 - Add split duty, standby, and positioning handling in the FDP engine.
 - Add unforeseen operational circumstance workflow with approval and audit record.
 - Expand flight check to include policy-specific exemptions and local-night / rest gating.

@@ -8,14 +8,10 @@ import {
   DUTY_STATES,
   DUTY_STATE_LABELS,
   OPERATION_TYPE_LABELS,
-  OPERATION_CREW_LABELS,
-  OPERATION_CREW,
   VERDICTS,
   VERDICT_LABELS,
   formatDurationMinutes,
   resolveFdpBaseLimit,
-  resolveMaxLandings,
-  checkPlannedFdp,
   simulateFlightSequence,
   summarizeCrewFdtl,
   submitFatigueReport,
@@ -147,7 +143,6 @@ function computeCrewMetrics(member, state) {
     }
     const dutyUsedMinutes = Math.max(0, Math.floor((now.getTime() - dutyStarted.getTime()) / 60000));
     const base = resolveFdpBaseLimit(activeScheme, {
-      operationCrew: OPERATION_CREW.TWO,
       flightTimeMinutes: 0,
       landings: 0
     });
@@ -316,7 +311,7 @@ function renderRecords() {
   if (!body) return;
 
   if (!latestRecords.length) {
-    body.innerHTML = '<tr><td colspan="9" class="fdtl-empty">No duty records yet.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="fdtl-empty">No duty records yet.</td></tr>';
     return;
   }
 
@@ -329,7 +324,6 @@ function renderRecords() {
         <td>${escapeHtml(record.dutyDate || '—')}</td>
         <td>${escapeHtml(record.crewName || record.crewProfileId || '—')}</td>
         <td>${escapeHtml(OPERATION_TYPE_LABELS[record.operationType] || record.operationType || '—')}</td>
-        <td>${escapeHtml(OPERATION_CREW_LABELS[record.operationCrew] || '—')}</td>
         <td>${fdpMinutes != null ? formatDurationMinutes(fdpMinutes) : '—'}</td>
         <td>${formatDurationMinutes(record.flightTimeMinutes)}</td>
         <td>${Number(record.landings) || 0}</td>
@@ -394,14 +388,6 @@ function populateSelects() {
       .map(([value, label]) => `<option value="${value}">${label}</option>`)
       .join('');
   }
-
-  const crewTypeOptions = Object.entries(OPERATION_CREW_LABELS)
-    .map(([value, label]) => `<option value="${value}">${label}</option>`)
-    .join('');
-  ['#fdtl-record-op-crew', '#fdtl-check-op-crew'].forEach((selector) => {
-    const select = activeView.querySelector(selector);
-    if (select) select.innerHTML = crewTypeOptions;
-  });
 }
 
 function createFlightSequenceRow(index, defaults = {}) {
@@ -417,7 +403,12 @@ function createFlightSequenceRow(index, defaults = {}) {
       <td><input type="time" class="fdtl-sequence-departure" value="${escapeHtml(departure)}" /></td>
       <td><input type="time" class="fdtl-sequence-landing" value="${escapeHtml(landing)}" /></td>
       <td><span class="fdtl-sequence-flight-number">${flightNumber}</span></td>
-      <td><input type="checkbox" class="fdtl-sequence-new-duty" ${newDuty} title="Start a new duty period before this flight" /></td>
+      <td>
+        <label class="fdtl-switch" title="Start a new duty period before this flight">
+          <input type="checkbox" class="fdtl-sequence-new-duty" ${newDuty} />
+          <span class="fdtl-switch-track"></span>
+        </label>
+      </td>
       <td><button type="button" class="fdtl-remove-sequence-row">Remove</button></td>
     </tr>`;
 }
@@ -604,7 +595,7 @@ async function handleRecordSubmit(event) {
         crewProfileId: crewId,
         crewName: getCrewName(member),
         operationType: read('#fdtl-record-op-type') || 'commercial',
-        operationCrew: read('#fdtl-record-op-crew') || 'two',
+        operationCrew: 'two',
         dutyDate: read('#fdtl-record-date') || null,
         reportTime: toIso(read('#fdtl-record-report')),
         dutyStart: toIso(read('#fdtl-record-duty-start')),
@@ -634,7 +625,6 @@ function handleCheckSubmit(event) {
 
   const crewId = activeView.querySelector('#fdtl-check-crew')?.value;
   const member = latestCrew.find((item) => getCrewId(item) === crewId);
-  const operationCrew = activeView.querySelector('#fdtl-check-op-crew')?.value || OPERATION_CREW.TWO;
 
   const rows = [...(activeView.querySelectorAll('#fdtl-flight-sequence-body tr') || [])];
   const flights = rows
@@ -653,71 +643,7 @@ function handleCheckSubmit(event) {
     .filter(Boolean);
 
   if (flights.length === 0) {
-    const read = (selector) => activeView.querySelector(selector)?.value;
-    const reportTime = new Date(read('#fdtl-check-report'));
-    const fdpEnd = new Date(read('#fdtl-check-fdp-end'));
-    const flightTimeMinutes = Number(read('#fdtl-check-flight-time')) || 0;
-    const landings = Number(read('#fdtl-check-landings')) || 0;
-
-    if (Number.isNaN(reportTime.getTime()) || Number.isNaN(fdpEnd.getTime())) {
-      resultElement.innerHTML = '<div class="fdtl-check-card"><span class="fdtl-badge fdtl-badge--critical">Enter a valid report time and planned duty end.</span></div>';
-      return;
-    }
-
-    const plannedFdpMinutes = Math.max(0, Math.floor((fdpEnd.getTime() - reportTime.getTime()) / 60000));
-    const result = checkPlannedFdp(activeScheme, {
-      operationCrew,
-      flightTimeMinutes,
-      landings,
-      fdpStart: reportTime,
-      fdpEnd,
-      plannedFdpMinutes
-    });
-    const maxLandings = resolveMaxLandings(activeScheme, { operationCrew, flightTimeMinutes });
-    const maxFlightTime = activeScheme.fdp?.defaultMaxFlightTimeDayMinutes ?? 480;
-    const fdpVerdict = result.ok ? result.verdict : VERDICTS.EXCEEDED;
-    const tone = fdpVerdict === VERDICTS.EXCEEDED ? 'critical' : fdpVerdict === VERDICTS.ATTENTION ? 'watch' : 'good';
-
-    const checks = [
-      {
-        label: '24-hour FDP',
-        ok: result.ok && plannedFdpMinutes <= result.applicableLimitMinutes,
-        value: `${formatDurationMinutes(plannedFdpMinutes)} / ${result.ok ? formatDurationMinutes(result.applicableLimitMinutes) : '—'}`
-      },
-      {
-        label: '24-hour Flight Time',
-        ok: flightTimeMinutes <= maxFlightTime,
-        value: `${formatDurationMinutes(flightTimeMinutes)} / ${formatDurationMinutes(maxFlightTime)}`
-      },
-      {
-        label: 'Landings',
-        ok: maxLandings == null || landings <= maxLandings,
-        value: maxLandings == null ? '—' : `${landings} / ${maxLandings}`
-      }
-    ];
-
-    resultElement.innerHTML = `
-      <div class="fdtl-check-card">
-        <div class="fdtl-check-head">
-          <strong>${escapeHtml(member ? getCrewName(member) : crewId || 'Crew')}</strong>
-          <span class="fdtl-badge fdtl-badge--${tone}">${escapeHtml(VERDICT_LABELS[fdpVerdict] || 'Exceeded')}</span>
-        </div>
-        <div class="fdtl-check-limit">
-          <div><span>Base FDP limit</span><strong>${result.ok ? formatDurationMinutes(result.baseLimitMinutes) : '—'}</strong></div>
-          <div><span>WOCL adjustment</span><strong>${result.ok && result.woclReductionMinutes ? `-${formatDurationMinutes(result.woclReductionMinutes)}` : '—'}</strong></div>
-          <div><span>Applicable FDP limit</span><strong>${result.ok ? formatDurationMinutes(result.applicableLimitMinutes) : 'Exceeds scheme'}</strong></div>
-          <div><span>Planned FDP</span><strong>${formatDurationMinutes(plannedFdpMinutes)}</strong></div>
-        </div>
-        <ul class="fdtl-check-list">
-          ${checks
-            .map(
-              (check) => `
-            <li class="${check.ok ? 'ok' : 'fail'}">${check.ok ? '✓' : '✕'} ${escapeHtml(check.label)} <span>${escapeHtml(check.value)}</span></li>`
-            )
-            .join('')}
-        </ul>
-        ${result.ok && result.remainingMinutes > 0 ? `<p class="fdtl-check-remaining">Remaining FDP: ${formatDurationMinutes(result.remainingMinutes)}</p>` : ''}
-      </div>`;
+    resultElement.innerHTML = '<div class="fdtl-check-card"><span class="fdtl-badge fdtl-badge--critical">Add at least one complete flight to the sequence (date, departure, and landing) before checking.</span></div>';
     return;
   }
 
@@ -725,7 +651,6 @@ function handleCheckSubmit(event) {
   const historical = latestRecords.filter((record) => record.crewProfileId === crewId);
 
   const simulation = simulateFlightSequence(activeScheme, {
-    operationCrew,
     crewName: member ? getCrewName(member) : crewId || 'Crew',
     flights,
     historicalRecords: historical,
