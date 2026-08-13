@@ -12,7 +12,6 @@ import {
   VERDICT_LABELS,
   formatDurationMinutes,
   resolveFdpBaseLimit,
-  simulateFlightSequence,
   summarizeCrewFdtl,
   computeRestStatus,
   computeCumulativeStatus,
@@ -343,6 +342,28 @@ function renderFlightsDashboard() {
   setText('fdtl-kpi-28day', twentyEightPeriod ? `${fmtMinutes(twentyEightPeriod.flightUsed)} / ${fmtMinutes(twentyEightPeriod.flightLimit)}` : '--:--');
   setText('fdtl-kpi-rest', restSummary.restUntil ? `Until ${formatTimeOfDay(restSummary.restUntil)}` : '—');
   setText('fdtl-kpi-status', kpiStatus);
+  setText('fdtl-kpi-status-note', kpiStatus === 'OK' ? 'All FDTL requirements met' : kpiStatus === 'Attention' ? 'Review approaching limits' : 'Action required before release');
+
+  const setProgress = (id, used, limit) => {
+    const element = activeView.querySelector(`#${id}`);
+    if (!element) return;
+    const ratio = limit > 0 ? Math.min(100, Math.max(0, (Number(used) || 0) / limit * 100)) : 0;
+    element.style.width = `${ratio}%`;
+    element.className = ratio >= 100 ? 'fdtl-progress-critical' : ratio >= 80 ? 'fdtl-progress-watch' : '';
+  };
+  const todayFlightLimit = Number(activeScheme.fdp?.defaultMaxFlightTimeDayMinutes ?? 420);
+  const todayDutyLimit = Number(activeScheme.cumulative?.[1]?.dutyMinutes ?? activeScheme.fdp?.defaultMaxFdpMinutes ?? 630);
+  const sevenLimit = Number(sevenPeriod?.flightLimit ?? activeScheme.cumulative?.[7]?.flightTimeMinutes ?? 0);
+  const twentyEightLimit = Number(twentyEightPeriod?.flightLimit ?? activeScheme.cumulative?.[28]?.flightTimeMinutes ?? 0);
+  setText('fdtl-kpi-flight-limit', fmtMinutes(todayFlightLimit));
+  setText('fdtl-kpi-duty-limit', fmtMinutes(todayDutyLimit));
+  setProgress('fdtl-kpi-flight-progress', flightTimeToday, todayFlightLimit);
+  setProgress('fdtl-kpi-duty-progress', dutyTimeToday, todayDutyLimit);
+  setProgress('fdtl-kpi-7day-progress', sevenPeriod?.flightUsed, sevenLimit);
+  setProgress('fdtl-kpi-28day-progress', twentyEightPeriod?.flightUsed, twentyEightLimit);
+  setProgress('fdtl-kpi-rest-progress', restSummary.restUntil ? Math.max(0, (now.getTime() - restSummary.restUntil.getTime()) / 60000) : 0, Number(activeScheme.rest?.minimumMinutes ?? 720));
+  const overall = activeView.querySelector('#fdtl-overall-status');
+  if (overall) overall.className = `fdtl-overall-status fdtl-overall-status--${kpiStatus === 'OK' ? 'good' : kpiStatus === 'Attention' ? 'watch' : 'critical'}`;
 
   const kpiStatusEl = activeView.querySelector('#fdtl-kpi-status');
   if (kpiStatusEl) {
@@ -363,6 +384,21 @@ function renderFlightsDashboard() {
 
   renderFlightsTable();
   renderFlightDetails();
+  renderDashboardSubpanes(cumulativeSummary, restSummary);
+}
+
+function renderDashboardSubpanes(cumulativeSummary, restSummary) {
+  const summary = activeView?.querySelector('#fdtl-summary-content');
+  if (summary) {
+    summary.innerHTML = `<div class="fdtl-summary-periods">${cumulativeSummary.periods.map((period) => `<div class="fdtl-summary-period"><strong>${period.days}-Day</strong><span>${fmtMinutes(period.flightUsed)} / ${fmtMinutes(period.flightLimit)}</span><b class="fdtl-badge fdtl-badge--${period.ok ? 'good' : 'critical'}">${period.ok ? 'Within Limits' : 'Exceeded'}</b></div>`).join('')}</div><p class="muted">Rest: ${restSummary.ok ? 'Within minimum requirement' : 'Attention required'}</p>`;
+  }
+  const alerts = activeView?.querySelector('#fdtl-alerts-content');
+  const mismatches = latestFlights.filter((flight) => (flight.reconciliation || reconcileFlight(flight)).status === 'mismatch');
+  const attentionCount = latestFlights.filter((flight) => flight.status === FLIGHT_STATUSES.COMPLETED && getFlightCompliance(flight, latestFlights.filter((item) => item.p1?.crewProfileId === flight.p1?.crewProfileId))?.verdict !== VERDICTS.WITHIN).length;
+  if (alerts) alerts.innerHTML = mismatches.length || attentionCount ? `<ul class="fdtl-alert-list">${mismatches.map((flight) => `<li class="fdtl-alert-item fdtl-alert-item--watch"><strong>Data mismatch</strong><span>${escapeHtml(flight.flightNumber || 'Flight')} has conflicting Flight Ops / EFB times.</span></li>`).join('')}${attentionCount ? `<li class="fdtl-alert-item fdtl-alert-item--watch"><strong>Compliance attention</strong><span>${attentionCount} completed flight record(s) require review.</span></li>` : ''}</ul>` : '<p class="muted">No alerts or inconsistencies.</p>';
+  setText('fdtl-alert-count', mismatches.length + attentionCount);
+  const fatigue = activeView?.querySelector('#fdtl-fatigue-list');
+  if (fatigue) fatigue.innerHTML = latestFatigue.length ? latestFatigue.map((report) => `<div class="fdtl-alert-item"><strong>${escapeHtml(report.crewName || report.crewProfileId || 'Crew')}</strong><span>${escapeHtml(report.description || 'Fatigue report submitted')}</span></div>`).join('') : '<p class="muted">No fatigue reports.</p>';
 }
 
 function applyFlightFilters() {
@@ -411,7 +447,7 @@ function applyFlightFilters() {
   if (!body) return;
 
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="10" class="fdtl-empty">No flight records match the current filters.</td></tr>';
+    body.innerHTML = '<tr><td colspan="12" class="fdtl-empty">No flight records match the current filters.</td></tr>';
     return;
   }
 
@@ -465,16 +501,18 @@ function applyFlightFilters() {
         ? `${compliance.cumulative[7].status === VERDICTS.WITHIN ? '✓' : '⚠'}/${compliance.cumulative[28].status === VERDICTS.WITHIN ? '✓' : '⚠'}`
         : '—';
       return `<tr class="fdtl-flight-row${selectedFlightId === flight.flightId ? ' selected' : ''}" data-flight="${escapeHtml(flight.flightId)}">
+        <td>${rows.indexOf(rows.find((row) => row.flight.flightId === flight.flightId)) + 1}</td>
         <td>${escapeHtml(formatDayShort(flight.flightDate))}</td>
         <td><strong>${escapeHtml(flight.flightNumber || '—')}</strong></td>
         <td>${escapeHtml(route)}</td>
         <td>${escapeHtml(getCrewLabelForFlight(flight))}</td>
         <td>${sourceBadge(flight)}</td>
         <td>${escapeHtml(block)}</td>
-        <td>${escapeHtml(fdpCell)}</td>
-        <td>${escapeHtml(restCell)}</td>
+        <td>${fdpCell}</td>
+        <td>${restCell}</td>
         <td>${escapeHtml(cumCell)}</td>
         <td>${compliance ? verdictBadge(compliance.verdict) : escapeHtml((flight.status || 'planned').toUpperCase())}</td>
+        <td><button type="button" class="fdtl-row-action" data-view-flight="${escapeHtml(flight.flightId)}" aria-label="View flight">◉</button><button type="button" class="fdtl-row-action" data-export-flight="${escapeHtml(flight.flightId)}" aria-label="Export flight">⇩</button></td>
       </tr>`;
     })
     .join('');
@@ -624,7 +662,7 @@ function populateSelects() {
     .join('');
   const crewFallback = '<option value="">No crew</option>';
 
-  ['#fdtl-record-crew', '#fdtl-check-crew', '#fdtl-fatigue-crew', '#fdtl-manual-p1', '#fdtl-manual-p2'].forEach((selector) => {
+  ['#fdtl-record-crew', '#fdtl-fatigue-crew', '#fdtl-manual-p1', '#fdtl-manual-p2'].forEach((selector) => {
     const select = activeView.querySelector(selector);
     if (select) {
       const isP2 = selector === '#fdtl-manual-p2';
@@ -650,99 +688,6 @@ function populateSelects() {
   }
 }
 
-function createFlightSequenceRow(index, defaults = {}) {
-  const date = defaults.date || '';
-  const departure = defaults.departure || '';
-  const landing = defaults.landing || '';
-  const flightNumber = defaults.flightNumber ?? index + 1;
-  const newDuty = defaults.newDuty ? 'checked' : '';
-  const breakMinutes = defaults.breakMinutes || '';
-
-  return `
-    <tr data-row-index="${index}">
-      <td><input type="date" class="fdtl-sequence-date" value="${escapeHtml(date)}" /></td>
-      <td><input type="time" class="fdtl-sequence-departure" value="${escapeHtml(departure)}" /></td>
-      <td><input type="time" class="fdtl-sequence-landing" value="${escapeHtml(landing)}" /></td>
-      <td><span class="fdtl-sequence-flight-number">${flightNumber}</span></td>
-      <td>
-        <input type="number" class="fdtl-sequence-break" min="0" max="600" step="5" value="${escapeHtml(breakMinutes)}" placeholder="min" title="Split-duty break before this flight (3–10h). Break counts in full as FDP." />
-        <span class="fdtl-gap-hint"></span>
-      </td>
-      <td>
-        <label class="fdtl-switch" title="Start a new duty period before this flight">
-          <input type="checkbox" class="fdtl-sequence-new-duty" ${newDuty} />
-          <span class="fdtl-switch-track"></span>
-        </label>
-      </td>
-      <td><button type="button" class="fdtl-remove-sequence-row">Remove</button></td>
-    </tr>`;
-}
-
-function computeSequenceGaps(rows) {
-  const parsed = rows.map((row) => {
-    const date = row.querySelector('.fdtl-sequence-date')?.value;
-    const departure = row.querySelector('.fdtl-sequence-departure')?.value;
-    const landing = row.querySelector('.fdtl-sequence-landing')?.value;
-    if (!date || !departure || !landing) return null;
-    return {
-      dep: new Date(`${date}T${departure}:00`),
-      land: new Date(`${date}T${landing}:00`)
-    };
-  });
-  return parsed.map((entry, index) => {
-    if (index === 0 || !entry) return { gapMinutes: null };
-    const prev = parsed[index - 1];
-    if (!prev) return { gapMinutes: null };
-    return { gapMinutes: Math.max(0, Math.round((entry.dep.getTime() - prev.land.getTime()) / 60000)) };
-  });
-}
-
-function updateSequenceHints() {
-  const body = activeView?.querySelector('#fdtl-flight-sequence-body');
-  if (!body) return;
-  const rows = [...body.querySelectorAll('tr')];
-  const gaps = computeSequenceGaps(rows);
-
-  rows.forEach((row, index) => {
-    const hint = row.querySelector('.fdtl-gap-hint');
-    const breakInput = row.querySelector('.fdtl-sequence-break');
-    if (!hint) return;
-
-    const gap = gaps[index]?.gapMinutes;
-    if (gap == null) {
-      hint.textContent = '';
-      hint.className = 'fdtl-gap-hint';
-      return;
-    }
-
-    const label = `${Math.floor(gap / 60)}:${String(gap % 60).padStart(2, '0')} gap`;
-    if (gap > 600) {
-      hint.textContent = `${label} — over 10h: next sector starts a new duty cycle; split duty does not apply. Check FDP/rest warnings.`;
-      hint.className = 'fdtl-gap-hint fdtl-gap-hint--warn';
-      if (breakInput) breakInput.disabled = true;
-    } else if (gap >= 180) {
-      hint.textContent = `${label} — split-duty eligible (3–10h break)`;
-      hint.className = 'fdtl-gap-hint fdtl-gap-hint--split';
-      if (breakInput) breakInput.disabled = false;
-    } else {
-      hint.textContent = `${label}`;
-      hint.className = 'fdtl-gap-hint';
-      if (breakInput) breakInput.disabled = true;
-    }
-  });
-}
-
-function ensureFlightSequenceRows() {
-  const body = activeView?.querySelector('#fdtl-flight-sequence-body');
-  if (!body) return;
-  if (body.children.length > 0) return;
-
-  body.innerHTML = [
-    createFlightSequenceRow(0, { flightNumber: 1, date: new Date().toISOString().slice(0, 10) }),
-    createFlightSequenceRow(1, { flightNumber: 2, date: new Date().toISOString().slice(0, 10) })
-  ].join('');
-}
-
 function renderAll() {
   renderSchemeLine();
   renderSchemeEditor();
@@ -750,8 +695,6 @@ function renderAll() {
   renderRecords();
   renderAudit();
   populateSelects();
-  ensureFlightSequenceRows();
-  updateSequenceHints();
   renderFlightsDashboard();
 }
 
@@ -1289,174 +1232,6 @@ async function handleRecordSubmit(event) {
   }
 }
 
-function handleCheckSubmit(event) {
-  event.preventDefault();
-  const resultElement = activeView?.querySelector('#fdtl-check-result');
-  if (!resultElement) return;
-
-  const crewId = activeView.querySelector('#fdtl-check-crew')?.value;
-  const member = latestCrew.find((item) => getCrewId(item) === crewId);
-
-  const rows = [...(activeView.querySelectorAll('#fdtl-flight-sequence-body tr') || [])];
-  const flights = rows
-    .map((row) => {
-      const date = row.querySelector('.fdtl-sequence-date')?.value;
-      const departure = row.querySelector('.fdtl-sequence-departure')?.value;
-      const landing = row.querySelector('.fdtl-sequence-landing')?.value;
-      if (!date || !departure || !landing) return null;
-      return {
-        date,
-        departure: `${date}T${departure}:00`,
-        landing: `${date}T${landing}:00`,
-        newDuty: Boolean(row.querySelector('.fdtl-sequence-new-duty')?.checked),
-        breakMinutes: Number(row.querySelector('.fdtl-sequence-break')?.value) || 0
-      };
-    })
-    .filter(Boolean);
-
-  if (flights.length === 0) {
-    resultElement.innerHTML = '<div class="fdtl-check-card"><span class="fdtl-badge fdtl-badge--critical">Add at least one complete flight to the sequence (date, departure, and landing) before checking.</span></div>';
-    return;
-  }
-
-  const reportOverride = activeView.querySelector('#fdtl-check-report-override')?.value;
-  const historical = latestRecords.filter((record) => record.crewProfileId === crewId);
-
-  const simulation = simulateFlightSequence(activeScheme, {
-    crewName: member ? getCrewName(member) : crewId || 'Crew',
-    flights,
-    historicalRecords: historical,
-    reportOverrides: reportOverride ? { 0: `${reportOverride}:00` } : {}
-  });
-
-  const verdictMap = {
-    within: 'good',
-    attention: 'watch',
-    exceeded: 'critical'
-  };
-  const verdict = simulation.verdict;
-  const tone = verdictMap[verdict] || 'good';
-
-  const allFlights = simulation.duties.flatMap((duty) => duty.flights);
-  const flightCounts = allFlights.reduce(
-    (acc, flight) => {
-      if (flight.notEvaluated) {
-        acc.notEvaluated += 1;
-      } else if (flight.verdict === VERDICTS.EXCEEDED) {
-        acc.exceeded += 1;
-      } else if (flight.verdict === VERDICTS.ATTENTION) {
-        acc.attention += 1;
-      } else {
-        acc.within += 1;
-      }
-      return acc;
-    },
-    { within: 0, attention: 0, exceeded: 0, notEvaluated: 0 }
-  );
-
-  const formatTime = (value) => {
-    const date = toDate(value);
-    if (!date || Number.isNaN(date.getTime())) return '—';
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  };
-  const formatDayTime = (value) => {
-    const date = toDate(value);
-    if (!date || Number.isNaN(date.getTime())) return '—';
-    return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${formatTime(date)}`;
-  };
-  const statusClass = (verdict) =>
-    verdict === VERDICTS.EXCEEDED ? 'fail' : verdict === VERDICTS.ATTENTION ? 'watch' : 'ok';
-  const badgeClass = (verdict) =>
-    verdict === VERDICTS.EXCEEDED ? 'critical' : verdict === VERDICTS.ATTENTION ? 'watch' : 'good';
-
-  const renderRuleBlock = (rule) => {
-    if (!rule) return '';
-    const status = statusClass(rule.status);
-    const formatValue = (value) => (value == null ? '—' : rule.count ? String(value) : fmtMinutes(value));
-    return `
-      <div class="fdtl-rule fdtl-rule--${status}">
-        <div class="fdtl-rule-head">
-          <span class="fdtl-rule-label">${escapeHtml(rule.label)}</span>
-          <span class="fdtl-rule-ref">${escapeHtml(rule.ref)}</span>
-        </div>
-        <div class="fdtl-rule-meter">
-          <span class="fdtl-meter-cell"><small>Allowed</small><b>${formatValue(rule.allowed)}</b></span>
-          <span class="fdtl-meter-cell"><small>Actual</small><b>${formatValue(rule.actual)}</b></span>
-          <span class="fdtl-meter-cell fdtl-meter-margin"><small>Margin</small><b>${escapeHtml(rule.margin || '—')}</b></span>
-        </div>
-        ${rule.note ? `<div class="fdtl-rule-note">${escapeHtml(rule.note)}</div>` : ''}
-      </div>`;
-  };
-
-  const renderFlightCard = (flight) => {
-    const status = statusClass(flight.verdict);
-    const rules = (Array.isArray(flight.rules) && flight.rules.length ? flight.rules : []).map(renderRuleBlock).join('');
-    const range = flight.departure && flight.landing
-      ? `${formatDayTime(flight.departure)} → ${formatTime(flight.landing)}`
-      : '—';
-    return `
-      <div class="fdtl-flight-card fdtl-flight-card--${status}">
-        <div class="fdtl-flight-head">
-          <span class="fdtl-flight-id">F${escapeHtml(flight.flightNumber)}</span>
-          <span class="fdtl-flight-range">${escapeHtml(range)}</span>
-          <span class="fdtl-badge fdtl-badge--${badgeClass(flight.verdict)}">${escapeHtml(VERDICT_LABELS[flight.verdict] || 'Within Limits')}</span>
-        </div>
-        ${rules ? `<div class="fdtl-flight-rules">${rules}</div>` : ''}
-      </div>`;
-  };
-
-  const renderDutyCard = (duty) => {
-    const status = statusClass(duty.verdict);
-    const dutyRules = (Array.isArray(duty.rules) && duty.rules.length ? duty.rules : []).map(renderRuleBlock).join('');
-    const flights = (duty.flights || []).map(renderFlightCard).join('');
-    const span = duty.reportTime && duty.finalLanding
-      ? `report ${formatDayTime(duty.reportTime)} · land ${formatTime(duty.finalLanding)}`
-      : '';
-    return `
-      <div class="fdtl-duty-card fdtl-duty-card--${status}">
-        <div class="fdtl-duty-head">
-          <div class="fdtl-duty-title">
-            <strong>Duty ${duty.dutyIndex}</strong>
-            <span>${escapeHtml(span)}</span>
-          </div>
-          <span class="fdtl-badge fdtl-badge--${badgeClass(duty.verdict)}">${escapeHtml(VERDICT_LABELS[duty.verdict] || 'Within Limits')}</span>
-        </div>
-        ${dutyRules ? `<div class="fdtl-duty-rules">${dutyRules}</div>` : ''}
-        ${flights ? `<div class="fdtl-flight-list">${flights}</div>` : ''}
-      </div>`;
-  };
-
-  const dutyCards = simulation.duties.map(renderDutyCard).join('');
-
-  const violatedDuties = simulation.duties.filter((d) => d.verdict === VERDICTS.EXCEEDED);
-  const violationSummaryLine = violatedDuties.length
-    ? violatedDuties.map((d) => `Duty ${d.dutyIndex}: ${d.reasons.join(' · ')}`).join('<br>')
-    : '';
-
-  const boundaryWarnings = simulation.duties
-    .flatMap((d) => d.flights)
-    .filter((f) => f.gapBeforeMinutes != null && f.gapBeforeMinutes > 600)
-    .map((f) => `Gap before F${f.flightNumber} is ${fmtMinutes(f.gapBeforeMinutes)} (>10h) — a new duty cycle starts there; split duty does not apply. Watch FDP and rest warnings on that duty.`)
-    .join('<br>');
-
-  resultElement.innerHTML = `
-    <div class="fdtl-check-card">
-      <div class="fdtl-check-head">
-        <strong>${escapeHtml(member ? getCrewName(member) : crewId || 'Crew')}</strong>
-        <span class="fdtl-badge fdtl-badge--${tone}">${escapeHtml(VERDICT_LABELS[verdict] || 'Within Limits')}</span>
-      </div>
-      <div class="fdtl-check-summary-bar">
-        <div class="fdtl-check-summary-stat"><span>Duties</span><strong>${simulation.duties.length}</strong></div>
-        <div class="fdtl-check-summary-stat"><span>Compliant</span><strong style="color:#166534">${flightCounts.within}</strong></div>
-        <div class="fdtl-check-summary-stat"><span>Attention</span><strong style="color:#92400e">${flightCounts.attention}</strong></div>
-        <div class="fdtl-check-summary-stat"><span>Exceeded</span><strong style="color:#991b1b">${flightCounts.exceeded}</strong></div>
-      </div>
-      ${violationSummaryLine ? `<div class="fdtl-check-reason">${violationSummaryLine}</div>` : ''}
-      ${boundaryWarnings ? `<div class="fdtl-check-note-block">${boundaryWarnings}</div>` : ''}
-      <div class="fdtl-duty-list">${dutyCards}</div>
-    </div>`;
-}
-
 async function handleManualSubmit(event) {
   event.preventDefault();
   if (!activeCompanyId) return;
@@ -1588,6 +1363,33 @@ async function handleDeleteFlight(event) {
   }
 }
 
+async function refreshFlights() {
+  if (!activeCompanyId) return;
+  const status = activeView?.querySelector('#fdtl-sync-status');
+  if (status) status.textContent = 'Syncing with Flight Operations and EFB...';
+  try {
+    latestFlights = await listFlights(activeCompanyId);
+    renderFlightsDashboard();
+    if (status) status.textContent = `Last sync: ${new Date().toLocaleString()}`;
+  } catch (error) {
+    console.error('FDTL flight refresh failed:', error);
+    if (status) status.textContent = 'Sync error. Existing records are still shown.';
+  }
+}
+
+function exportFlightDetails(flightId) {
+  const flight = latestFlights.find((item) => item.flightId === flightId);
+  if (!flight) return;
+  const payload = JSON.stringify(flight, null, 2);
+  const blob = new Blob([payload], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${flight.flightNumber || 'flight'}-details.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function init(view, context) {
   activeView = view;
 
@@ -1623,49 +1425,20 @@ export async function init(view, context) {
     heading.textContent = 'FDTL Monitoring';
   }
 
-  view.querySelectorAll('.fdtl-tab').forEach((tab) => {
+  view.querySelectorAll('[data-fdtl-tab]').forEach((tab) => {
     tab.addEventListener('click', () => switchTab(tab.dataset.fdtlTab));
   });
+  view.querySelectorAll('[data-fdtl-subtab]').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      view.querySelectorAll('[data-fdtl-subtab]').forEach((item) => item.classList.toggle('active', item === tab));
+      view.querySelectorAll('[data-fdtl-subpane]').forEach((pane) => pane.classList.toggle('active', pane.dataset.fdtlSubpane === tab.dataset.fdtlSubtab));
+    });
+  });
+  view.querySelector('#fdtl-filter-toggle')?.addEventListener('click', () => view.querySelector('#fdtl-filters')?.classList.toggle('hidden'));
+  view.querySelector('#fdtl-sync-now')?.addEventListener('click', refreshFlights);
   view.querySelector('#fdtl-crew-body')?.addEventListener('click', handleSetState);
   view.querySelector('#fdtl-records-body')?.addEventListener('click', handleDeleteRecord);
   view.querySelector('#fdtl-record-form')?.addEventListener('submit', handleRecordSubmit);
-  view.querySelector('#fdtl-add-flight-row')?.addEventListener('click', () => {
-    const body = activeView?.querySelector('#fdtl-flight-sequence-body');
-    if (!body) return;
-    const nextIndex = body.children.length;
-    body.insertAdjacentHTML('beforeend', createFlightSequenceRow(nextIndex, { flightNumber: nextIndex + 1 }));
-    updateSequenceHints();
-  });
-  view.querySelector('#fdtl-flight-sequence-body')?.addEventListener('input', (event) => {
-    if (event.target.closest('.fdtl-sequence-break')) {
-      const row = event.target.closest('tr');
-      const newDuty = row?.querySelector('.fdtl-sequence-new-duty');
-      if (Number(event.target.value) > 0 && newDuty?.checked) newDuty.checked = false;
-    }
-    updateSequenceHints();
-  });
-  view.querySelector('#fdtl-flight-sequence-body')?.addEventListener('change', (event) => {
-    if (event.target.closest('.fdtl-sequence-new-duty')) {
-      const row = event.target.closest('tr');
-      const breakField = row?.querySelector('.fdtl-sequence-break');
-      if (event.target.checked && breakField) breakField.value = '';
-    }
-    updateSequenceHints();
-  });
-  view.querySelector('#fdtl-flight-sequence-body')?.addEventListener('click', (event) => {
-    const button = event.target.closest('.fdtl-remove-sequence-row');
-    if (!button) return;
-    const row = button.closest('tr');
-    row?.remove();
-    const rows = [...(activeView?.querySelectorAll('#fdtl-flight-sequence-body tr') || [])];
-    rows.forEach((currentRow, index) => {
-      currentRow.dataset.rowIndex = String(index);
-      const numberEl = currentRow.querySelector('.fdtl-sequence-flight-number');
-      if (numberEl) numberEl.textContent = String(index + 1);
-    });
-    updateSequenceHints();
-  });
-  view.querySelector('#fdtl-check-form')?.addEventListener('submit', handleCheckSubmit);
   view.querySelector('#fdtl-scheme-form')?.addEventListener('submit', handleSchemeSubmit);
   view.querySelector('#fdtl-scheme-form')?.addEventListener('input', () => {
     const dirty = view.querySelector('#fdtl-scheme-dirty');
@@ -1688,6 +1461,18 @@ export async function init(view, context) {
   view.querySelector('#fdtl-flight-status-filter')?.addEventListener('change', renderFlightsTable);
   view.querySelector('#fdtl-flight-source-filter')?.addEventListener('change', renderFlightsTable);
   view.querySelector('#fdtl-flights-body')?.addEventListener('click', (event) => {
+    const exportButton = event.target.closest('[data-export-flight]');
+    if (exportButton) {
+      exportFlightDetails(exportButton.dataset.exportFlight);
+      return;
+    }
+    const viewButton = event.target.closest('[data-view-flight]');
+    if (viewButton) {
+      selectedFlightId = viewButton.dataset.viewFlight;
+      renderFlightsTable();
+      renderFlightDetails();
+      return;
+    }
     const row = event.target.closest('.fdtl-flight-row');
     if (!row) return;
     selectedFlightId = row.dataset.flight;

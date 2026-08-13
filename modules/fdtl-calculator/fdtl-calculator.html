@@ -1,0 +1,59 @@
+<section class="card fdtl-calculator-header">
+  <div class="fdtl-calculator-heading">
+    <div>
+      <p class="eyebrow">FDTL Monitoring / Pre-flight gate</p>
+      <h2>Flight Calculator</h2>
+      <p class="muted">Check a planned flight sequence against the approved company FDTL scheme before release.</p>
+    </div>
+    <a class="vs-button vs-button--secondary vs-button--sm" href="#/fdtl">Back to Monitoring</a>
+  </div>
+  <div id="fdtl-calculator-status" class="fdtl-status" aria-live="polite"></div>
+</section>
+
+<section class="card">
+  <div class="fdtl-calculator-rulebar">
+    <span class="fdtl-calculator-rulebar-icon" aria-hidden="true">F</span>
+    <div>
+      <strong id="fdtl-calculator-scheme">Loading approved scheme...</strong>
+      <span>Two-pilot commercial NSOP assumptions apply to this check.</span>
+    </div>
+  </div>
+
+  <form id="fdtl-calculator-form" class="fdtl-check-form">
+    <div class="fdtl-info-note">Enter each sector in chronological order. A split break or explicit new-duty marker starts a separate duty calculation where applicable.</div>
+    <label class="fdtl-form-field">
+      <span>Crew</span>
+      <select id="fdtl-calculator-crew" required></select>
+    </label>
+
+    <details class="fdtl-advanced">
+      <summary>Report time override <span class="muted">(advanced)</span></summary>
+      <div class="fdtl-advanced-body">
+        <p class="muted">Optional. Overrides the scheme-derived report time for the first duty period.</p>
+        <label class="fdtl-form-field">
+          <span>Report Time Override</span>
+          <input type="datetime-local" id="fdtl-calculator-report-override" />
+        </label>
+      </div>
+    </details>
+
+    <div class="fdtl-flight-sequence-card">
+      <div class="card-heading compact">
+        <h3>Flight Sequence</h3>
+        <p class="muted">Use the sequence to evaluate FDP, flight time, rest, cumulative limits, and duty boundaries together.</p>
+      </div>
+      <div class="fdtl-sequence-wrap">
+        <table class="fdtl-sequence-table">
+          <thead><tr><th>Date</th><th>Departure</th><th>Landing</th><th>Flight</th><th>Split Break (min)</th><th>New Duty</th><th></th></tr></thead>
+          <tbody id="fdtl-calculator-sequence"></tbody>
+        </table>
+        <button type="button" id="fdtl-calculator-add-row" class="vs-button vs-button--secondary vs-button--sm">+ Add Flight</button>
+      </div>
+    </div>
+
+    <div class="fdtl-check-actions">
+      <button type="submit" class="vs-button vs-button--primary vs-button--md">Check Sequence</button>
+    </div>
+  </form>
+  <div id="fdtl-calculator-result" class="fdtl-check-result"></div>
+</section>
