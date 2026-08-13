@@ -53,7 +53,7 @@
 
 .cm-drawer-head h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 0.98rem;
   font-weight: 800;
 }
 
@@ -67,12 +67,12 @@
 .cm-drawer-profile .cm-avatar {
   width: 56px;
   height: 56px;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 }
 
 .cm-drawer-identity strong {
   display: block;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
 }
 
 .cm-drawer-identity span {

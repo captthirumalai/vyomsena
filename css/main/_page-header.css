@@ -1,0 +1,120 @@
+/* ============================================================
+   VyomSena shared page header component.
+   Mirrors the crew module header so every module gets the same
+   compact, information-dense header: breadcrumb + title + subtitle
+   on the left, status/controls/actions on the right.
+   ============================================================ */
+
+.vs-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.25rem 0 0.5rem;
+  flex-wrap: wrap;
+}
+
+.vs-page-header-left {
+  min-width: 0;
+}
+
+.vs-page-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--muted-color);
+  margin: 0 0 0.5rem;
+}
+
+.vs-page-breadcrumb-sep {
+  color: var(--border-color);
+}
+
+.vs-page-breadcrumb-current {
+  color: var(--primary-strong);
+}
+
+.vs-page-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--text-color);
+}
+
+.vs-page-subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--muted-color);
+  font-size: var(--font-size-sm);
+}
+
+.vs-page-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.vs-page-status {
+  font-size: var(--font-size-xs);
+  color: var(--muted-color);
+}
+
+/* Small inline chip used for counts / live status */
+.vs-page-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.vs-page-chip.is-good {
+  color: var(--color-good-strong);
+  background: var(--color-good-bg);
+  border-color: var(--color-good-border);
+}
+
+.vs-page-chip.is-watch {
+  color: var(--color-watch-strong);
+  background: var(--color-watch-bg);
+  border-color: var(--color-watch-border);
+}
+
+.vs-page-chip.is-critical {
+  color: var(--color-critical-strong);
+  background: var(--color-critical-bg);
+  border-color: var(--color-critical-border);
+}
+
+/* Shared module header uses the same .card surface */
+.vs-module-header {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.35rem;
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 640px) {
+  .vs-page-header {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .vs-page-header-right {
+    align-items: flex-start;
+    width: 100%;
+  }
+}

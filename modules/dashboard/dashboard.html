@@ -1,25 +1,29 @@
 <section class="card dashboard-hero">
-  <div class="dashboard-hero-head">
-    <div>
-      <p class="dashboard-eyebrow">Operations Control</p>
-      <h2>Live Dashboard</h2>
-      <p id="dashboard-meta" class="dashboard-meta">Monitoring fleet, crew, and compliance from Firestore.</p>
+  <div class="vs-page-header">
+    <div class="vs-page-header-left">
+      <nav class="vs-page-breadcrumb" aria-label="Breadcrumb">
+        <span>VAMS Portal</span>
+        <span class="vs-page-breadcrumb-sep">/</span>
+        <span class="vs-page-breadcrumb-current">Dashboard</span>
+      </nav>
+      <h1 class="vs-page-title">Live Dashboard</h1>
+      <p id="dashboard-meta" class="vs-page-subtitle">Monitoring fleet, crew, and compliance from Firestore.</p>
     </div>
-    <div class="dashboard-hero-side">
-      <span id="dashboard-last-sync" class="dashboard-sync">Syncing...</span>
-      <div class="dashboard-controls">
-        <label for="dashboard-warning-window">Alert Window</label>
+    <div class="vs-page-header-right">
+      <span id="dashboard-last-sync" class="vs-page-chip">Syncing...</span>
+      <label class="dashboard-controls" for="dashboard-warning-window">
+        <span>Alert Window</span>
         <select id="dashboard-warning-window" aria-label="Select compliance alert window">
           <option value="15">15 days</option>
           <option value="30" selected>30 days</option>
           <option value="45">45 days</option>
           <option value="60">60 days</option>
         </select>
-      </div>
+      </label>
       <div class="dashboard-quick-links">
-        <a href="#/crew" class="dash-link">Crew</a>
-        <a href="#/fdtl" class="dash-link">FDTL</a>
-        <a href="#/reports" class="dash-link">Reports</a>
+        <a href="#/crew" class="vs-button vs-button--ghost vs-button--sm">Crew</a>
+        <a href="#/fdtl" class="vs-button vs-button--ghost vs-button--sm">FDTL</a>
+        <a href="#/reports" class="vs-button vs-button--ghost vs-button--sm">Reports</a>
       </div>
     </div>
   </div>

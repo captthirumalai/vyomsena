@@ -1,10 +1,18 @@
 ﻿<section class="card">
-  <div class="card-heading">
-    <h2>Dispatch Control</h2>
-    <p>Create planned flights that flow to the EFB (actuals) and FDTL (compliance) modules via the shared flight record.</p>
+  <div class="vs-page-header">
+    <div class="vs-page-header-left">
+      <nav class="vs-page-breadcrumb" aria-label="Breadcrumb">
+        <span>VAMS Portal</span>
+        <span class="vs-page-breadcrumb-sep">/</span>
+        <span class="vs-page-breadcrumb-current">Dispatch</span>
+      </nav>
+      <h1 class="vs-page-title">Dispatch Control</h1>
+      <p class="vs-page-subtitle">Create planned flights that flow to the EFB (actuals) and FDTL (compliance) modules via the shared flight record.</p>
+    </div>
+    <div class="vs-page-header-right">
+      <span id="dispatch-status" class="vs-page-chip">Loading dispatch readiness...</span>
+    </div>
   </div>
-
-  <div id="dispatch-status" class="muted">Loading dispatch readiness...</div>
 
   <div class="vs-kpi-grid vs-kpi-grid--fixed" id="dispatch-summary">
     <div class="vs-kpi-card">

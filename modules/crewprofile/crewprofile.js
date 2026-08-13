@@ -309,7 +309,7 @@ function renderHeader() {
   const statusEl = activeView.querySelector('#crew-profile-status');
   if (statusEl) {
     statusEl.textContent = status;
-    statusEl.className = `crew-profile-status ${status.toLowerCase()}`;
+    statusEl.className = `vs-page-chip crew-profile-status ${status.toLowerCase()}`;
   }
 
   const titleEl = activeView.querySelector('#crew-profile-name');

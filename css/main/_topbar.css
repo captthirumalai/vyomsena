@@ -31,24 +31,24 @@
 
 .vs-topbar-title h1 {
   margin: 0;
-  font-size: 1.02rem;
+  font-size: 0.95rem;
   line-height: 1.2;
 }
 
 .vs-topbar-title p {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.7rem;
   color: var(--muted-color);
 }
 
 .vs-topbar .route-label {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   letter-spacing: 0.07em;
 }
 
 .vs-topbar #app-route {
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   margin: 0;
 }
 
@@ -61,7 +61,7 @@
 }
 
 .vs-topbar .breadcrumb-item {
-  font-size: 0.76rem;
+  font-size: 0.7rem;
 }
 
 .vs-topbar-actions {

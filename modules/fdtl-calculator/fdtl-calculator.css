@@ -1,12 +1,7 @@
 @import url('../fdtl/fdtl.css');
 
 .fdtl-calculator-header { border-top: 3px solid #1769e8; }
-.fdtl-calculator-heading a { text-decoration: none; }
-.fdtl-calculator-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-.fdtl-calculator-heading .eyebrow { margin: 0 0 0.35rem; color: #1769e8; font-size: var(--fdtl-size-c); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.fdtl-calculator-heading h2 { margin: 0; }
 .fdtl-calculator-rulebar { display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; color: #1e3a8a; }
 .fdtl-calculator-rulebar-icon { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 6px; background: #1769e8; color: #fff; font-weight: 800; }
 .fdtl-calculator-rulebar div { display: grid; gap: 0.15rem; }
 .fdtl-calculator-rulebar span { font-size: var(--fdtl-size-c); }
-@media (max-width: 640px) { .fdtl-calculator-heading { flex-direction: column; } .fdtl-calculator-heading a { align-self: flex-start; } }
