@@ -179,15 +179,22 @@ function renderSchemeLine() {
   element.textContent = `Scheme: ${activeScheme.schemeName} · ${activeScheme.schemeVersion} · ${approval.toUpperCase()}${opsManualRef} · Reporting ${reporting}m · Post-flight ${postFlight}m · Local night ${localNightStart}:00-${localNightEnd}:00 · Transport ${transportation}m`;
 }
 
+function fmtMinutes(minutes) {
+  const safe = Math.max(0, Math.round(Number(minutes) || 0));
+  const hours = Math.floor(safe / 60);
+  const mins = safe % 60;
+  return mins ? `${hours}:${String(mins).padStart(2, '0')}` : `${hours}:00`;
+}
+
 function renderSchemeEditor() {
-  const form = activeView?.querySelector('#fdtl-scheme-form');
-  if (!form) return;
+  const view = activeView;
+  if (!view) return;
 
   const approval = activeScheme.approval || {};
   const adjustments = activeScheme.operationalAdjustments || {};
 
   const setValue = (selector, value) => {
-    const input = form.querySelector(selector);
+    const input = view.querySelector(selector);
     if (input) input.value = value ?? '';
   };
 
@@ -200,6 +207,209 @@ function renderSchemeEditor() {
   setValue('#fdtl-scheme-local-night-start', Number(adjustments.localNightStartHour ?? 22));
   setValue('#fdtl-scheme-local-night-end', Number(adjustments.localNightEndHour ?? 6));
   setValue('#fdtl-scheme-transportation', Number(adjustments.transportationMinutes ?? 0));
+  setValue('#fdtl-scheme-retention-months', Number(activeScheme.records?.retentionMonths ?? 18));
+
+  const status = approval.status || 'draft';
+  const badge = view.querySelector('#fdtl-scheme-status-badge');
+  if (badge) {
+    badge.textContent = status.toUpperCase();
+    badge.className = `fdtl-scheme-status fdtl-scheme-status--${status}`;
+  }
+
+  const meta = view.querySelector('#fdtl-scheme-approval-meta');
+  if (meta) {
+    let when = null;
+    try {
+      if (approval.approvedDate) {
+        const date = approval.approvedDate?.toDate ? approval.approvedDate.toDate() : new Date(approval.approvedDate);
+        when = isNaN(date.getTime()) ? null : date.toLocaleDateString();
+      }
+    } catch (error) {
+      when = null;
+    }
+    const source = activeScheme.source ? ` · ${activeScheme.source}` : '';
+    meta.textContent = approval.approvedBy
+      ? `Approved by ${approval.approvedBy}${when ? ' on ' + when : ''}${source}`
+      : `Not yet approved${source}`;
+  }
+
+  renderSchemeBoard();
+}
+
+function renderSchemeBoard() {
+  const view = activeView;
+  if (!view) return;
+
+  const set = (id, html) => {
+    const element = view.querySelector(`#${id}`);
+    if (element) element.innerHTML = html;
+  };
+
+  const fdp = activeScheme.fdp || {};
+  const fdpRows = (fdp.twoPilot || [])
+    .slice()
+    .sort((a, b) => a.maxFlightTimeMinutes - b.maxFlightTimeMinutes || b.landings - a.landings)
+    .map(
+      (row) =>
+        `<tr><td>${fmtMinutes(row.maxFlightTimeMinutes)}</td><td>${row.landings}</td><td><strong>${fmtMinutes(row.maxFdpMinutes)}</strong></td></tr>`
+    )
+    .join('');
+  set(
+    'fdtl-card-fdp',
+    `
+    <h4>FDP Limits · Two-Pilot</h4>
+    <p class="fdtl-board-sub">Maximum flight time per duty day and the FDP allowed at each landing count.</p>
+    <table class="fdtl-board-table">
+      <thead><tr><th>Flight Time</th><th>Landings</th><th>Max FDP</th></tr></thead>
+      <tbody>${fdpRows || '<tr><td colspan="3">No FDP rows configured.</td></tr>'}</tbody>
+    </table>
+    <p class="fdtl-rule-note">Default max flight time / day <strong>${fmtMinutes(fdp.defaultMaxFlightTimeDayMinutes)}</strong> · warning threshold ${Math.round((fdp.warningThresholdPct ?? 0.8) * 100)}%</p>
+    `
+  );
+
+  const wocl = activeScheme.wocl || {};
+  set(
+    'fdtl-card-wocl',
+    `
+    <h4>Window of Circadian Low (WOCL)</h4>
+    <p class="fdtl-board-sub">Acclimatised crew · local time.</p>
+    <ul class="fdtl-rule-list">
+      <li><span>Window</span><strong>${wocl.startHour}:00 – ${wocl.endHour}:00</strong></li>
+      <li><span>FDP starts inside WOCL</span><strong>−${Math.round((wocl.startEncroachmentReductionPct ?? 1) * 100)}% (cap ${fmtMinutes(wocl.maxStartReductionMinutes)})</strong></li>
+      <li><span>FDP ends in / covers WOCL</span><strong>−${Math.round((wocl.endOrEncompassReductionPct ?? 0.5) * 100)}%</strong></li>
+    </ul>
+    `
+  );
+
+  const rest = activeScheme.rest || {};
+  const timeZone = activeScheme.timeZoneCrossing || {};
+  const twoLanding = rest.twoLandingProvision || {};
+  const twoLandingLine =
+    twoLanding.enabled !== false
+      ? `<li><span>Two-landing provision (split duty)</span><strong>+${fmtMinutes(twoLanding.increaseMinutes)}</strong></li>`
+      : '';
+  const restNotes = Array.isArray(rest.notes)
+    ? rest.notes.map((note) => `<p class="fdtl-rule-note">${escapeHtml(note)}</p>`).join('')
+    : '';
+  set(
+    'fdtl-card-rest',
+    `
+    <h4>Rest Rules</h4>
+    <p class="fdtl-board-sub">Minimum rest before the next duty.</p>
+    <ul class="fdtl-rule-list">
+      <li><span>Standard minimum</span><strong>${fmtMinutes(rest.minimumMinutes)}</strong></li>
+      <li><span>3 – 7 time zones</span><strong>${fmtMinutes(rest.timeZoneCrossing3To7Minutes ?? timeZone.zone3To7Minutes)}</strong></li>
+      <li><span>Over 7 time zones</span><strong>${fmtMinutes(rest.timeZoneCrossingOver7Minutes ?? timeZone.over7Minutes)}</strong></li>
+      ${twoLandingLine}
+    </ul>
+    <p class="fdtl-rule-note">${escapeHtml(rest.ruleLabel || '')}</p>
+    ${restNotes}
+    `
+  );
+
+  const weekly = rest.weekly || {};
+  set(
+    'fdtl-card-weekly',
+    `
+    <h4>Weekly Rest</h4>
+    <p class="fdtl-board-sub">Rolling 168-hour window measured from the first report time.</p>
+    <ul class="fdtl-rule-list">
+      <li><span>Required rest</span><strong>${fmtMinutes(weekly.minimumMinutes)}</strong></li>
+      <li><span>Must include local nights</span><strong>${weekly.localNights}</strong></li>
+      <li><span>Never exceed span</span><strong>${weekly.maxSpanHours} h</strong></li>
+      <li><span>Extended after</span><strong>${weekly.nightDutyTriggerCount} night/WOCL duties</strong></li>
+      <li><span>Extended rest</span><strong>${fmtMinutes(weekly.extendedMinimumMinutes)}</strong></li>
+    </ul>
+    `
+  );
+
+  const night = activeScheme.nightDuty || {};
+  set(
+    'fdtl-card-night',
+    `
+    <h4>Night Duty</h4>
+    <ul class="fdtl-rule-list">
+      <li><span>Window</span><strong>${night.startHour}:00 – ${night.endHour}:00</strong></li>
+      <li><span>Max consecutive nights</span><strong>${night.maxConsecutiveNights}</strong></li>
+      <li><span>Exception once per</span><strong>${night.exceptionOncePerHours} h</strong></li>
+    </ul>
+    `
+  );
+
+  const split = activeScheme.splitDuty || {};
+  set(
+    'fdtl-card-split',
+    `
+    <h4>Split Duty</h4>
+    <ul class="fdtl-rule-list">
+      <li><span>Break under ${fmtMinutes(split.breakLessThanMinutes)}</span><strong>No extension</strong></li>
+      <li><span>Break ${fmtMinutes(split.breakLessThanMinutes)} – ${fmtMinutes(split.breakGreaterThanMinutes)}</span><strong>Extend ${Math.round((split.extensionFactor ?? 0.5) * 100)}% of break</strong></li>
+      <li><span>Break over ${fmtMinutes(split.breakGreaterThanMinutes)}</span><strong>No extension</strong></li>
+    </ul>
+    `
+  );
+
+  const standby = activeScheme.standby || {};
+  const standbyRows = standby.enabled === true
+    ? `<li><span>Home standby counts</span><strong>${Math.round((standby.homeCountPct ?? 0) * 100)}%</strong></li>
+       <li><span>Hotel standby counts</span><strong>${Math.round((standby.hotelCountPct ?? 0.5) * 100)}%</strong></li>
+       <li><span>Airport standby counts</span><strong>${Math.round((standby.airportCountPct ?? 1) * 100)}%</strong></li>`
+    : '<li><span>Status</span><strong>Disabled</strong></li>';
+  set(
+    'fdtl-card-standby',
+    `
+    <h4>Standby</h4>
+    <p class="fdtl-board-sub">${escapeHtml(standby.appliesToLabel || '')}</p>
+    <ul class="fdtl-rule-list">${standbyRows}</ul>
+    `
+  );
+
+  const unforeseen = activeScheme.unforeseen || {};
+  set(
+    'fdtl-card-unforeseen',
+    `
+    <h4>Unforeseen Circumstances</h4>
+    <ul class="fdtl-rule-list">
+      <li><span>Max flight time extension</span><strong>+${fmtMinutes(unforeseen.maxFlightTimeExtensionMinutes)}</strong></li>
+      <li><span>Max FDP extension</span><strong>+${fmtMinutes(unforeseen.maxFdpExtensionMinutes)}</strong></li>
+      <li><span>PIC consent</span><strong>${unforeseen.requiresPICConsent ? 'Required' : 'No'}</strong></li>
+      <li><span>Head of Ops approval</span><strong>${unforeseen.requiresHeadOfOpsApproval ? 'Required' : 'No'}</strong></li>
+    </ul>
+    `
+  );
+
+  const acclimatisation = activeScheme.acclimatisation || {};
+  set(
+    'fdtl-card-acclimatisation',
+    `
+    <h4>Acclimatisation</h4>
+    <ul class="fdtl-rule-list">
+      <li><span>Default state</span><strong>${acclimatisation.defaultIsAcclimatised ? 'Acclimatised' : 'Unacclimatised'}</strong></li>
+      <li><span>Night window</span><strong>${acclimatisation.nightWindowStartHour}:00 – ${acclimatisation.nightWindowEndHour}:00</strong></li>
+      <li><span>Unacclimatised reduction</span><strong>−${Math.round((acclimatisation.unacclimatisedReductionPct ?? 0.5) * 100)}%</strong></li>
+    </ul>
+    `
+  );
+
+  const cumulative = activeScheme.cumulative || {};
+  const cumulativeRows = Object.keys(cumulative)
+    .sort((a, b) => Number(a) - Number(b))
+    .map((days) => {
+      const row = cumulative[days];
+      return `<tr><td>${days} days</td><td>${fmtMinutes(row.flightTimeMinutes)}</td><td>${fmtMinutes(row.dutyMinutes)}</td></tr>`;
+    })
+    .join('');
+  set(
+    'fdtl-card-cumulative',
+    `
+    <h4>Cumulative Limits</h4>
+    <p class="fdtl-board-sub">Rolling flight-time and duty maxima.</p>
+    <table class="fdtl-board-table">
+      <thead><tr><th>Window</th><th>Flight Time</th><th>Duty Time</th></tr></thead>
+      <tbody>${cumulativeRows || '<tr><td colspan="3">No cumulative limits configured.</td></tr>'}</tbody>
+    </table>
+    `
+  );
 }
 
 function renderDashboard() {
@@ -470,6 +680,10 @@ async function handleSchemeSubmit(event) {
       localNightStartHour: Number(readValue('#fdtl-scheme-local-night-start', 22)) || 22,
       localNightEndHour: Number(readValue('#fdtl-scheme-local-night-end', 6)) || 6,
       transportationMinutes: Number(readValue('#fdtl-scheme-transportation', 0)) || 0
+    },
+    records: {
+      ...(activeScheme.records || {}),
+      retentionMonths: Number(readValue('#fdtl-scheme-retention-months', 18)) || 18
     }
   };
 
@@ -481,6 +695,8 @@ async function handleSchemeSubmit(event) {
       trackHistory: true,
       forceOverride: false
     });
+    const dirty = activeView?.querySelector('#fdtl-scheme-dirty');
+    if (dirty) dirty.classList.add('hidden');
     showMessage(action === 'approve' ? 'FDTL scheme approved and saved.' : 'FDTL scheme settings saved.');
   } catch (error) {
     console.error('Save FDTL scheme failed:', error);
@@ -804,6 +1020,10 @@ export async function init(view, context) {
   });
   view.querySelector('#fdtl-check-form')?.addEventListener('submit', handleCheckSubmit);
   view.querySelector('#fdtl-scheme-form')?.addEventListener('submit', handleSchemeSubmit);
+  view.querySelector('#fdtl-scheme-form')?.addEventListener('input', () => {
+    const dirty = view.querySelector('#fdtl-scheme-dirty');
+    if (dirty) dirty.classList.remove('hidden');
+  });
   view.querySelector('#fdtl-fatigue-form')?.addEventListener('submit', handleFatigueSubmit);
 
   try {

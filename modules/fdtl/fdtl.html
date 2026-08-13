@@ -233,58 +233,87 @@
 </section>
 
 <section class="fdtl-pane hidden" data-fdtl-pane="scheme">
-  <div class="card">
-    <div class="card-heading">
-      <h3>Scheme Settings</h3>
-      <p class="muted">Operator-controlled values for reporting time, post-flight allowance, local night, and transport allowances.</p>
-    </div>
-    <form id="fdtl-scheme-form" class="fdtl-form">
-      <label class="fdtl-form-field">
-        <span>Scheme Name</span>
-        <input type="text" id="fdtl-scheme-name" />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Scheme Version</span>
-        <input type="text" id="fdtl-scheme-version" />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Approval Status</span>
-        <select id="fdtl-scheme-approval-status">
-          <option value="draft">Draft</option>
-          <option value="approved">Approved</option>
-          <option value="superseded">Superseded</option>
-        </select>
-      </label>
-      <label class="fdtl-form-field">
-        <span>Ops Manual Ref</span>
-        <input type="text" id="fdtl-scheme-ops-manual-ref" placeholder="e.g. OM-05 / Section 6.4" />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Reporting Time (minutes)</span>
-        <input type="number" id="fdtl-scheme-reporting-time" min="0" step="5" />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Post-flight Allowance (minutes)</span>
-        <input type="number" id="fdtl-scheme-post-flight-allowance" min="0" step="5" />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Local Night Start (HH)</span>
-        <input type="number" id="fdtl-scheme-local-night-start" min="0" max="23" step="1" />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Local Night End (HH)</span>
-        <input type="number" id="fdtl-scheme-local-night-end" min="0" max="23" step="1" />
-      </label>
-      <label class="fdtl-form-field">
-        <span>Transportation Allowance (minutes)</span>
-        <input type="number" id="fdtl-scheme-transportation" min="0" step="5" />
-      </label>
-      <div class="fdtl-form-actions">
-        <button type="submit" class="vs-button vs-button--secondary vs-button--sm" data-action="save">Save Draft</button>
-        <button type="submit" class="vs-button vs-button--primary vs-button--sm" data-action="approve">Approve Scheme</button>
+  <div class="fdtl-board">
+    <form id="fdtl-scheme-form" class="fdtl-scheme-form" novalidate>
+      <div class="fdtl-board-masthead">
+        <div class="fdtl-board-identity">
+          <div class="fdtl-board-title-row">
+            <span class="fdtl-scheme-status fdtl-scheme-status--draft" id="fdtl-scheme-status-badge">DRAFT</span>
+            <input class="fdtl-board-title-input" id="fdtl-scheme-name" aria-label="Scheme name" />
+            <input class="fdtl-board-version-input" id="fdtl-scheme-version" aria-label="Scheme version" title="Scheme version" />
+          </div>
+          <div class="fdtl-board-meta">
+            <label class="fdtl-board-ref">
+              <span>Ops Manual Ref</span>
+              <input id="fdtl-scheme-ops-manual-ref" placeholder="e.g. OM-05 / Section 6.4" />
+            </label>
+            <span id="fdtl-scheme-approval-meta" class="fdtl-board-approval-meta">Not yet approved</span>
+            <span class="fdtl-board-dirty hidden" id="fdtl-scheme-dirty">Unsaved changes</span>
+          </div>
+        </div>
+        <div class="fdtl-board-actions">
+          <select id="fdtl-scheme-approval-status" class="fdtl-board-status-select" aria-label="Approval status">
+            <option value="draft">Draft</option>
+            <option value="approved">Approved</option>
+            <option value="superseded">Superseded</option>
+          </select>
+          <button type="submit" class="vs-button vs-button--secondary vs-button--sm" data-action="save">Save Draft</button>
+          <button type="submit" class="vs-button vs-button--primary vs-button--sm" data-action="approve">Approve Scheme</button>
+        </div>
+      </div>
+
+      <div class="fdtl-board-stats">
+        <label class="fdtl-cond">
+          <span>Reporting Time</span>
+          <div class="fdtl-cond-value">
+            <input type="number" id="fdtl-scheme-reporting-time" min="0" step="5" />
+            <em>min</em>
+          </div>
+        </label>
+        <label class="fdtl-cond">
+          <span>Post-flight Allowance</span>
+          <div class="fdtl-cond-value">
+            <input type="number" id="fdtl-scheme-post-flight-allowance" min="0" step="5" />
+            <em>min</em>
+          </div>
+        </label>
+        <label class="fdtl-cond">
+          <span>Local Night Window</span>
+          <div class="fdtl-cond-value fdtl-cond-window">
+            <input type="number" id="fdtl-scheme-local-night-start" min="0" max="23" step="1" />
+            <span class="fdtl-cond-dash">–</span>
+            <input type="number" id="fdtl-scheme-local-night-end" min="0" max="23" step="1" />
+          </div>
+        </label>
+        <label class="fdtl-cond">
+          <span>Transportation Allowance</span>
+          <div class="fdtl-cond-value">
+            <input type="number" id="fdtl-scheme-transportation" min="0" step="5" />
+            <em>min</em>
+          </div>
+        </label>
+        <label class="fdtl-cond">
+          <span>Records Retention</span>
+          <div class="fdtl-cond-value">
+            <input type="number" id="fdtl-scheme-retention-months" min="0" step="1" />
+            <em>months</em>
+          </div>
+        </label>
+      </div>
+
+      <div class="fdtl-board-grid">
+        <div class="fdtl-board-card fdtl-board-card--wide" id="fdtl-card-fdp"></div>
+        <div class="fdtl-board-card" id="fdtl-card-wocl"></div>
+        <div class="fdtl-board-card" id="fdtl-card-rest"></div>
+        <div class="fdtl-board-card" id="fdtl-card-weekly"></div>
+        <div class="fdtl-board-card" id="fdtl-card-night"></div>
+        <div class="fdtl-board-card" id="fdtl-card-split"></div>
+        <div class="fdtl-board-card" id="fdtl-card-standby"></div>
+        <div class="fdtl-board-card" id="fdtl-card-unforeseen"></div>
+        <div class="fdtl-board-card" id="fdtl-card-acclimatisation"></div>
+        <div class="fdtl-board-card fdtl-board-card--wide" id="fdtl-card-cumulative"></div>
       </div>
     </form>
-  </div>
 
   <div class="card">
     <div class="card-heading">
@@ -310,5 +339,6 @@
       </label>
       <button type="submit" class="vs-button vs-button--primary vs-button--sm">Submit Fatigue Report</button>
     </form>
+  </div>
   </div>
 </section>
