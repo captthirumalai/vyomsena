@@ -356,7 +356,7 @@ function renderPilotCard(pilot) {
       <div class="cm-doc-chips">
         ${chips.length ? chips.map((chip) => `<span class="cm-doc-chip ${chip.tone}">${chip.mark} ${escapeHtml(chip.label)}</span>`).join('') : '<span class="cm-doc-chip is-warn">No documents</span>'}
       </div>
-      ${missingRequired.length ? `<div class="cm-card-policy is-warn"><span>${missingRequired.length} licence/training info missing</span></div>` : ''}
+      ${missingRequired.length ? `<div class="cm-card-policy is-warn"><span>${missingRequired.length} licence/training info missing</span></div><div class="cm-missing-docs">${missingRequired.map((name) => `<span class="cm-doc-chip is-warn">${escapeHtml(name)}</span>`).join('')}</div>` : ''}
       <div class="cm-card-expiry">
         <strong>${escapeHtml(summary.text)}</strong>
         <span>${expiries.length ? expiries.map((exp) => `<span class="${exp.tone}">${escapeHtml(exp.label)}: ${escapeHtml(exp.text)}</span>`).join(' · ') : 'No expiry dates on file'}</span>
@@ -549,7 +549,7 @@ function renderOverviewView(pilot) {
       <span>${escapeHtml(summary.text)}</span>
       ${getAttentionBadgeHtml(level)}
     </div>
-    ${missingRequired.length ? `<div class="cm-card-policy is-warn"><span>${missingRequired.length} licence/training info missing</span></div>` : ''}
+    ${missingRequired.length ? `<div class="cm-card-policy is-warn"><span>${missingRequired.length} licence/training info missing</span></div><div class="cm-missing-docs">${missingRequired.map((name) => `<span class="cm-doc-chip is-warn">${escapeHtml(name)}</span>`).join('')}</div>` : ''}
     <div class="cm-doc-chips">
       ${chips.length ? chips.map((chip) => `<span class="cm-doc-chip ${chip.tone}">${chip.mark} ${escapeHtml(chip.label)}</span>`).join('') : ''}
     </div>
