@@ -51,16 +51,12 @@ Level 3 — Document: detail modal (metadata, file, edit/replace/delete)
 ```
 <section class="cm-shell" id="cm-shell">
 ┌────────────────────────────────────────────────────────────────────────┐
-│  VAMS Portal / Crew                                            (breadcrumb)
-│  CREW                                                     [+ Add Pilot] │
-│  Manage your pilots and keep their documents current.                   │
-│  [🔍 search] (cm-search)      [Filter ▾] (cm-filter-toggle)  [👤 user]  │
-│ ┌─────────────────────────────────────────────────────────────────────┐ │
-│ │ sync strip (cm-sync-count / cm-last-sync / cm-sync-flash /          │ │
-│ │          cm-sync-error / cm-status)  — moved up, always visible     │ │
-│ └─────────────────────────────────────────────────────────────────────┘ │
-│ 🔔 2 pilot requests waiting                      (cm-pending-banner)    │
+│  ⬅ sidebar │ GLOBAL TOPBAR (core/layout.js)                           │
+│  VAMS Portal / Crew  (breadcrumb + title)        [notif] [sync strip]  │
+│             [👤 user] [🌙] [Sign Out]                                 │
+│  🔔 2 pilot requests waiting                      (cm-pending-banner)  │
 │                                                                         │
+│ [🔍 search] (cm-search)  [Filter ▾] (cm-filter-toggle)  [+ Add Pilot] │
 │ ┌──────────────┐  ┌──────────────────┐  ┌───────────────────────┐       │
 │ │ 👥 13 Pilots  │  │ 🟠 3 Attention    │  │ 🔴 2 Non-Compliant     │       │
 │ └──────────────┘  └──────────────────┘  └───────────────────────┘       │
@@ -102,7 +98,7 @@ Level 3 — Document: detail modal (metadata, file, edit/replace/delete)
 Rules that make this "one screen":
 - **No tab bar.** The `cm-tabs` element is removed. `setActiveTab` / `renderTabContent` (directory.js:80,113) are replaced by `renderCrewScreen()`.
 - All overlay surfaces (drawer, modals, bulk toolbar) are positioned over this single screen; the underlying list never changes context while they are open.
-- The sync strip (queue.js) is module-level, not buried in the directory panel.
+- The sync strip (queue.js) is global-topbar mounted (module-actions slot), not buried in the directory panel.
 
 ---
 
@@ -111,11 +107,15 @@ Rules that make this "one screen":
 ### 4.1 Header
 - Title: **Crew** (drop "Management"). Subtitle: *Manage your pilots and keep their documents current.*
 - Breadcrumb: `VAMS Portal / Crew`.
-- Right side: user chip (unchanged: `cm-user-name`, `cm-user-role`, `cm-user-avatar`), notifications bell `cm-btn-notifications` (unchanged behaviour, links to pending banner instead of a tab), primary button **`+ Add Pilot`** (`cm-btn-add-crew`) → opens Add Pilot modal (4.12).
+- Since V0.3.8 the module title, breadcrumb, and subtitle render in the **global topbar** (`core/layout.js`), not inside the module. Crew-specific actions mount into the topbar `#app-module-actions` slot via `mountModuleActions()` (called from `mountCrewHeader()` in `crew.js`):
+  - notifications bell `cm-btn-notifications` (unchanged behaviour — toggles the pending banner) with `cm-notif-dot`.
+  - the sync strip (4.2).
+- The primary **`+ Add Pilot`** button (`cm-btn-add-crew`) lives in the crew **toolbar** (`cm-toolbar`, beside search/filter), fixed since V0.3.9; it opens the Add Pilot modal (4.12). Hidden for pilot-role users by `applyRoleLayout`.
+- The user chip is **removed** from the crew header. A global **user info button** (`#btn-user-info` in the topbar, present on every module) now opens the user + company profile editor modal (`shared/userProfileEditor.js`).
 - `cm-global-search` in the header is **removed** — one search box only, at `cm-search` (4.5).
 
 ### 4.2 Sync strip (persistent)
-Move the existing `cm-sync-strip` block (currently inside the directory panel, crew.html:161) to module level, directly under the header. Wiring unchanged: `renderQueueSyncState()` from `queue.js`, `cm-status` from `setStatus` (utils.js:165).
+Wired unchanged (`renderQueueSyncState()` from `queue.js`, `cm-status` from `setStatus` in `utils.js`), but since V0.3.9 the `cm-sync-strip` renders inside the topbar **module-actions** slot (mounted by `mountCrewHeader()`), not under the header inside the module. The topbar-mounted IDs are resolved by `query()` in `utils.js`, which falls back to `document` when the element is not in the crew view.
 
 ### 4.3 Pending requests banner — `cm-pending-banner`
 - Visible when there are **pending** requests in the current user's direction:
@@ -244,7 +244,7 @@ Notes: ...
 - `Delete` → `deleteDocument` (documents.js:500) with the existing confirm + queue fallback.
 
 ### 4.12 Add Pilot modal — `cm-modal`
-Opened from `+ Add Pilot` header button or empty-state button. Two-step:
+Opened from **`+ Add Pilot`** in the crew toolbar (or the empty-state button). Two-step:
 
 ```
 ADD PILOT
@@ -260,7 +260,7 @@ ADD PILOT
 - Also surfaces a collapsed **Requests** accordion reusing `renderOutgoingRequests`/`renderIncomingRequests` so nothing from the old Linking tab is lost.
 
 ### 4.13 Pilot-role variant
-`applyRoleLayout` (crew.js:458) extended:
+`applyRoleLayout` (crew.js:591) extended:
 - Hide `+ Add Pilot`, bulk toolbar, and the card checkboxes.
 - List shows a single card for the current user (`crewState.activeCurrentUser`).
 - Pending requests banner shows **incoming** requests only (accept/decline), as today.
@@ -408,7 +408,7 @@ crewListState.filterOpen = false;                   // popover visibility
 
 ## 9. Implementation Slices (each independently testable)
 
-1. **Shell** — rewrite `crew.html` to the single-screen skeleton (4.1-4.3); remove tabs; `init` (crew.js:470) calls `renderCrewScreen()`; state.js tab removal; keep a stub that renders the existing table into the list region so nothing breaks mid-flight.
+1. **Shell** — rewrite `crew.html` to the single-screen skeleton (4.1-4.3); remove tabs; `init` (crew.js:602) calls `renderCrewScreen()`; state.js tab removal; keep a stub that renders the existing table into the list region so nothing breaks mid-flight.
 2. **Pilot list** — cards (4.7) + view toggle + empty state; `getSortedAndFilteredPilots` → new Set filters.
 3. **Attention engine** — helpers (Section 5), attention strip (4.4), Needs Attention section (4.6), stat clicks.
 4. **Search** — single input, index + semantic tokens (Section 6).

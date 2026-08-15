@@ -19,6 +19,7 @@ Title: Crew Management
 - Compliance summary counters (valid, expiring, expired).
 - Action permissions moved to permission service.
 - Organization scoping moved to organization service.
+- Crew module actions (notifications, sync strip) render in the **global topbar** module-actions slot (V0.3.9); the **Add Pilot** button lives in the crew toolbar (`cm-toolbar`) with the search/filter controls; the topbar hosts a global **user info** button that opens the user + company profile editor.
 
 ## Why This Module Is Strategic
 Crew data drives documents, training, currency, and operations planning. This is the first production-grade domain for cross-platform Android and web parity.

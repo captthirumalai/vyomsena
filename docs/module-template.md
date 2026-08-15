@@ -86,6 +86,29 @@ export async function init(view, context) {
 
 Add the module manifest import to `shared/routes.js` and include it in `appRoutes`.
 
+## 5a. Topbar module actions
+
+Since V0.3.8 the module title, breadcrumb, and subtitle render in the **global topbar** (`core/layout.js`). Modules that need their own top-right control strip (chips, status readouts, buttons) mount them into the `#app-module-actions` slot during `init()`:
+
+```js
+import { mountModuleActions } from '../../shared/moduleHeader.js';
+
+export async function init(view, context) {
+  mountModuleActions(`
+    <span id="my-scheme-line" class="vs-page-chip">Loading...</span>
+    <span id="my-status" class="vs-page-status" aria-live="polite"></span>
+  `);
+  // ... rest of init
+}
+```
+
+Notes:
+- `mountModuleActions` clears the previous module's actions first, so mount exactly once per `init()`.
+- `getModuleAction(selector)` and `getModuleActionsHost()` are also exported from `shared/moduleHeader.js`.
+- Because mounted elements live outside the module view, module helpers that look them up should fall back to `document` when the view-scoped query returns nothing (see crew's `query()` in `modules/crew/utils.js`).
+- The global topbar also hosts `#btn-user-info`, which opens the user + company profile editor across every module (`shared/userProfileEditor.js`).
+- Module header CSS (`.cm-header`, `.vs-page-header`) is legacy; new modules rely on the topbar + module-actions slot.
+
 ## 6. Service layer rule
 
 - Module files should not import Firebase SDK directly.

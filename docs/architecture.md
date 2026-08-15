@@ -46,7 +46,7 @@ This project follows a layered structure:
 - The app is a modular single-page application using a shared shell and dynamic module loader.
 - `core/` owns common behavior: layout, theme, notifications, and global UI shell.
 - `shared/routes.js` defines the route manifest; modules register there with HTML, JS, CSS, permissions, and metadata.
-- `layout.js` now generates the sidebar from manifests and applies permission filtering for the current user.
+- `layout.js` now generates the sidebar from manifests and applies permission filtering for the current user, renders the global topbar (breadcrumb/title/subtitle + module-actions slot), and hosts the theme toggle, user info button, and sign-out.
 - `js/router.js` creates a richer module context object for `init(view, context)` and enforces `canAccessRoute()` before loading protected routes.
 - Modules remain isolated and only update the content area (`#view`).
 - A consistent `components/` library will provide reusable UI primitives.
@@ -96,3 +96,9 @@ This project follows a layered structure:
 - Confirmed product direction: one login, pilot-focused Android app, company-focused web app, and post-login personal/company mode switching.
 - Updated company workspace registration fields to collect operator bootstrap details required for future organization membership rollout.
 - Restricted web shell access to company-side users and directed pilots to Android-only access.
+
+### 2026-08-15
+- **V0.3.8** — merged per-module headers into the global topbar: breadcrumb, title, subtitle, and right-side status/action chips now render in `core/layout.js` and are populated per module through `shared/moduleHeader.js` (`mountModuleActions`, `getModuleAction`, `getModuleActionsHost`). Removed in-section headers across all modules; crew kept its Add Pilot + sync strip controls.
+- **V0.3.9** — moved crew's notifications, sync strip, and Add Pilot into the topbar `#app-module-actions` slot via `mountCrewHeader()` in crew `init()`; `query()` in `modules/crew/utils.js` falls back to `document` for topbar-mounted IDs. Added a global **user info button** (`#btn-user-info`, all modules) opening the user + company profile editor in `shared/userProfileEditor.js` (saves via `updateUserProfile` + `updateCompany`, refreshes `authStore`). Add Pilot later moved further down into the crew module toolbar (`#cm-btn-add-crew` in `cm-toolbar`).
+- **V0.3.10** — FDTL flight details became a centered popup overlay instead of an always-visible side column.
+- Removed dead `js/config.js`; the version chip reads only `config/app.config.js`.

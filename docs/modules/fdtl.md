@@ -84,11 +84,11 @@ The primary table is compliance-focused:
 
 `Date | Flight | Route | Crew | Source | Flight Time | FDP | Rest | 7/28-Day | FDTL`
 
-- Clicking a row opens the full flight detail panel (FDTL calculation, source, audit history).
+- Clicking a row (or the **◉** view button) opens the full flight detail **popup** (source, FDTL calculation, mismatch resolution, audit history) — since V0.3.10 this is a centered modal overlay, not an always-visible side panel; the records table uses the full row width. Close via the **Close** button or clicking the backdrop.
 - Filters: crew, search, status, source.
 - KPI cards summarize flight time, duty time, 7-day, 28-day, rest and overall status.
 
-Header actions remain: **FDTL Scheme** | **Flight Calculator** | **Audit Trail**.
+The dashboard action cards (**FDTL Scheme** | **Flight Calculator** | **Audit Trail**) remain in the module pane. The scheme + status readouts (`#fdtl-scheme-line` and `#fdtl-status`) mount into the global topbar module-actions slot via `mountModuleActions()`.
 
 ## UX Decision: Scheme as a rare-action control
 

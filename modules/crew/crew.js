@@ -581,10 +581,6 @@ function mountCrewHeader() {
       <span class="cm-sync-error" id="cm-sync-error">No retry errors yet.</span>
       <span class="cm-status" id="cm-status">Loading crew data...</span>
     </div>
-    <button type="button" class="cm-btn cm-btn-primary cm-btn-md" id="cm-btn-add-crew">
-      <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
-      <span>Add Pilot</span>
-    </button>
   `);
 }
 
