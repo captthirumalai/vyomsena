@@ -1555,6 +1555,12 @@ export async function init(view, context) {
     renderFlightDetails();
   });
   view.querySelector('#fdtl-flight-details')?.addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) {
+      selectedFlightId = null;
+      renderFlightsTable();
+      renderFlightDetails();
+      return;
+    }
     if (event.target.closest('[data-resolve-flight]')) {
       handleResolveMismatch(event);
       return;

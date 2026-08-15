@@ -48,8 +48,11 @@
 .fdtl-dashboard-tabs b { display: inline-grid; place-items: center; min-width: 1.1rem; height: 1.1rem; margin-left: 0.2rem; border-radius: 50%; background: #dd4b4b; color: white; font-size: 0.6rem; }
 .fdtl-dashboard-subpane { display: none; }
 .fdtl-dashboard-subpane.active { display: block; }
-.fdtl-records-shell { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 0.8rem; align-items: start; }
-.fdtl-records-main, .fdtl-flight-details { min-width: 0; border: 1px solid #e4eaf2; border-radius: 6px; background: #fff; box-shadow: 0 2px 8px rgba(15, 35, 65, 0.035); }
+.fdtl-records-shell { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.8rem; align-items: start; }
+.fdtl-records-main { min-width: 0; border: 1px solid #e4eaf2; border-radius: 6px; background: #fff; box-shadow: 0 2px 8px rgba(15, 35, 65, 0.035); }
+.fdtl-flight-details { display: none; }
+.fdtl-flight-details.fdtl-details-open { display: flex; align-items: center; justify-content: center; position: fixed; inset: 0; z-index: 40; padding: 1rem; background: rgba(2, 6, 23, 0.55); }
+.fdtl-flight-details .fdtl-details-card { width: min(780px, 100%); max-height: calc(100vh - 2rem); overflow-y: auto; }
 .fdtl-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 0.9rem; border-bottom: 1px solid #edf1f5; }
 .fdtl-section-heading h3 { margin: 0; font-size: var(--fdtl-size-h); }
 .fdtl-section-heading p { margin: 0.2rem 0 0; color: #7a8799; font-size: var(--fdtl-size-c); }
@@ -82,13 +85,13 @@
 .fdtl-manual-details { margin-top: 0.8rem; border: 1px solid #e4eaf2; border-radius: 6px; background: #fff; }
 .fdtl-manual-summary { padding: 0.85rem 1rem; color: #172845; font-size: var(--fdtl-size-c); }
 @media (max-width: 1100px) { .fdtl-kpi-layout { grid-template-columns: 1fr; } .fdtl-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 800px) { .fdtl-action-grid { grid-template-columns: 1fr; } .fdtl-records-shell { grid-template-columns: 1fr; } .fdtl-flight-details.fdtl-details-open { position: fixed; inset: 0; z-index: 20; overflow: auto; } .fdtl-record-controls { flex-wrap: wrap; } }
+@media (max-width: 800px) { .fdtl-action-grid { grid-template-columns: 1fr; } .fdtl-flight-details.fdtl-details-open { padding: 0.75rem; } .fdtl-record-controls { flex-wrap: wrap; } }
 @media (max-width: 560px) { .fdtl-kpi-grid { display: flex; overflow-x: auto; } .fdtl-stat { flex: 0 0 155px; } .fdtl-section-heading { align-items: flex-start; flex-direction: column; } }
 
 /* Keep the reference dashboard rules authoritative after legacy module styles. */
 .fdtl-kpi-layout { grid-template-columns: minmax(0, 1fr) 190px; }
 .fdtl-kpi-layout .fdtl-kpi-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; }
-.fdtl-records-shell { grid-template-columns: minmax(0, 1fr) 250px; }
+.fdtl-records-shell { grid-template-columns: minmax(0, 1fr); }
 .fdtl-dashboard-subpane { display: none; }
 .fdtl-dashboard-subpane.active { display: block; }
 @media (max-width: 1100px) { .fdtl-kpi-layout { grid-template-columns: 1fr; } .fdtl-kpi-layout .fdtl-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -1414,7 +1417,7 @@
 }
 
 .fdtl-flight-details {
-  margin-top: 1rem;
+  margin: 0;
 }
 
 .fdtl-details-empty {
