@@ -2,6 +2,7 @@ import { getMenuRoutesForUser } from '../shared/routes.js';
 import { authStore } from '../stores/authStore.js';
 import { themeStore } from '../stores/themeStore.js';
 import { appConfig } from '../config/app.config.js';
+import { openUserProfileEditor } from '../shared/userProfileEditor.js';
 
 function query(selector) {
   return document.querySelector(selector);
@@ -36,6 +37,8 @@ function renderSidebar(user) {
 function updateUserPanel(user) {
   const label = query('#app-user');
   if (label) label.textContent = getUserLabel(user);
+  const userInfoName = query('#btn-user-info-name');
+  if (userInfoName) userInfoName.textContent = user?.name || user?.email || 'User';
   renderSidebar(user);
 }
 
@@ -54,6 +57,10 @@ function setActiveSidebarLink(path) {
 function initShellActions() {
   query('#btn-theme-toggle')?.addEventListener('click', () => {
     themeStore.toggleTheme();
+  });
+
+  query('#btn-user-info')?.addEventListener('click', () => {
+    openUserProfileEditor(authStore.user);
   });
 
   const shellEl = query('#app-shell');
@@ -121,6 +128,10 @@ export function initLayout() {
           <div class="vs-topbar-actions">
             <div id="app-module-actions" class="vs-module-actions"></div>
             <button id="btn-theme-toggle" class="vs-button vs-button--secondary vs-button--sm" type="button">🌙</button>
+            <button id="btn-user-info" class="vs-button vs-button--secondary vs-button--sm" type="button">
+              <span class="vs-user-icon">👤</span>
+              <span class="vs-user-info-name" id="btn-user-info-name">User</span>
+            </button>
             <button id="btn-logout" class="vs-button vs-button--secondary vs-button--sm">Sign Out</button>
           </div>
         </header>

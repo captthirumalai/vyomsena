@@ -3,7 +3,7 @@ import { summarizeCrewDocumentCompliance } from '../../services/crewService.js';
 import { getDocumentComplianceState } from '../../services/documentService.js';
 
 export function query(selector) {
-  return crewState.activeView?.querySelector(selector);
+  return crewState.activeView?.querySelector(selector) || document.querySelector(selector);
 }
 
 export function queryAll(selector) {

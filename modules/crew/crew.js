@@ -19,12 +19,12 @@ import { startCrewDocumentSyncWorker } from '../../services/crewDocumentSyncServ
 import { canPerformCrewAction, getCrewPermissionsForUser } from '../../services/permissionService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { mirrorCrewProfilesToCompany } from '../../services/companyService.js';
+import { mountModuleActions } from '../../shared/moduleHeader.js';
 import { crewState, crewListState, docListState, PAGE_SIZE, CREW_LIST_VIEW_KEY } from './state.js';
 import {
   query,
   queryAll,
   normalizeRole,
-  getInitials,
   setStatus,
   showToast,
   closeModal,
@@ -564,6 +564,30 @@ bindKeyboard.handler = function handleKeyboard(event) {
   }
 };
 
+function mountCrewHeader() {
+  mountModuleActions(`
+    <button type="button" class="cm-icon-btn" id="cm-btn-notifications" aria-label="Notifications" title="Notifications">
+      <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+      <span class="cm-notif-dot" id="cm-notif-dot" hidden></span>
+    </button>
+    <div class="cm-sync-strip" aria-live="polite">
+      <span class="cm-sync-pill" id="cm-sync-count">Pending Sync: 0</span>
+      <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-sync-retry" disabled>
+        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 6v6l4 2M12 3a9 9 0 1 0 9 9"/></svg>
+        <span id="cm-sync-retry-label">Retry Sync</span>
+      </button>
+      <span class="cm-sync-pill cm-sync-pill-blue" id="cm-last-sync">Last sync: —</span>
+      <span class="cm-sync-flash hidden" id="cm-sync-flash"></span>
+      <span class="cm-sync-error" id="cm-sync-error">No retry errors yet.</span>
+      <span class="cm-status" id="cm-status">Loading crew data...</span>
+    </div>
+    <button type="button" class="cm-btn cm-btn-primary cm-btn-md" id="cm-btn-add-crew">
+      <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
+      <span>Add Pilot</span>
+    </button>
+  `);
+}
+
 function applyRoleLayout() {
   if (isPilotRole()) {
     query('#cm-btn-add-crew')?.classList.add('hidden');
@@ -587,12 +611,7 @@ export async function init(view, context) {
   crewState.activeRole = normalizeRole(currentUser?.role);
   crewState.crewPermissions = getCrewPermissionsForUser(currentUser);
 
-  const userName = query('#cm-user-name');
-  if (userName) userName.textContent = currentUser?.name || currentUser?.email || 'User';
-  const userRole = query('#cm-user-role');
-  if (userRole) userRole.textContent = crewState.activeRole;
-  const userAvatar = query('#cm-user-avatar');
-  if (userAvatar) userAvatar.textContent = getInitials(currentUser?.name || currentUser?.email);
+  mountCrewHeader();
 
   try {
     const savedView = window.localStorage.getItem(CREW_LIST_VIEW_KEY);

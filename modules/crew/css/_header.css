@@ -1,61 +1,7 @@
 /* VyomSena Crew Management - HEADER styles (extracted from crew.css) */
-
-/* ============================ HEADER ============================ */
-
-.cm-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.5rem;
-  padding: 1.25rem 0 0.5rem;
-  flex-wrap: wrap;
-}
-
-.cm-header-left {
-  min-width: 0;
-}
-
-.cm-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--cm-muted);
-  margin-bottom: 0.5rem;
-}
-
-.cm-breadcrumb-sep {
-  color: var(--cm-border-strong);
-}
-
-.cm-breadcrumb-current {
-  color: var(--cm-primary);
-}
-
-.cm-title {
-  margin: 0;
-  font-size: 1.55rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.cm-subtitle {
-  margin: 0.35rem 0 0;
-  color: var(--cm-muted);
-  font-size: 0.92rem;
-}
-
-.cm-header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-}
-
-/* VyomSena Crew Management - CONTROLS styles (extracted from crew.css) */
+/* NOTE: the in-module page header was moved up into the global topbar
+   module-actions host (see crew.js mountCrewHeader). Only reusable
+   controls/avatar primitives below remain. */
 
 /* ============================ CONTROLS ============================ */
 
@@ -129,16 +75,6 @@
   border: 2px solid var(--cm-card);
 }
 
-.cm-user-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.35rem 0.8rem 0.35rem 0.4rem;
-  border: 1px solid var(--cm-border);
-  border-radius: 999px;
-  background: var(--cm-card);
-}
-
 .cm-avatar {
   display: inline-flex;
   align-items: center;
@@ -157,18 +93,4 @@
   width: 56px;
   height: 56px;
   font-size: 1.1rem;
-}
-
-.cm-user-meta {
-  display: grid;
-  line-height: 1.2;
-}
-
-.cm-user-meta strong {
-  font-size: 0.82rem;
-}
-
-.cm-user-meta span {
-  font-size: 0.7rem;
-  color: var(--cm-muted);
 }

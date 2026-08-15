@@ -42,23 +42,6 @@
     grid-template-columns: 1fr;
   }
 
-  .cm-header {
-    flex-direction: column;
-  }
-
-  .cm-header-right {
-    width: 100%;
-  }
-
-  .cm-header-right .cm-btn-md,
-  .cm-header-right .cm-search-wrap {
-    flex: 1 1 auto;
-  }
-
-  .cm-user-meta {
-    display: none;
-  }
-
   .cm-table thead {
     display: none;
   }

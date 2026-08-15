@@ -526,6 +526,8 @@ function renderFlightDetails() {
   const container = activeView?.querySelector('#fdtl-flight-details');
   if (!container) return;
 
+  container.classList.toggle('fdtl-details-open', Boolean(selectedFlightId));
+
   if (!selectedFlightId) {
     container.innerHTML = '<div class="fdtl-details-empty muted">Select a flight record to view source, FDTL calculation, and audit history.</div>';
     return;

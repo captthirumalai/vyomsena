@@ -97,6 +97,17 @@
   min-height: 32px;
 }
 
+#btn-user-info .vs-user-icon {
+  margin-right: 0.1rem;
+}
+
+#btn-user-info .vs-user-info-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 980px) {
   .vs-topbar {
     align-items: flex-start;

@@ -82,7 +82,7 @@
 .fdtl-manual-details { margin-top: 0.8rem; border: 1px solid #e4eaf2; border-radius: 6px; background: #fff; }
 .fdtl-manual-summary { padding: 0.85rem 1rem; color: #172845; font-size: var(--fdtl-size-c); }
 @media (max-width: 1100px) { .fdtl-kpi-layout { grid-template-columns: 1fr; } .fdtl-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 800px) { .fdtl-action-grid { grid-template-columns: 1fr; } .fdtl-records-shell { grid-template-columns: 1fr; } .fdtl-flight-details { position: fixed; inset: 0; z-index: 20; overflow: auto; } .fdtl-record-controls { flex-wrap: wrap; } }
+@media (max-width: 800px) { .fdtl-action-grid { grid-template-columns: 1fr; } .fdtl-records-shell { grid-template-columns: 1fr; } .fdtl-flight-details.fdtl-details-open { position: fixed; inset: 0; z-index: 20; overflow: auto; } .fdtl-record-controls { flex-wrap: wrap; } }
 @media (max-width: 560px) { .fdtl-kpi-grid { display: flex; overflow-x: auto; } .fdtl-stat { flex: 0 0 155px; } .fdtl-section-heading { align-items: flex-start; flex-direction: column; } }
 
 /* Keep the reference dashboard rules authoritative after legacy module styles. */
