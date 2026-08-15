@@ -1,5 +1,6 @@
 import { getCrew, onCrewSnapshot } from '../../services/crewService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
+import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 import {
   getDefaultScheme,
   getFdtlScheme,
@@ -47,7 +48,7 @@ const formatDayTime = (value) => {
 };
 
 function showStatus(message) {
-  const element = view?.querySelector('#fdtl-calculator-status');
+  const element = getModuleAction('fdtl-calculator-status');
   if (element) element.textContent = message;
 }
 
@@ -180,6 +181,12 @@ function handleSubmit(event) {
 
 export async function init(moduleView, context) {
   view = moduleView;
+
+  mountModuleActions(`
+    <span id="fdtl-calculator-status" class="vs-page-status" aria-live="polite"></span>
+    <a class="vs-button vs-button--secondary vs-button--sm" href="#/fdtl">Back to Monitoring</a>
+  `);
+
   const user = context?.currentUser || null;
   const companyId = getCurrentOrganizationContext(user).organizationId || user?.uid || null;
   if (!companyId) {

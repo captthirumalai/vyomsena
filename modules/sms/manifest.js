@@ -6,6 +6,7 @@
   order: 120,
   showInMenu: true,
   permissions: ['admin', 'operations'],
+  subtitle: 'Record safety observations and monitor mitigation actions.',
   breadcrumbs: ['Home', 'Safety Management'],
   html: 'modules/sms/sms.html',
   js: 'modules/sms/sms.js',

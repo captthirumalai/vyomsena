@@ -1,6 +1,7 @@
 import { getAircraft, onAircraftSnapshot } from '../../services/aircraftService.js';
 import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
 import { appConfig } from '../../config/app.config.js';
+import { mountModuleActions, getModuleAction, setModuleSubtitle } from '../../shared/moduleHeader.js';
 
 let aircraftUnsubscribe = null;
 let crewUnsubscribe = null;
@@ -284,13 +285,12 @@ function renderDashboard() {
   setText('kpi-doc-expired', String(dashboardState.compliance.expired));
   setText('kpi-compliance-rate', `${complianceRate}%`);
 
-  setText(
-    'dashboard-meta',
+  setModuleSubtitle(
     `Loaded ${fleetTotal} aircraft and ${crewTotal} pilots. Fleet readiness ${fleetTotal ? Math.round((fleetOperational / fleetTotal) * 100) : 0}% with ${complianceRate}% documentation compliance using a ${dashboardState.warningDays}-day alert window.`
   );
   setText('dashboard-watchlist-hint', `Top expiry risks (${dashboardState.warningDays}-day window)`);
 
-  const warningWindowSelect = document.getElementById('dashboard-warning-window');
+  const warningWindowSelect = getModuleAction('dashboard-warning-window');
   if (warningWindowSelect && warningWindowSelect.value !== String(dashboardState.warningDays)) {
     warningWindowSelect.value = String(dashboardState.warningDays);
   }
@@ -327,7 +327,7 @@ function bindDashboardControls() {
   warningWindowSelectCleanup?.();
   warningWindowSelectCleanup = null;
 
-  const warningWindowSelect = document.getElementById('dashboard-warning-window');
+  const warningWindowSelect = getModuleAction('dashboard-warning-window');
   if (!warningWindowSelect) return;
 
   warningWindowSelect.value = String(dashboardState.warningDays);
@@ -372,6 +372,24 @@ export async function init(view, context) {
 
   setText('dashboard-release-chip', `Build: ${appConfig.releaseVersion || 'V2.x'}`);
 
+  mountModuleActions(`
+    <span id="dashboard-last-sync" class="vs-page-chip">Syncing...</span>
+    <label class="dashboard-controls" for="dashboard-warning-window">
+      <span>Alert Window</span>
+      <select id="dashboard-warning-window" aria-label="Select compliance alert window">
+        <option value="15">15 days</option>
+        <option value="30" selected>30 days</option>
+        <option value="45">45 days</option>
+        <option value="60">60 days</option>
+      </select>
+    </label>
+    <div class="dashboard-quick-links">
+      <a href="#/crew" class="vs-button vs-button--ghost vs-button--sm">Crew</a>
+      <a href="#/fdtl" class="vs-button vs-button--ghost vs-button--sm">FDTL</a>
+      <a href="#/reports" class="vs-button vs-button--ghost vs-button--sm">Reports</a>
+    </div>
+  `);
+
   const cards = view.querySelectorAll('.card');
   cards.forEach((card, index) => {
     card.dataset.module = 'dashboard';
@@ -382,7 +400,7 @@ export async function init(view, context) {
   bindDashboardControls();
 
   if (!dashboardState.operatorUid) {
-    setText('dashboard-meta', 'No authorized operator available for this dashboard view.');
+    setModuleSubtitle('No authorized operator available for this dashboard view.');
     setText('dashboard-last-sync', 'Authorization required');
     return {
       destroy() {

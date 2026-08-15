@@ -1,6 +1,7 @@
 ﻿import { getAircraft, onAircraftSnapshot, getCompanyAircraft, onCompanyAircraftSnapshot } from '../../services/aircraftService.js';
 import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
+import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 import {
   listFlights,
   onFlightsSnapshot,
@@ -38,7 +39,7 @@ function getCrewName(member) {
 async function renderDispatch() {
   if (!activeView) return;
 
-  const statusLabel = activeView.querySelector('#dispatch-status');
+  const statusLabel = getModuleAction('dispatch-status');
   const queueBody = activeView.querySelector('#dispatch-queue-body');
   if (!statusLabel || !queueBody) return;
 
@@ -187,7 +188,7 @@ async function handleCreateFlight(event) {
   const p1Id = read('#dispatch-flight-p1');
 
   if (!flightNumber || !departure || !destination || !flightDate || !p1Id) {
-    const status = activeView.querySelector('#dispatch-status');
+    const status = getModuleAction('dispatch-status');
     if (status) status.textContent = 'Flight number, aircraft, route, date, and P1 are required.';
     return;
   }
@@ -227,17 +228,19 @@ async function handleCreateFlight(event) {
     event.target.reset();
     const dateInput = activeView.querySelector('#dispatch-flight-date');
     if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
-    const status = activeView.querySelector('#dispatch-status');
+    const status = getModuleAction('dispatch-status');
     if (status) status.textContent = 'Flight created. It is now visible to the EFB and FDTL modules.';
   } catch (error) {
     console.error('Create flight failed:', error);
-    const status = activeView.querySelector('#dispatch-status');
+    const status = getModuleAction('dispatch-status');
     if (status) status.textContent = 'Failed to create the flight.';
   }
 }
 
 export async function init(view, context) {
   activeView = view;
+
+  mountModuleActions('<span id="dispatch-status" class="vs-page-chip">Loading dispatch readiness...</span>');
 
   const heading = view.querySelector('h2');
   if (heading) {
@@ -255,7 +258,7 @@ export async function init(view, context) {
   activeOperatorUid = orgContext.organizationId || operatorUid;
 
   if (!activeOperatorUid) {
-    const statusLabel = view.querySelector('#dispatch-status');
+    const statusLabel = getModuleAction('dispatch-status');
     if (statusLabel) {
       statusLabel.textContent = 'No authorized operator found.';
     }
@@ -280,7 +283,7 @@ export async function init(view, context) {
     await renderDispatch();
   } catch (error) {
     console.error('Dispatch initial load failed:', error);
-    const statusLabel = view.querySelector('#dispatch-status');
+    const statusLabel = getModuleAction('dispatch-status');
     if (statusLabel) {
       statusLabel.textContent = 'Unable to load dispatch data right now.';
     }

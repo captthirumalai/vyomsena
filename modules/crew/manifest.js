@@ -6,6 +6,7 @@ export const manifest = {
   order: 20,
   showInMenu: true,
   permissions: ['operations'],
+  subtitle: 'Manage your pilots and keep their documents current.',
   breadcrumbs: ['Home', 'Crew'],
   html: 'modules/crew/crew.html',
   js: 'modules/crew/crew.js',

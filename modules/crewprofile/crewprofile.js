@@ -7,6 +7,7 @@ import {
 } from '../../services/crewService.js';
 import { getUserByUid } from '../../services/userService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
+import { mountModuleActions, getModuleAction, setModuleTitle, setModuleSubtitle } from '../../shared/moduleHeader.js';
 
 const PROFILE_KEY = 'vs-selected-crew-profile';
 
@@ -306,16 +307,14 @@ function renderHeader() {
   const compliance = summarizeCrewDocumentCompliance(profileDocuments || []);
   const status = compliance.expired > 0 ? 'Expired' : compliance.expiring > 0 ? 'Expiring' : 'Valid';
 
-  const statusEl = activeView.querySelector('#crew-profile-status');
+  const statusEl = getModuleAction('crew-profile-status');
   if (statusEl) {
     statusEl.textContent = status;
     statusEl.className = `vs-page-chip crew-profile-status ${status.toLowerCase()}`;
   }
 
-  const titleEl = activeView.querySelector('#crew-profile-name');
-  const subtitleEl = activeView.querySelector('#crew-profile-subtitle');
-  if (titleEl) titleEl.textContent = name;
-  if (subtitleEl) subtitleEl.textContent = subtitle;
+  setModuleTitle(name || 'Crew Profile');
+  setModuleSubtitle(subtitle);
 
   const kpiContainer = activeView.querySelector('#crew-profile-kpis');
   if (!kpiContainer) return;
@@ -731,9 +730,13 @@ export async function init(view, context) {
   activeView = view;
   profileUid = resolveProfileUid(context?.currentUser);
 
+  mountModuleActions(`
+    <span id="crew-profile-status" class="vs-page-chip">Pending</span>
+    <a href="#/crew" class="vs-button vs-button--secondary vs-button--sm">Back to Crew</a>
+  `);
+
   if (!profileUid) {
-    const subtitle = activeView.querySelector('#crew-profile-subtitle');
-    if (subtitle) subtitle.textContent = 'No crew member selected. Open Crew Management and choose Profile from a crew row.';
+    setModuleSubtitle('No crew member selected. Open Crew Management and choose Profile from a crew row.');
     return {
       destroy() {
         activeView = null;
@@ -743,8 +746,7 @@ export async function init(view, context) {
 
   profileUser = await getUserByUid(profileUid);
   if (!profileUser) {
-    const subtitle = activeView.querySelector('#crew-profile-subtitle');
-    if (subtitle) subtitle.textContent = 'Crew profile not found or inaccessible.';
+    setModuleSubtitle('Crew profile not found or inaccessible.');
     return {
       destroy() {
         activeView = null;

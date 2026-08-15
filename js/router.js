@@ -1,6 +1,7 @@
 import { appRoutes, defaultRoute, canAccessRoute } from '../shared/routes.js';
 import { authStore, themeStore } from '../stores/index.js';
 import { emit as emitEvent } from '../services/eventBus.js';
+import { clearModuleActions, setModuleSubtitle } from '../shared/moduleHeader.js';
 
 async function loadModuleHtml(route) {
   try {
@@ -62,6 +63,8 @@ export async function initRouter() {
     const route = getRouteFromHash();
     if (!route) return;
 
+    clearModuleActions();
+
     const user = authStore.user;
     if (!canAccessRoute(route, user)) {
       view.innerHTML = `<section class="card"><h2>Access denied</h2><p>You do not have permission to access ${route.title || route.name}.</p></section>`;
@@ -73,6 +76,26 @@ export async function initRouter() {
     await loadModuleCss(route);
     const html = await loadModuleHtml(route);
     view.innerHTML = html;
+
+    const appRouteLabel = document.getElementById('app-route');
+    if (appRouteLabel) {
+      appRouteLabel.textContent = route.title || route.name;
+    }
+
+    setModuleSubtitle(route.subtitle || '');
+
+    const breadcrumbContainer = document.getElementById('app-breadcrumbs');
+    if (breadcrumbContainer) {
+      const crumbs = route.breadcrumbs || ['Home', route.name];
+      breadcrumbContainer.innerHTML = crumbs
+        .map((crumb, index) => {
+          const isLast = index === crumbs.length - 1;
+          return `<li class="breadcrumb-item${isLast ? ' active' : ''}" aria-current="${isLast ? 'page' : 'false'}">${crumb}</li>`;
+        })
+        .join('');
+    }
+
+    document.title = `${route.title || route.name} — VAMS Portal`;
 
     const module = await importModuleJs(route);
     cleanupActiveModule();
@@ -111,24 +134,6 @@ export async function initRouter() {
     }
 
     emitEvent('navigation:after', { route, user, authorized: true });
-
-    const appRouteLabel = document.getElementById('app-route');
-    if (appRouteLabel) {
-      appRouteLabel.textContent = route.title || route.name;
-    }
-
-    const breadcrumbContainer = document.getElementById('app-breadcrumbs');
-    if (breadcrumbContainer) {
-      const crumbs = route.breadcrumbs || ['Home', route.name];
-      breadcrumbContainer.innerHTML = crumbs
-        .map((crumb, index) => {
-          const isLast = index === crumbs.length - 1;
-          return `<li class="breadcrumb-item${isLast ? ' active' : ''}" aria-current="${isLast ? 'page' : 'false'}">${crumb}</li>`;
-        })
-        .join('');
-    }
-
-    document.title = `${route.title || route.name} — VAMS Portal`;
 
     document.querySelectorAll('.vs-sidebar-link').forEach((link) => {
       link.classList.toggle('active', link.getAttribute('href') === `#${route.path}`);

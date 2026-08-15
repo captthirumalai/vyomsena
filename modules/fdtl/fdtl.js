@@ -1,5 +1,6 @@
 import { getCrew, onCrewSnapshot } from '../../services/crewService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
+import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 import {
   getDefaultScheme,
   getFdtlScheme,
@@ -128,7 +129,7 @@ function getCrewName(member) {
 }
 
 function showMessage(message) {
-  const status = activeView?.querySelector('#fdtl-status');
+  const status = getModuleAction('fdtl-status');
   if (!status) return;
   status.textContent = message;
   if (messageTimer) clearTimeout(messageTimer);
@@ -151,7 +152,7 @@ function switchTab(tabName) {
 }
 
 function renderSchemeLine() {
-  const element = activeView?.querySelector('#fdtl-scheme-line');
+  const element = getModuleAction('fdtl-scheme-line');
   if (!element) return;
   const approval = activeScheme.approval?.status || 'draft';
   const opsManualRef = activeScheme.approval?.opsManualRef ? ` · OM ${activeScheme.approval.opsManualRef}` : '';
@@ -1442,6 +1443,11 @@ function exportFlightDetails(flightId) {
 
 export async function init(view, context) {
   activeView = view;
+
+  mountModuleActions(`
+    <span id="fdtl-scheme-line" class="vs-page-chip">Scheme: loading...</span>
+    <span id="fdtl-status" class="vs-page-status" aria-live="polite"></span>
+  `);
 
   const currentUser = context?.currentUser || null;
   activeActor = currentUser

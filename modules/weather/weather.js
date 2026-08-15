@@ -1,5 +1,6 @@
 ﻿import { getAircraft, onAircraftSnapshot } from '../../services/aircraftService.js';
 import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
+import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 
 let aircraftUnsubscribe = null;
 let crewUnsubscribe = null;
@@ -27,7 +28,7 @@ async function renderWeather() {
   if (!activeView) return;
 
   const watchlistBody = activeView.querySelector('#weather-watchlist-body');
-  const statusLabel = activeView.querySelector('#weather-status');
+  const statusLabel = getModuleAction('weather-status');
   if (!watchlistBody || !statusLabel) return;
 
   const docsByPilot = await getCrewDocumentsByPilots(latestCrew);
@@ -98,6 +99,8 @@ async function renderWeather() {
 export async function init(view, context) {
   activeView = view;
 
+  mountModuleActions('<span id="weather-status" class="vs-page-chip">Loading operational inputs...</span>');
+
   const heading = view.querySelector('h2');
   if (heading) {
     heading.textContent = 'Weather Briefing';
@@ -113,7 +116,7 @@ export async function init(view, context) {
   activeOperatorUid = operatorUid;
 
   if (!operatorUid) {
-    const statusLabel = view.querySelector('#weather-status');
+    const statusLabel = getModuleAction('weather-status');
     if (statusLabel) {
       statusLabel.textContent = 'No authorized operator found.';
     }
@@ -129,7 +132,7 @@ export async function init(view, context) {
     await renderWeather();
   } catch (error) {
     console.error('Weather initial load failed:', error);
-    const statusLabel = view.querySelector('#weather-status');
+    const statusLabel = getModuleAction('weather-status');
     if (statusLabel) {
       statusLabel.textContent = 'Unable to load weather posture inputs right now.';
     }

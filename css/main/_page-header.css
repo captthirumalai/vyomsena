@@ -98,14 +98,7 @@
   border-color: var(--color-critical-border);
 }
 
-/* Shared module header uses the same .card surface */
-.vs-module-header {
-  background: var(--surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1rem 1.35rem;
-  box-shadow: var(--shadow-sm);
-}
+/* Shared module header moved into the global topbar (see _topbar.css) */
 
 @media (max-width: 640px) {
   .vs-page-header {

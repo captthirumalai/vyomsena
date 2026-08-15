@@ -1,5 +1,6 @@
 ﻿import { getCrew, onCrewSnapshot } from '../../services/crewService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
+import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 import {
   listFlights,
   onFlightsSnapshot,
@@ -183,11 +184,11 @@ async function handleSaveActuals(event) {
       null,
       'EFB actuals recorded'
     );
-    const status = activeView.querySelector('#efb-status');
+    const status = getModuleAction('efb-status');
     if (status) status.textContent = 'Actuals saved and synced. FDTL will now evaluate this flight for compliance.';
   } catch (error) {
     console.error('Save EFB actuals failed:', error);
-    const status = activeView.querySelector('#efb-status');
+    const status = getModuleAction('efb-status');
     if (status) status.textContent = 'Failed to save actuals.';
   }
 }
@@ -200,12 +201,14 @@ export async function init(view, context) {
     heading.textContent = 'Electronic Flight Bag';
   }
 
+  mountModuleActions('<span id="efb-status" class="vs-page-chip">Loading flight assignments...</span>');
+
   const operatorUid = context?.currentUser?.uid || null;
   const orgContext = getCurrentOrganizationContext(context?.currentUser);
   activeOperatorUid = orgContext.organizationId || operatorUid;
 
   if (!activeOperatorUid) {
-    const status = view.querySelector('#efb-status');
+    const status = getModuleAction('efb-status');
     if (status) status.textContent = 'No authorized operator found.';
     return { destroy() {} };
   }
@@ -233,7 +236,7 @@ export async function init(view, context) {
     renderFlights();
   } catch (error) {
     console.error('EFB initial load failed:', error);
-    const status = view.querySelector('#efb-status');
+    const status = getModuleAction('efb-status');
     if (status) status.textContent = 'Unable to load EFB data right now.';
   }
 

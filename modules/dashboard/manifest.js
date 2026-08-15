@@ -6,6 +6,7 @@ export const manifest = {
   order: 10,
   showInMenu: true,
   permissions: ['operations'],
+  subtitle: 'Monitoring fleet, crew, and compliance from Firestore.',
   breadcrumbs: ['Home', 'Dashboard'],
   html: 'modules/dashboard/dashboard.html',
   js: 'modules/dashboard/dashboard.js',

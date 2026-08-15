@@ -6,6 +6,7 @@
   order: 70,
   showInMenu: true,
   permissions: ['operations'],
+  subtitle: 'Track active flights, status updates, and turnaround metrics.',
   breadcrumbs: ['Home', 'Flight Operations'],
   html: 'modules/flightops/flightops.html',
   js: 'modules/flightops/flightops.js',

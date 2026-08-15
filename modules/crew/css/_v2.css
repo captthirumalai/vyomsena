@@ -1038,13 +1038,14 @@
 }
 
 /* ============================ HEADER CENTER (SYNC STRIP) ============================
-   Three-region header: title left, sync strip center, actions right. Fills the gap. */
+   Sync strip + actions live in the section; module title is shown in the global topbar. */
 
 .cm-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .cm-header-center {
@@ -1052,6 +1053,7 @@
   align-items: center;
   justify-content: center;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .cm-header-center .cm-sync-strip {
@@ -1075,12 +1077,14 @@
 
 @media (max-width: 900px) {
   .cm-header {
-    grid-template-columns: 1fr;
+    align-items: flex-start;
     gap: 0.5rem;
+    flex-direction: column;
   }
 
   .cm-header-center {
     justify-content: flex-start;
+    width: 100%;
   }
 
   .cm-header-center .cm-sync-strip {

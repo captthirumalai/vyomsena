@@ -6,6 +6,7 @@ export const manifest = {
   order: 25,
   showInMenu: false,
   permissions: ['operations', 'pilot'],
+  subtitle: 'Loading crew profile...',
   breadcrumbs: ['Home', 'Crew', 'Profile'],
   html: 'modules/crewprofile/crewprofile.html',
   js: 'modules/crewprofile/crewprofile.js',

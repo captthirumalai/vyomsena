@@ -6,6 +6,7 @@
   order: 40,
   showInMenu: true,
   permissions: ['admin', 'operations'],
+  subtitle: 'Use AI-assisted workflows for operational insights and task triage.',
   breadcrumbs: ['Home', 'AI Operations'],
   html: 'modules/ai/ai.html',
   js: 'modules/ai/ai.js',

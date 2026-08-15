@@ -108,15 +108,18 @@ export function initLayout() {
               <h1>VAMS Portal</h1>
               <p id="app-user">Secure operations dashboard</p>
             </div>
-            <div class="route-copy">
-              <p class="route-label">Current section</p>
+          </div>
+          <div class="vs-module-header">
+            <nav class="vs-module-breadcrumb" aria-label="Breadcrumb">
+              <ol id="app-breadcrumbs" class="breadcrumb-list"></ol>
+            </nav>
+            <div class="vs-module-header-row">
               <h2 id="app-route">Dashboard</h2>
-              <nav class="route-breadcrumbs" aria-label="Breadcrumb">
-                <ol id="app-breadcrumbs" class="breadcrumb-list"></ol>
-              </nav>
+              <p id="app-route-subtitle" class="vs-module-subtitle"></p>
             </div>
           </div>
           <div class="vs-topbar-actions">
+            <div id="app-module-actions" class="vs-module-actions"></div>
             <button id="btn-theme-toggle" class="vs-button vs-button--secondary vs-button--sm" type="button">🌙</button>
             <button id="btn-logout" class="vs-button vs-button--secondary vs-button--sm">Sign Out</button>
           </div>

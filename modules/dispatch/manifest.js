@@ -6,6 +6,7 @@
   order: 50,
   showInMenu: true,
   permissions: ['operations'],
+  subtitle: 'Create planned flights that flow to the EFB (actuals) and FDTL (compliance) modules via the shared flight record.',
   breadcrumbs: ['Home', 'Dispatch Control'],
   html: 'modules/dispatch/dispatch.html',
   js: 'modules/dispatch/dispatch.js',

@@ -1,4 +1,5 @@
 ﻿import { listTrainingCenters, listTrainingOfferings, listTrainingBookings, watchTrainingBookings } from '../../services/trainingService.js';
+import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 
 let bookingsUnsubscribe = null;
 let latestCenters = [];
@@ -42,7 +43,7 @@ function resolveBookingDate(booking) {
 function renderTraining() {
   if (!activeView) return;
 
-  const statusLabel = activeView.querySelector('#training-status');
+  const statusLabel = getModuleAction('training-status');
   const bookingsBody = activeView.querySelector('#training-bookings-body');
   if (!statusLabel || !bookingsBody) return;
 
@@ -89,6 +90,8 @@ function renderTraining() {
 export async function init(view, context) {
   activeView = view;
 
+  mountModuleActions('<span id="training-status" class="vs-page-chip">Loading training records...</span>');
+
   const heading = view.querySelector('h2');
   if (heading) {
     heading.textContent = 'Training & Currency';
@@ -104,7 +107,7 @@ export async function init(view, context) {
   activeOperatorUid = operatorUid;
 
   if (!operatorUid) {
-    const statusLabel = view.querySelector('#training-status');
+    const statusLabel = getModuleAction('training-status');
     if (statusLabel) {
       statusLabel.textContent = 'No authorized operator found.';
     }
@@ -125,7 +128,7 @@ export async function init(view, context) {
     renderTraining();
   } catch (error) {
     console.error('Training initial load failed:', error);
-    const statusLabel = view.querySelector('#training-status');
+    const statusLabel = getModuleAction('training-status');
     if (statusLabel) {
       statusLabel.textContent = 'Unable to load training records right now.';
     }
