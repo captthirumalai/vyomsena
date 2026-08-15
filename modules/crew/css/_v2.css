@@ -1102,13 +1102,15 @@
   color: var(--cm-amber);
   border: 1px solid var(--cm-amber-border);
   background: var(--cm-amber-bg);
+  font-family: inherit;
+  cursor: pointer;
+  line-height: 1.4;
 }
 
-.cm-missing-docs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-top: 0.4rem;
+.cm-card-policy:hover {
+  border-color: var(--cm-amber);
+  background: var(--cm-amber);
+  color: #fff;
 }
 
 .cm-policy-toolbar {

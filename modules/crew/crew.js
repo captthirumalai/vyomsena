@@ -48,7 +48,7 @@ import {
   permanentlyDeletePilot
 } from './directory.js';
 import { openProfileForm, saveProfileForm } from './profile.js';
-import { openDocumentDetail } from './documents.js';
+import { openDocumentDetail, openDocumentUploadModal } from './documents.js';
 import { issueCompanyInvite, stopLinkCodeTimer } from './linking.js';
 import { applyBulkAction } from './bulk.js';
 import { runQueueSync, renderQueueSyncState } from './queue.js';
@@ -272,8 +272,16 @@ function bindScreenControls() {
   query('#cm-pilot-grid')?.addEventListener('click', (event) => {
     const target = event.target;
     if (target instanceof HTMLInputElement && target.matches('.cm-card-check')) return;
+    const missing = target.closest('[data-missing-docs]');
     const card = target.closest('.cm-pilot-card');
-    if (card) openDrawer(card.getAttribute('data-pilot-uid'));
+    if (!card) return;
+    const uid = card.getAttribute('data-pilot-uid');
+    if (missing) {
+      openDrawer(uid, 'documents');
+      openDocumentUploadModal();
+      return;
+    }
+    openDrawer(uid);
   });
   query('#cm-pilot-grid')?.addEventListener('change', (event) => {
     const check = event.target;

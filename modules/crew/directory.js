@@ -356,7 +356,7 @@ function renderPilotCard(pilot) {
       <div class="cm-doc-chips">
         ${chips.length ? chips.map((chip) => `<span class="cm-doc-chip ${chip.tone}">${chip.mark} ${escapeHtml(chip.label)}</span>`).join('') : '<span class="cm-doc-chip is-warn">No documents</span>'}
       </div>
-      ${missingRequired.length ? `<div class="cm-card-policy is-warn"><span>${missingRequired.length} licence/training info missing</span></div><div class="cm-missing-docs">${missingRequired.map((name) => `<span class="cm-doc-chip is-warn">${escapeHtml(name)}</span>`).join('')}</div>` : ''}
+      ${missingRequired.length ? `<button type="button" class="cm-card-policy is-warn" data-missing-docs="${escapeHtml(pilot.uid)}"><span>+ ${missingRequired.length} ${missingRequired.length === 1 ? 'licence/training doc missing' : 'licence/training docs missing'}</span></button>` : ''}
       <div class="cm-card-expiry">
         <strong>${escapeHtml(summary.text)}</strong>
         <span>${expiries.length ? expiries.map((exp) => `<span class="${exp.tone}">${escapeHtml(exp.label)}: ${escapeHtml(exp.text)}</span>`).join(' · ') : 'No expiry dates on file'}</span>
@@ -442,11 +442,11 @@ export function renderBulkBar() {
 
 /* ================= DRAWER V2 ================= */
 
-export function openDrawer(pilotUid) {
+export function openDrawer(pilotUid, view = 'overview') {
   const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
   if (!pilot) return;
   crewState.selectedPilotUid = pilotUid;
-  crewState.drawerView = 'overview';
+  crewState.drawerView = view;
   crewState.drawerInviteOpen = false;
   crewState.activeDocument = null;
 
