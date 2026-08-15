@@ -171,6 +171,11 @@ function fmtMinutes(minutes) {
   return mins ? `${hours}:${String(mins).padStart(2, '0')}` : `${hours}:00`;
 }
 
+function setText(id, value) {
+  const element = activeView?.querySelector(`#${id}`);
+  if (element) element.textContent = value;
+}
+
 function getSourceLabel(flight) {
   return SOURCE_LABELS[flight.source] || flight.source || 'Unknown';
 }
@@ -330,10 +335,6 @@ function renderFlightsDashboard() {
         ? 'OK'
         : 'Attention';
 
-  const setText = (id, value) => {
-    const element = activeView.querySelector(`#${id}`);
-    if (element) element.textContent = value;
-  };
   setText('fdtl-kpi-flight-time', fmtMinutes(flightTimeToday));
   setText('fdtl-kpi-duty-time', fmtMinutes(dutyTimeToday));
   setText('fdtl-kpi-7day', sevenPeriod ? `${fmtMinutes(sevenPeriod.flightUsed)} / ${fmtMinutes(sevenPeriod.flightLimit)}` : '--:--');
