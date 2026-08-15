@@ -71,6 +71,9 @@
 
 html {
   scroll-behavior: smooth;
+  /* Compressed UI scale — matches a 70% browser zoom so more fits per screen.
+     Adjust this value (e.g. 0.75 = 75%) if the density feels too tight. */
+  zoom: 0.7;
 }
 
 body {
