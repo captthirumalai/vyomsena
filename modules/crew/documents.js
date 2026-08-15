@@ -81,9 +81,17 @@ export function openDocumentUploadModal() {
     showToast('Select a pilot first.', 'warning');
     return;
   }
+  openDocumentForm(pilot, null);
+}
+
+export function openDocumentForm(pilot, existingDoc = null) {
+  const editing = Boolean(existingDoc);
+  const categoryKey = `${existingDoc?.documentCategory || 'LICENCE'}`.toUpperCase();
+  const docName = existingDoc?.documentName || '';
+
   openModal(
     `
-    <form id="cm-doc-upload-form" novalidate>
+    <form id="cm-doc-upload-form" novalidate data-mode="${editing ? 'edit' : 'create'}" data-document-id="${escapeHtml(existingDoc?.firestoreId || '')}">
       <div class="cm-form-grid">
         <label class="cm-field">
           <span>Category</span>
@@ -96,51 +104,65 @@ export function openDocumentUploadModal() {
           <select id="cm-doc-name" name="documentName"><option value="">Select document...</option></select>
           <input type="text" id="cm-doc-name-custom" name="documentNameCustom" class="hidden" placeholder="Custom document name" />
         </label>
-        <label class="cm-field"><span>License / Certificate number</span><input type="text" name="licenseNumber" placeholder="Optional" /></label>
-        <label class="cm-field"><span>Issue date</span><input type="date" name="issueDate" /></label>
-        <label class="cm-field"><span>Expiry date</span><input type="date" name="expiryDate" /></label>
-        <label class="cm-field"><span>Issuing authority</span><input type="text" name="authority" id="cm-doc-authority" placeholder="DGCA / Organization" /></label>
-        <label class="cm-field"><span>Reminder lead (days)</span><input type="number" name="reminderDays" id="cm-doc-reminder" value="30" min="0" /></label>
-        <label class="cm-field"><span>Notes / Remarks</span><textarea name="notesOrRemarks" rows="2" placeholder="Optional"></textarea></label>
-        <label class="cm-field"><span>File (PDF or image)</span><input type="file" name="documentFile" id="cm-doc-file" accept="application/pdf,image/jpeg,image/png,image/webp,.pdf" required /><small class="cm-field-hint">PDF, JPG, PNG or WebP · max 10 MB (images are auto-compressed)</small></label>
+        <label class="cm-field"><span>License / Certificate number</span><input type="text" name="licenseNumber" value="${escapeHtml(existingDoc?.licenseOrCertificateNumber || '')}" placeholder="Optional" /></label>
+        <label class="cm-field"><span>Issue date</span><input type="date" name="issueDate" value="${escapeHtml(toInputDate(existingDoc?.issueDate))}" /></label>
+        <label class="cm-field"><span>Expiry date</span><input type="date" name="expiryDate" value="${escapeHtml(toInputDate(existingDoc?.expiryDate))}" /></label>
+        <label class="cm-field"><span>Issuing authority</span><input type="text" name="authority" id="cm-doc-authority" value="${escapeHtml(existingDoc?.issuingAuthorityOrBody || '')}" placeholder="DGCA / Organization" /></label>
+        <label class="cm-field"><span>Reminder lead (days)</span><input type="number" name="reminderDays" id="cm-doc-reminder" value="${escapeHtml(existingDoc?.reminderLeadTimeDays ?? 30)}" min="0" /></label>
+        <label class="cm-field"><span>Notes / Remarks</span><textarea name="notesOrRemarks" rows="2" placeholder="Optional">${escapeHtml(existingDoc?.notesOrRemarks || '')}</textarea></label>
+        ${editing
+          ? `<p class="cm-field-note">${escapeHtml(docName ? 'The uploaded file stays unchanged.' : '')}</p>`
+          : `<label class="cm-field cm-field-full"><span>File (PDF or image)</span><input type="file" name="documentFile" id="cm-doc-file" accept="application/pdf,image/jpeg,image/png,image/webp,.pdf" required /><small class="cm-field-hint">PDF, JPG, PNG or WebP · max 10 MB (images are auto-compressed)</small></label>`}
       </div>
       <p class="cm-form-status" id="cm-doc-upload-status"></p>
       <div class="cm-modal-actions">
         <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" id="cm-doc-upload-cancel">Cancel</button>
-        <button type="submit" class="cm-btn cm-btn-primary cm-btn-md" id="cm-doc-upload-submit">Upload Document</button>
+        <button type="submit" class="cm-btn cm-btn-primary cm-btn-md" id="cm-doc-upload-submit">${editing ? 'Update Document' : 'Upload Document'}</button>
       </div>
     </form>
   `,
-    { title: 'Add Document', subtitle: `Uploading for ${toProfileName(pilot)}.` }
+    { title: editing ? 'Update Document' : 'Add Document', subtitle: editing ? `Updating document for ${toProfileName(pilot)}.` : `Uploading for ${toProfileName(pilot)}.` }
   );
 
-  populateDocumentNames(getDocumentCategoryKey());
+  const categoryInput = query('#cm-doc-category-input');
+  if (categoryInput) {
+    const matchesCategory = Array.from(categoryInput.options).some((option) => option.value === categoryKey);
+    if (matchesCategory) categoryInput.value = categoryKey;
+  }
+  populateDocumentNames(categoryKey, docName);
+
   query('#cm-doc-category-input')?.addEventListener('change', (event) => onDocumentCategoryChange(event.target?.value || 'LICENCE'));
   query('#cm-doc-name')?.addEventListener('change', (event) => onDocumentNameChange(event.target?.value || ''));
-  query('#cm-doc-file')?.addEventListener('change', (event) => {
-    const file = event.target?.files?.[0];
-    const status = query('#cm-doc-upload-status');
-    if (!status) return;
-    status.classList.remove('is-success');
-    if (!file) {
-      status.textContent = '';
-      return;
-    }
-    const check = validateDocumentFile(file);
-    if (!check.ok) {
-      status.textContent = check.error;
-      status.classList.add('is-error');
-      event.target.value = '';
-    } else {
-      const mb = (file.size / (1024 * 1024)).toFixed(1);
-      status.textContent = `${file.name} · ${mb} MB (max ${DOCUMENT_MAX_SIZE_BYTES / (1024 * 1024)} MB)`;
-      status.classList.remove('is-error');
-    }
-  });
+
+  if (!editing) {
+    query('#cm-doc-file')?.addEventListener('change', (event) => {
+      const file = event.target?.files?.[0];
+      const status = query('#cm-doc-upload-status');
+      if (!status) return;
+      status.classList.remove('is-success');
+      if (!file) {
+        status.textContent = '';
+        return;
+      }
+      const check = validateDocumentFile(file);
+      if (!check.ok) {
+        status.textContent = check.error;
+        status.classList.add('is-error');
+        event.target.value = '';
+      } else {
+        const mb = (file.size / (1024 * 1024)).toFixed(1);
+        status.textContent = `${file.name} · ${mb} MB (max ${DOCUMENT_MAX_SIZE_BYTES / (1024 * 1024)} MB)`;
+        status.classList.remove('is-error');
+      }
+    });
+  }
+
   query('#cm-doc-upload-cancel')?.addEventListener('click', closeModal);
   query('#cm-doc-upload-form')?.addEventListener('submit', (event) => {
     event.preventDefault();
-    submitDocumentUpload(event.currentTarget);
+    const form = event.currentTarget;
+    if (form.dataset.mode === 'edit') submitDocumentUpdate(form);
+    else submitDocumentUpload(form);
   });
 }
 
@@ -187,28 +209,40 @@ export function getDocumentCategoryKey() {
   return `${query('#cm-doc-category-input')?.value || 'LICENCE'}`.toUpperCase();
 }
 
-export function populateDocumentNames(categoryKey) {
+export function populateDocumentNames(categoryKey, selectedName = '') {
   const select = query('#cm-doc-name');
   const customInput = query('#cm-doc-name-custom');
   if (!select || !(select instanceof HTMLSelectElement)) return;
   const key = `${categoryKey || 'LICENCE'}`.toUpperCase();
   const isCustom = key === 'CUSTOM';
   const presets = DOCUMENT_MASTER_LIST[key] || [];
+  const selected = `${selectedName || ''}`;
 
   select.innerHTML = isCustom
     ? ''
-    : `<option value="">Select document...</option>${presets
+    : `<option value="">Select document...</option>${[
+        ...(selected && !presets.some((item) => item.name === selected) ? [{ name: selected }] : []),
+        ...presets
+      ]
         .map((item) => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)}</option>`)
         .join('')}`;
 
   if (customInput instanceof HTMLInputElement) {
     customInput.classList.toggle('hidden', !isCustom);
-    if (!isCustom) customInput.value = '';
+    if (isCustom) {
+      customInput.value = selected;
+      if (!selected) setFormField('#cm-doc-reminder', '30');
+    } else {
+      customInput.value = '';
+    }
   }
 
-  if (isCustom) {
-    setFormField('#cm-doc-reminder', '30');
-    if (customInput instanceof HTMLInputElement) customInput.focus();
+  if (!isCustom && selected) {
+    select.value = selected;
+  }
+
+  if (isCustom && !selected && customInput instanceof HTMLInputElement) {
+    customInput.focus();
   }
 }
 
@@ -434,108 +468,119 @@ export async function submitDocumentUpload(form) {
   }
 }
 
-export async function editDocumentWithForm(documentId) {
+export function editDocumentWithForm(documentId) {
   if (!canPerformCrewAction(crewState.activeCurrentUser, 'edit')) return;
   const pilotUid = crewState.selectedPilotUid || crewState.activeCurrentUser?.uid;
   const pilotDocs = crewState.docsByPilotCache.get(pilotUid) || [];
   const targetDoc = pilotDocs.find((item) => item.firestoreId === documentId);
   if (!targetDoc) return;
+  const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid) || crewState.activeCurrentUser;
+  openDocumentForm(pilot, targetDoc);
+}
 
-  openModal(
-    `
-    <form id="cm-doc-edit-form" novalidate>
-      <div class="cm-form-grid" style="grid-template-columns:1fr">
-        <label class="cm-field">
-          <span>Issue date</span>
-          <input type="date" id="cm-doc-edit-issue" value="${escapeHtml(toInputDate(targetDoc.issueDate))}" />
-        </label>
-        <label class="cm-field">
-          <span>Expiry date</span>
-          <input type="date" id="cm-doc-edit-expiry" value="${escapeHtml(toInputDate(targetDoc.expiryDate))}" />
-        </label>
-        <label class="cm-field">
-          <span>Certificate / License number</span>
-          <input type="text" id="cm-doc-edit-number" value="${escapeHtml(targetDoc.licenseOrCertificateNumber || '')}" placeholder="Optional" />
-        </label>
-        <label class="cm-field">
-          <span>Issuing authority</span>
-          <input type="text" id="cm-doc-edit-authority" value="${escapeHtml(targetDoc.issuingAuthorityOrBody || '')}" placeholder="DGCA / Organization" />
-        </label>
-        <label class="cm-field">
-          <span>Notes / Remarks</span>
-          <textarea id="cm-doc-edit-notes" rows="3" placeholder="Optional remarks about this document">${escapeHtml(targetDoc.notesOrRemarks || '')}</textarea>
-        </label>
-      </div>
-      <div class="cm-modal-actions">
-        <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" id="cm-doc-edit-cancel">Cancel</button>
-        <button type="submit" class="cm-btn cm-btn-primary cm-btn-md" id="cm-doc-edit-save">Save Changes</button>
-      </div>
-    </form>
-  `,
-    { title: `Edit ${targetDoc.documentName || 'document'}` }
-  );
-
-  const formEl = query('#cm-doc-edit-form');
+export async function submitDocumentUpdate(form) {
+  if (!(form instanceof HTMLFormElement)) return;
+  const documentId = form.dataset.documentId;
+  const targetPilotUid = crewState.selectedPilotUid || crewState.activeCurrentUser?.uid;
   const status = query('#cm-doc-upload-status');
+  const submit = query('#cm-doc-upload-submit');
 
-  formEl?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const updates = {
-      issueDate: toTimestampCandidate(query('#cm-doc-edit-issue')?.value) || targetDoc.issueDate || null,
-      expiryDate: toTimestampCandidate(query('#cm-doc-edit-expiry')?.value) || targetDoc.expiryDate || null,
-      licenseOrCertificateNumber: query('#cm-doc-edit-number')?.value?.trim() || null,
-      issuingAuthorityOrBody: query('#cm-doc-edit-authority')?.value?.trim() || null,
-      notesOrRemarks: query('#cm-doc-edit-notes')?.value?.trim() || null,
-      isDirty: false
-    };
-
-    try {
-      closeModal();
-      if (status) status.textContent = 'Saving document updates...';
-      await updatePilotDocumentWithAudit(documentId, updates, crewState.activeCurrentUser?.uid || null);
-      if (status) {
-        status.textContent = 'Document updated with audit log.';
-        status.classList.add('is-success');
-      }
-      showToast('Document updated.', 'success');
-      if (pilotUid) await selectPilot(pilotUid);
-      else await refreshCrew();
-    } catch (error) {
-      console.error('Document edit failed:', error);
-      if (shouldQueueError(error)) {
-        enqueueCrewDocumentUpdate({
-          documentId,
-          updates,
-          editedBy: crewState.activeCurrentUser?.uid || null
-        });
-        const targetPilotUid = pilotUid || crewState.activeCurrentUser?.uid;
-        if (targetPilotUid) {
-          const nextDocs = (crewState.docsByPilotCache.get(targetPilotUid) || []).map((item) =>
-            item.firestoreId === documentId
-              ? { ...item, ...updates, isDirty: true, lastEditedBy: crewState.activeCurrentUser?.uid || null, lastModified: new Date() }
-              : item
-          );
-          crewState.docsByPilotCache.set(targetPilotUid, nextDocs);
-          renderCrewScreen();
-          renderDrawerView();
-        }
-        renderQueueSyncState();
-        if (status) {
-          status.textContent = 'Network unavailable. Update queued for sync.';
-          status.classList.add('is-warning');
-        }
-        showToast('Network unavailable. Update queued.', 'warning');
-      } else {
-        if (status) {
-          status.textContent = error.message || 'Unable to update document.';
-          status.classList.add('is-error');
-        }
-        showToast(error.message || 'Unable to update document.', 'error');
-      }
+  if (!documentId) {
+    if (status) {
+      status.textContent = 'Document reference is missing.';
+      status.classList.add('is-error');
     }
-  });
+    return;
+  }
 
-  query('#cm-doc-edit-cancel')?.addEventListener('click', closeModal);
+  const documentCategory = form.documentCategory?.value?.trim() || 'GENERAL';
+  const isCustomCategory = `${documentCategory}`.toUpperCase() === 'CUSTOM';
+  const documentName = isCustomCategory ? form.documentNameCustom?.value?.trim() : form.documentName?.value?.trim();
+
+  const nameInput = isCustomCategory ? form.documentNameCustom : form.documentName;
+  nameInput?.closest('.cm-field')?.classList.remove('is-invalid');
+  if (!documentName) {
+    nameInput?.closest('.cm-field')?.classList.add('is-invalid');
+    if (status) {
+      status.textContent = 'Document name is required.';
+      status.classList.add('is-error');
+    }
+    return;
+  }
+
+  const reminderLeadTimeDays = Number.parseInt(form.reminderDays?.value || '30', 10);
+  const updates = {
+    documentName,
+    documentCategory,
+    licenseOrCertificateNumber: form.licenseNumber?.value?.trim() || null,
+    issueDate: toTimestampCandidate(form.issueDate?.value || null) || null,
+    expiryDate: toTimestampCandidate(form.expiryDate?.value || null) || null,
+    issuingAuthorityOrBody: form.authority?.value?.trim() || null,
+    notesOrRemarks: form.notesOrRemarks?.value?.trim() || null,
+    reminderLeadTimeDays: Number.isNaN(reminderLeadTimeDays) ? 30 : reminderLeadTimeDays,
+    isDirty: false
+  };
+
+  try {
+    if (submit) {
+      submit.disabled = true;
+      const spinner = submit.querySelector('.cm-btn-spinner');
+      if (spinner) spinner.classList.remove('hidden');
+    }
+    if (status) {
+      status.textContent = 'Saving document updates...';
+      status.classList.remove('is-success', 'is-error', 'is-warning');
+    }
+
+    await updatePilotDocumentWithAudit(documentId, updates, crewState.activeCurrentUser?.uid || null);
+
+    if (status) {
+      status.textContent = 'Document updated with audit log.';
+      status.classList.add('is-success');
+    }
+    showToast('Document updated.', 'success');
+
+    if (targetPilotUid) await selectPilot(targetPilotUid);
+    else await refreshCrew();
+    closeModal();
+  } catch (error) {
+    console.error('Document edit failed:', error);
+    if (shouldQueueError(error)) {
+      enqueueCrewDocumentUpdate({
+        documentId,
+        updates,
+        editedBy: crewState.activeCurrentUser?.uid || null
+      });
+      if (targetPilotUid) {
+        const nextDocs = (crewState.docsByPilotCache.get(targetPilotUid) || []).map((item) =>
+          item.firestoreId === documentId
+            ? { ...item, ...updates, isDirty: true, lastEditedBy: crewState.activeCurrentUser?.uid || null, lastModified: new Date() }
+            : item
+        );
+        crewState.docsByPilotCache.set(targetPilotUid, nextDocs);
+        renderCrewScreen();
+        renderDrawerView();
+      }
+      renderQueueSyncState();
+      if (status) {
+        status.textContent = 'Network unavailable. Update queued for sync.';
+        status.classList.add('is-warning');
+      }
+      showToast('Network unavailable. Update queued.', 'warning');
+    } else {
+      if (status) {
+        status.textContent = error.message || 'Unable to update document.';
+        status.classList.add('is-error');
+      }
+      showToast(error.message || 'Unable to update document.', 'error');
+    }
+  } finally {
+    if (submit) {
+      submit.disabled = false;
+      const spinner = submit.querySelector('.cm-btn-spinner');
+      if (spinner) spinner.classList.add('hidden');
+    }
+  }
 }
 
 export async function deleteDocument(documentId, storagePath) {

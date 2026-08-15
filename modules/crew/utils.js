@@ -134,11 +134,17 @@ export function compareValues(left, right) {
   return `${left}`.localeCompare(`${right}`);
 }
 
+export function isActivePilot(pilot) {
+  return `${pilot?.status || 'Active'}` === 'Active';
+}
+
 export function getSortedAndFilteredPilots() {
   const normalizedSearch = normalizeSearchText(crewListState.searchText);
   const tokens = normalizedSearch ? normalizedSearch.split(/\s+/) : [];
 
   const filtered = crewState.pilotsCache.filter((pilot) => {
+    if (!isActivePilot(pilot)) return false;
+
     const docs = crewState.docsByPilotCache.get(pilot.uid) || [];
     const level = getCrewAttentionLevel(docs);
     const index = buildPilotSearchIndex(pilot, docs);
@@ -262,6 +268,7 @@ export function getProfileStatusBadgeHtml(status) {
   if (current === 'Active') return '<span class="cm-badge cm-badge-green">Active</span>';
   if (current === 'Inactive') return '<span class="cm-badge cm-badge-muted">Inactive</span>';
   if (current === 'Suspended') return '<span class="cm-badge cm-badge-red">Suspended</span>';
+  if (current === 'Deleted') return '<span class="cm-badge cm-badge-red">Deleted</span>';
   return '<span class="cm-badge cm-badge-amber">On Leave</span>';
 }
 

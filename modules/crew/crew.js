@@ -43,7 +43,9 @@ import {
   closeDrawer,
   togglePilotStatus,
   softRemovePilot,
-  handleDelink
+  handleDelink,
+  restorePilot,
+  permanentlyDeletePilot
 } from './directory.js';
 import { openProfileForm, saveProfileForm } from './profile.js';
 import { openDocumentDetail } from './documents.js';
@@ -359,6 +361,18 @@ function bindScreenControls() {
 
   query('#cm-sync-retry')?.addEventListener('click', async () => {
     await runQueueSync({ source: 'manual', refreshAfter: true });
+  });
+
+  query('#cm-inactive-list')?.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest('[data-inactive-action]');
+    if (!button) return;
+    const action = button.getAttribute('data-inactive-action');
+    const pilotUid = button.getAttribute('data-pilot-uid');
+    if (!pilotUid) return;
+    if (action === 'restore') restorePilot(pilotUid);
+    else if (action === 'delete-permanent') permanentlyDeletePilot(pilotUid);
   });
 }
 

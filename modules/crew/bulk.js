@@ -61,6 +61,7 @@ export async function applyBulkAction(action) {
       confirmLabel: `Set ${next}`,
       onConfirm: async () => {
         await Promise.all(selected.map((pilot) => updatePilotProfile(pilot.uid, { status: next })));
+        selected.forEach((pilot) => crewState.selectedRows.delete(pilot.uid));
         if (statusEl) {
           statusEl.textContent = `Applied status ${next} to ${selected.length} crew record(s).`;
           statusEl.classList.add('is-success');
@@ -148,9 +149,9 @@ export async function applyBulkAction(action) {
     exportCrewCsv(selected);
   } else if (action === 'delete') {
     confirmModal({
-      title: 'Delete crew members',
-      message: `Soft delete ${selected.length} selected crew member(s)? (${names}) This unlinks them and sets status=Deleted.`,
-      confirmLabel: 'Delete',
+      title: 'Move to Inactive',
+      message: `Move ${selected.length} selected crew member(s) to Inactive Pilots? (${names}) This unlinks them and sets status=Deleted. You can restore or permanently delete them from the inactive section.`,
+      confirmLabel: 'Move to Inactive',
       danger: true,
       onConfirm: async () => {
         await Promise.all(
@@ -161,10 +162,10 @@ export async function applyBulkAction(action) {
           })
         );
         if (statusEl) {
-          statusEl.textContent = `Soft deleted ${selected.length} crew record(s).`;
+          statusEl.textContent = `Moved ${selected.length} crew record(s) to inactive.`;
           statusEl.classList.add('is-success');
         }
-        showToast(`${selected.length} crew members removed.`, 'success');
+        showToast(`${selected.length} crew members moved to inactive.`, 'success');
         await refreshCrew();
       }
     });

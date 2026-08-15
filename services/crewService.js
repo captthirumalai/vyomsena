@@ -35,11 +35,14 @@ import { listTrainingRecordsByUser } from './crewTrainingService.js';
 import {
   listCrewProfilesForOperator,
   watchCrewProfilesForOperator,
+  getCrewProfileById,
   createCrewProfile,
   updateCrewProfile,
+  deleteCrewProfile,
   ensureCrewProfileForUser
 } from './crewProfileService.js';
 import { createCrewLinkCode } from './crewLinkCodeService.js';
+import { deleteUserDocumentFile } from './storageService.js';
 
 function getProfileCoverage(profiles) {
   const byEmail = new Set();
@@ -293,9 +296,66 @@ export async function generateCrewProfileLinkCode({ crewProfileId, operatorId })
 }
 
 export async function deletePilot(pilotUid) {
+  if (!pilotUid) {
+    throw new Error('pilotUid is required to delete a pilot.');
+  }
+
+  let profile = null;
+  try {
+    profile = await getCrewProfileById(pilotUid);
+  } catch (error) {
+    console.warn('Crew profile read before delete skipped:', error);
+  }
+
   const documents = await listDocumentsByUser(pilotUid);
-  await Promise.all(documents.map((item) => deleteUserDocument(item.firestoreId)));
-  await deleteDoc(doc('users', pilotUid));
+  await Promise.all(
+    documents.map(async (item) => {
+      if (item?.storagePath) {
+        try {
+          await deleteUserDocumentFile(item.storagePath);
+        } catch (error) {
+          console.warn('Document file delete skipped:', error);
+        }
+      }
+      await deleteUserDocument(item.firestoreId);
+    })
+  );
+
+  if (profile?.photoStoragePath) {
+    try {
+      await deleteUserDocumentFile(profile.photoStoragePath);
+    } catch (error) {
+      console.warn('Crew photo delete skipped:', error);
+    }
+  }
+
+  try {
+    await deleteCrewProfile(pilotUid);
+  } catch (error) {
+    console.warn('Crew profile delete skipped:', error);
+  }
+
+  try {
+    await deleteDoc(doc('users', pilotUid));
+  } catch (error) {
+    console.warn('Users doc delete skipped:', error);
+  }
+
+  try {
+    await deleteDoc(doc('company_accounts', pilotUid));
+  } catch (error) {
+    console.warn('Company account delete skipped:', error);
+  }
+
+  const [incoming, outgoing] = await Promise.all([
+    listIncomingRequests(pilotUid),
+    listOutgoingRequests(pilotUid)
+  ]);
+  await Promise.all(
+    [...incoming, ...outgoing]
+      .filter((request) => request?.requestId)
+      .map((request) => cancelConnectionRequest(request.requestId).catch(() => {}))
+  );
 }
 
 export async function requestPilotLinkByEmail({ requesterId, requesterName, requesterEmail, pilotEmail }) {

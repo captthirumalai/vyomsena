@@ -23,10 +23,11 @@ import {
   getAttentionTone,
   getPrimaryDocChips,
   getPilotBase,
-  getMissingRequiredDocs
+  getMissingRequiredDocs,
+  isActivePilot
 } from './utils.js';
 import { canPerformCrewAction } from '../../services/permissionService.js';
-import { updatePilotProfile, delinkPilot } from '../../services/crewService.js';
+import { updatePilotProfile, delinkPilot, deletePilot } from '../../services/crewService.js';
 import { refreshCrew } from './crew.js';
 import { openProfileForm } from './profile.js';
 import { issueCompanyInvite, renderOutgoingRequests } from './linking.js';
@@ -68,19 +69,107 @@ export function renderCrewScreen() {
   renderFilterOptions();
   renderFilterSummary();
   renderPilotList();
+  renderInactivePilots();
   renderBulkBar();
+}
+
+/* ================= INACTIVE PILOTS ================= */
+
+export function getInactivePilots() {
+  return crewState.pilotsCache.filter((pilot) => !isActivePilot(pilot));
+}
+
+export function renderInactivePilots() {
+  const section = query('#cm-inactive-section');
+  const list = query('#cm-inactive-list');
+  const count = query('#cm-inactive-count');
+  if (!section || !list) return;
+
+  const inactive = getInactivePilots();
+  if (!inactive.length) {
+    section.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+
+  section.classList.remove('hidden');
+  if (count) count.textContent = `${inactive.length} pilot${inactive.length === 1 ? '' : 's'}`;
+
+  const canEdit = canPerformCrewAction(crewState.activeCurrentUser, 'edit');
+  const canDelete = canPerformCrewAction(crewState.activeCurrentUser, 'delete');
+
+  list.innerHTML = inactive
+    .map((pilot) => {
+      const actions = [
+        ...(canEdit
+          ? [`<button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-inactive-action="restore" data-pilot-uid="${escapeHtml(pilot.uid)}">Set Active</button>`]
+          : []),
+        ...(canDelete
+          ? [`<button type="button" class="cm-btn cm-btn-danger cm-btn-sm" data-inactive-action="delete-permanent" data-pilot-uid="${escapeHtml(pilot.uid)}">Delete Forever</button>`]
+          : [])
+      ].join('');
+
+      return `
+        <div class="cm-inactive-row">
+          ${renderAvatarHtml(pilot)}
+          <div class="cm-inactive-identity">
+            <strong class="cm-user-name">${escapeHtml(toProfileName(pilot))}</strong>
+            <span class="cm-user-email">${escapeHtml(pilot.email || 'No email')} · ${escapeHtml(getPilotRoleLabel(pilot))}</span>
+          </div>
+          <span class="cm-inactive-status">${getProfileStatusBadgeHtml(pilot.status)}</span>
+          <span class="cm-inactive-actions">${actions}</span>
+        </div>`;
+    })
+    .join('');
+}
+
+export async function restorePilot(pilotUid) {
+  if (!canPerformCrewAction(crewState.activeCurrentUser, 'edit')) return;
+  const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
+  if (!pilot) return;
+  await updatePilotProfile(pilotUid, { status: 'Active' });
+  crewState.selectedRows.delete(pilotUid);
+  setStatus(`Pilot restored to active roster.`);
+  showToast('Pilot moved back to Active.', 'success');
+  await refreshCrew();
+}
+
+export async function permanentlyDeletePilot(pilotUid) {
+  if (!canPerformCrewAction(crewState.activeCurrentUser, 'delete')) return;
+  const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
+  if (!pilot) return;
+
+  confirmModal({
+    title: 'Permanently delete pilot',
+    message: `Permanently delete "${toProfileName(pilot)}"? This removes their profile, documents, uploaded files and account link. This cannot be undone.`,
+    confirmLabel: 'Delete Forever',
+    danger: true,
+    onConfirm: async () => {
+      try {
+        await deletePilot(pilotUid);
+        crewState.selectedRows.delete(pilotUid);
+        setStatus(`Permanently deleted ${toProfileName(pilot)}.`);
+        showToast('Crew member permanently deleted.', 'success');
+      } catch (error) {
+        console.error('Permanent crew delete failed:', error);
+        showToast(error.message || 'Unable to permanently delete crew member.', 'error');
+      }
+      await refreshCrew();
+    }
+  });
 }
 
 /* ================= ATTENTION STRIP ================= */
 
 export function updateAttentionStrip() {
   const totals = { COMPLIANT: 0, ACTION: 0, NONCOMPLIANT: 0, NODOCS: 0 };
-  crewState.pilotsCache.forEach((pilot) => {
+  const activePilots = crewState.pilotsCache.filter((pilot) => isActivePilot(pilot));
+  activePilots.forEach((pilot) => {
     const level = getCrewAttentionLevel(crewState.docsByPilotCache.get(pilot.uid) || []);
     totals[level] = (totals[level] || 0) + 1;
   });
 
-  setText('#cm-stat-total', `${crewState.pilotsCache.length}`);
+  setText('#cm-stat-total', `${activePilots.length}`);
   setText('#cm-stat-attention', `${totals.ACTION + totals.NONCOMPLIANT}`);
   setText('#cm-stat-noncompliant', `${totals.NONCOMPLIANT}`);
 }
@@ -146,12 +235,14 @@ export function renderFilterOptions() {
   const statuses = new Set();
   const roles = new Set();
   const bases = new Set();
-  crewState.pilotsCache.forEach((pilot) => {
-    statuses.add(`${pilot.status || 'Active'}`);
-    roles.add(getPilotRoleLabel(pilot));
-    const base = getPilotBase(pilot);
-    if (base) bases.add(base);
-  });
+  crewState.pilotsCache
+    .filter((pilot) => isActivePilot(pilot))
+    .forEach((pilot) => {
+      statuses.add(`${pilot.status || 'Active'}`);
+      roles.add(getPilotRoleLabel(pilot));
+      const base = getPilotBase(pilot);
+      if (base) bases.add(base);
+    });
   renderCheckboxGroup('#cm-filters-status', crewListState.statuses, [...statuses].sort());
   renderCheckboxGroup('#cm-filters-compliance', crewListState.compliances, ['COMPLIANT', 'ACTION', 'NONCOMPLIANT', 'NODOCS']);
   renderCheckboxGroup('#cm-filters-role', crewListState.roles, [...roles].sort());
@@ -531,16 +622,16 @@ export async function softRemovePilot(pilotUid) {
   if (!pilot) return;
 
   confirmModal({
-    title: 'Delete crew member',
-    message: `Soft remove "${toProfileName(pilot)}" from your roster? This sets status=Deleted and unlinks them from the operator.`,
-    confirmLabel: 'Delete',
+    title: 'Remove crew member',
+    message: `Move "${toProfileName(pilot)}" to Inactive Pilots? They will be unlinked from the operator and listed under the inactive section, where you can restore or permanently delete them.`,
+    confirmLabel: 'Move to Inactive',
     danger: true,
     onConfirm: async () => {
       await updatePilotProfile(pilotUid, { status: 'Deleted' });
       await delinkPilot(pilotUid);
       crewState.selectedRows.delete(pilotUid);
-      setStatus(`Soft removed ${toProfileName(pilot)} from operator roster.`);
-      showToast('Crew member removed.', 'success');
+      setStatus(`Moved ${toProfileName(pilot)} to inactive pilots.`);
+      showToast('Crew member moved to inactive.', 'success');
       await refreshCrew();
     }
   });

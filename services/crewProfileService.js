@@ -7,6 +7,7 @@ import {
   addDoc,
   updateDoc,
   setDoc,
+  deleteDoc,
   doc,
   onSnapshot,
   serverTimestamp
@@ -97,6 +98,13 @@ export async function updateCrewProfile(crewProfileId, updates) {
     ...updates,
     lastModified: serverTimestamp()
   });
+}
+
+export async function deleteCrewProfile(crewProfileId) {
+  if (!crewProfileId) {
+    throw new Error('crewProfileId is required to delete crew profile.');
+  }
+  await deleteDoc(doc(CREW_PROFILES, crewProfileId));
 }
 
 function isPermissionDenied(error) {

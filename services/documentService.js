@@ -15,10 +15,14 @@ import {
 import { validateContract, validateReadersField } from './schemaContract.js';
 
 const EDIT_LOG_FIELDS = [
+  'documentName',
+  'documentCategory',
   'licenseOrCertificateNumber',
   'issueDate',
   'expiryDate',
   'issuingAuthorityOrBody',
+  'reminderLeadTimeDays',
+  'notesOrRemarks',
   'notesOrDetails'
 ];
 const DENORMALIZED_AUDIT_LIMIT = 20;

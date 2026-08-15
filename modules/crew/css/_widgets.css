@@ -78,6 +78,18 @@
   grid-column: span 2;
 }
 
+.cm-field-full {
+  grid-column: span 2;
+}
+
+.cm-field-note {
+  grid-column: span 2;
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--cm-muted);
+  font-weight: 600;
+}
+
 .cm-photo-upload {
   display: flex;
   align-items: center;
