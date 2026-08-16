@@ -223,7 +223,7 @@
 
 .hero-bottom-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.9fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -243,6 +243,58 @@
   margin: 0;
   color: rgba(255, 255, 255, 0.82);
   line-height: 1.7;
+}
+
+.founder-card {
+  padding: 1.25rem 1.3rem;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.18), rgba(255, 255, 255, 0.07));
+  border: 1px solid rgba(253, 230, 138, 0.26);
+}
+
+.founder-card h3 {
+  margin: 0 0 0.55rem;
+  font-size: 1.0rem;
+}
+
+.founder-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.7;
+}
+
+.coming-soon-card {
+  padding: 1.25rem 1.3rem;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.22), rgba(255, 255, 255, 0.07));
+  border: 1px solid rgba(196, 181, 253, 0.3);
+}
+
+.coming-soon-card h3 {
+  margin: 0 0 0.55rem;
+  font-size: 1.0rem;
+}
+
+.coming-soon-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.7;
+}
+
+.soon-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 0.55rem;
+  margin-left: 0.35rem;
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.28);
+  color: #ede9fe;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
 }
 
 .vs-form-panel {

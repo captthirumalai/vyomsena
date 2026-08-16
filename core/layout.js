@@ -148,30 +148,30 @@ export function initLayout() {
                 <div class="vs-hero-content">
                   <div class="hero-kicker-row">
                     <span class="hero-kicker">Company Workspace</span>
-                    <span class="hero-kicker hero-kicker-muted">Live crew and compliance control</span>
+                    <span class="hero-kicker hero-kicker-muted">Made by a pilot · for the pilots</span>
                   </div>
 
                   <div class="logo-wrapper">
                     <img src="vams_logo.jpg" alt="VyomSena Logo" class="brand-logo" />
                     <div>
                       <span class="brand-title">VyomSena</span>
-                      <p class="brand-subtitle">Aviation management for operators, compliance teams, and flight operations.</p>
+                      <p class="brand-subtitle">Aviation operations management for operators, compliance teams, and flight operations.</p>
                     </div>
                   </div>
 
                   <div class="hero-headline-block">
-                    <h1 class="brand-tagline">Run aviation company workflows from one operational control surface.</h1>
-                    <p class="brand-desc">Coordinate crew validity, fleet readiness, document sharing, and audit-critical oversight from a single workspace built for operator teams with AI-enhanced capability.</p>
+                    <h1 class="brand-tagline">Run aviation company operations from one command surface.</h1>
+                    <p class="brand-desc">VyomSena is built by Capt. Thirumalai Kumaran — an airline pilot with more than a decade of NSOP operational experience — as a single workspace for every company's operations department to coordinate crew validity, fleet readiness, document sharing, and audit-critical oversight.</p>
                   </div>
 
                   <div class="hero-metrics">
                     <div class="hero-metric-card">
                       <strong>Real-time</strong>
-                      <span>Document and profile updates sync instantly with the pilot app.</span>
+                      <span>Document and profile updates sync instantly between the Android pilot app and the company workspace.</span>
                     </div>
                     <div class="hero-metric-card">
-                      <strong>Shared source</strong>
-                      <span>Web and Android use one Firebase-backed contract for crew compliance data.</span>
+                      <strong>One source of truth</strong>
+                      <span>Web and Android share a single Firebase-backed contract for crew compliance data.</span>
                     </div>
                     <div class="hero-metric-card">
                       <strong>Audit-ready</strong>
@@ -198,7 +198,7 @@ export function initLayout() {
                       <span class="feature-icon">03</span>
                       <div>
                         <h3>Operational Readiness</h3>
-                        <p>Build the foundation for dispatch, flight documents, and operator-side oversight modules in a single system.</p>
+                        <p>Dispatch, flight documents, and operator-side oversight built around one shared flight record.</p>
                       </div>
                     </div>
                   </div>
@@ -208,10 +208,20 @@ export function initLayout() {
                       <p class="quote-label">Why this exists</p>
                       <p class="quote-text">VyomSena turns fragmented aviation administration into a single, operator-grade command layer for crew, documents, and compliance visibility.</p>
                     </div>
+                    <div class="founder-card">
+                      <p class="quote-label">Built by a pilot</p>
+                      <h3>Capt. Thirumalai Kumaran</h3>
+                      <p>A pilot with more than a decade of NSOP operations experience, engineering VyomSena for the operations department of every company.</p>
+                    </div>
                     <div class="pilot-callout-card">
                       <p class="pilot-callout-label">Pilot Access</p>
                       <h3>Pilots use the Android app</h3>
                       <p>Individual and company-linked pilots access their workflows on mobile. This web workspace is reserved for company-side operations teams.</p>
+                    </div>
+                    <div class="coming-soon-card">
+                      <p class="pilot-callout-label">Coming Soon <span class="soon-badge">Dev</span></p>
+                      <h3>Handheld e-ink EFB</h3>
+                      <p>A purpose-built electronic flight bag on an e-ink display for cockpit and ramp use — in development, and will be revealed soon.</p>
                     </div>
                   </div>
                 </div>

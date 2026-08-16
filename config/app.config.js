@@ -1,6 +1,6 @@
 export const appConfig = {
-  appName: 'VAMS V2',
-  releaseVersion: 'V0.3.13',
+  appName: 'VyomSena',
+  releaseVersion: 'V0.3.14',
   defaultRoute: '/dashboard',
   theme: 'light'
 };

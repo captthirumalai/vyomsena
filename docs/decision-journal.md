@@ -256,6 +256,7 @@ This file is a diary of product, architecture, and engineering decisions for Vyo
 - **V0.3.11** — Add Pilot moved into crew module toolbar next to search/filter; sync-only topbar mount. Removed dead `js/config.js` (version chip reads `config/app.config.js`).
 - **V0.3.12** — Firestore read optimizations (P0-1..P0-3, P1-4..P1-7): incremental crew-doc cache in snapshot callbacks, company-scoped aircraft subscription, stoppable backoff sync worker stopped on Crew destroy/logout, dropped Training double-read, router init-race fix, logout listener teardown, duplicate outgoing-request query removal. See `docs/firestore-read-audit.md` §15.
 - **V0.3.13** — topbar cleanup: removed useless Retry Sync button from crew global header (auto-sync worker covers it); grouped theme/user/Sign Out buttons so Sign Out stays inline beside the user button; widened pilot-profile drawer (420→560px) and let document-row columns shrink/wrap so expired/expiring info is never hidden behind a horizontal scroll.
+- **V0.3.14** — welcome/login page copy corrected and updated: brand tagline "Made by a pilot · for the pilots"; headline and description now credit the founder (Capt. Thirumalai Kumaran, airline pilot, 10+ years NSOP experience) and the webapp's purpose (operations department of every company); added a founder card and a "Coming Soon" dev-badge card for the in-development handheld e-ink EFB device; bottom grid widened to 2×2; browser tab and app config rebranded from "VAMS V2" to "VyomSena".
 
 ---
 
