@@ -11,7 +11,7 @@ import {
   createUserProfile,
   bootstrapCompanyWorkspace
 } from '../services/authService.js';
-import { initRouter } from './router.js';
+import { initRouter, destroyActiveModule } from './router.js';
 import { emit as emitEvent } from '../services/eventBus.js';
 
 let routerStarted = false;
@@ -302,6 +302,7 @@ export function initAuth() {
         await signOutUser();
       }
     } else {
+      destroyActiveModule();
       authStore.clearUser();
       emitEvent('auth:logout', null);
       appUserLabel.textContent = 'Secure operations dashboard';

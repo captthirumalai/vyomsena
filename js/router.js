@@ -42,12 +42,17 @@ async function importModuleJs(route) {
 }
 
 let activeModule = null;
+let renderCounter = 0;
 
 function cleanupActiveModule() {
   if (activeModule && typeof activeModule.destroy === 'function') {
     activeModule.destroy();
   }
   activeModule = null;
+}
+
+export function destroyActiveModule() {
+  cleanupActiveModule();
 }
 
 function getRouteFromHash() {
@@ -60,6 +65,7 @@ export async function initRouter() {
   if (!view) return;
 
   async function render() {
+    const renderId = ++renderCounter;
     const route = getRouteFromHash();
     if (!route) return;
 
@@ -74,7 +80,9 @@ export async function initRouter() {
 
     emitEvent('navigation:before', { route, user });
     await loadModuleCss(route);
+    if (renderId !== renderCounter) return;
     const html = await loadModuleHtml(route);
+    if (renderId !== renderCounter) return;
     view.innerHTML = html;
 
     const appRouteLabel = document.getElementById('app-route');
@@ -98,6 +106,7 @@ export async function initRouter() {
     document.title = `${route.title || route.name} — VAMS Portal`;
 
     const module = await importModuleJs(route);
+    if (renderId !== renderCounter) return;
     cleanupActiveModule();
 
     const context = {
@@ -125,6 +134,12 @@ export async function initRouter() {
 
       if (typeof initFn === 'function') {
         const moduleInstance = await initFn(view, context);
+        if (renderId !== renderCounter) {
+          if (moduleInstance && typeof moduleInstance.destroy === 'function') {
+            moduleInstance.destroy();
+          }
+          return;
+        }
         if (moduleInstance && typeof moduleInstance.destroy === 'function') {
           activeModule = moduleInstance;
         }
@@ -132,6 +147,8 @@ export async function initRouter() {
         console.warn(`Route module for ${route.name} has no init function`);
       }
     }
+
+    if (renderId !== renderCounter) return;
 
     emitEvent('navigation:after', { route, user, authorized: true });
 

@@ -1,4 +1,4 @@
-﻿import { listTrainingCenters, listTrainingOfferings, listTrainingBookings, watchTrainingBookings } from '../../services/trainingService.js';
+﻿import { listTrainingCenters, listTrainingOfferings, watchTrainingBookings } from '../../services/trainingService.js';
 import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 
 let bookingsUnsubscribe = null;
@@ -117,14 +117,13 @@ export async function init(view, context) {
   }
 
   try {
-    const [centers, offerings, bookings] = await Promise.all([
+    const [centers, offerings] = await Promise.all([
       listTrainingCenters(),
-      listTrainingOfferings(),
-      listTrainingBookings(null)
+      listTrainingOfferings()
     ]);
     latestCenters = centers;
     latestOfferings = offerings;
-    latestBookings = bookings;
+    latestBookings = [];
     renderTraining();
   } catch (error) {
     console.error('Training initial load failed:', error);

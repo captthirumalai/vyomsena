@@ -73,8 +73,8 @@ function isAcceptedRequest(request) {
   return normalized === 'ACCEPTED';
 }
 
-async function getAcceptedRequestPilots(operatorUid) {
-  const requests = await listOutgoingRequests(operatorUid);
+async function getAcceptedRequestPilots(operatorUid, outgoingRequests = null) {
+  const requests = outgoingRequests || (await listOutgoingRequests(operatorUid));
   const accepted = requests.filter((request) => isAcceptedRequest(request) && request.recipientId && request.recipientId !== operatorUid);
   const users = await Promise.all(accepted.map((request) => getUserByUid(request.recipientId)));
   return users.filter((user) => user && `${user.role || ''}`.toUpperCase() === 'PILOT');
@@ -97,18 +97,18 @@ async function ensureLinkedPilotProfiles(operatorUid, profiles, linkedPilots) {
   );
 }
 
-async function getLinkedPilotPool(operatorUid) {
+async function getLinkedPilotPool(operatorUid, outgoingRequests = null) {
   const [linkedPilots, acceptedPilots] = await Promise.all([
     listPilotsForOperator(operatorUid),
-    getAcceptedRequestPilots(operatorUid)
+    getAcceptedRequestPilots(operatorUid, outgoingRequests)
   ]);
   return [...(linkedPilots || []), ...(acceptedPilots || [])];
 }
 
-export async function getCrew(operatorUid) {
+export async function getCrew(operatorUid, outgoingRequests = null) {
   const [profiles, pool] = await Promise.all([
     listCrewProfilesForOperator(operatorUid),
-    getLinkedPilotPool(operatorUid)
+    getLinkedPilotPool(operatorUid, outgoingRequests)
   ]);
 
   const coverage = getProfileCoverage(profiles);
@@ -187,6 +187,23 @@ export async function getCrewDocumentsByPilots(pilots) {
   profileIds.forEach((pilot) => result.set(pilot.uid, pickDocs(getPilotDocumentUserIds(pilot))));
   plainIds.forEach((id) => result.set(id, pickDocs([id])));
   return result;
+}
+
+export async function syncCrewDocumentCache(cacheByUid, nextPilots) {
+  if (!(cacheByUid instanceof Map)) return new Map();
+  const nextUids = new Set((nextPilots || []).map((pilot) => pilot?.uid).filter(Boolean));
+
+  Array.from(cacheByUid.keys()).forEach((uid) => {
+    if (!nextUids.has(uid)) cacheByUid.delete(uid);
+  });
+
+  const missingPilots = (nextPilots || []).filter((pilot) => pilot?.uid && !cacheByUid.has(pilot.uid));
+  if (missingPilots.length > 0) {
+    const addedDocs = await getCrewDocumentsByPilots(missingPilots);
+    addedDocs.forEach((docs, uid) => cacheByUid.set(uid, docs));
+  }
+
+  return cacheByUid;
 }
 
 export function summarizeCrewDocumentCompliance(documents, warningDays = 30) {

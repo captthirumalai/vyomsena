@@ -15,7 +15,7 @@ import {
   watchPilotDocumentsForProfile
 } from '../../services/crewService.js';
 import { watchDocumentsByUser } from '../../services/documentService.js';
-import { startCrewDocumentSyncWorker } from '../../services/crewDocumentSyncService.js';
+import { startCrewDocumentSyncWorker, stopCrewDocumentSyncWorker } from '../../services/crewDocumentSyncService.js';
 import { canPerformCrewAction, getCrewPermissionsForUser } from '../../services/permissionService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { mirrorCrewProfilesToCompany } from '../../services/companyService.js';
@@ -114,7 +114,8 @@ export async function refreshCrew() {
   }
 
   if (!crewState.activeOperatorUid) return;
-  const [pilots, outgoingRequests] = await Promise.all([getCrew(crewState.activeOperatorUid), getOutgoingLinkRequests(crewState.activeOperatorUid)]);
+  const outgoingRequests = await getOutgoingLinkRequests(crewState.activeOperatorUid);
+  const pilots = await getCrew(crewState.activeOperatorUid, outgoingRequests);
   crewState.pilotsCache = pilots;
   crewState.outgoingRequestsCache = outgoingRequests;
   crewState.docsByPilotCache = await getCrewDocumentsByPilots(pilots);
@@ -739,6 +740,7 @@ export async function init(view, context) {
         clearTimeout(crewState.queueSyncFlashTimer);
         crewState.queueSyncFlashTimer = null;
       }
+      stopCrewDocumentSyncWorker();
       document.removeEventListener('keydown', bindKeyboard.handler);
     }
   };

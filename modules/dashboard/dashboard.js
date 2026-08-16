@@ -1,5 +1,5 @@
-import { getAircraft, onAircraftSnapshot } from '../../services/aircraftService.js';
-import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
+import { getAircraft, getCompanyAircraft, onCompanyAircraftSnapshot } from '../../services/aircraftService.js';
+import { getCrew, onCrewSnapshot, syncCrewDocumentCache, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
 import { appConfig } from '../../config/app.config.js';
 import { mountModuleActions, getModuleAction, setModuleSubtitle } from '../../shared/moduleHeader.js';
 
@@ -354,7 +354,7 @@ async function refreshComplianceDocuments() {
     return;
   }
 
-  const docsByPilot = await getCrewDocumentsByPilots(crewList);
+  const docsByPilot = await syncCrewDocumentCache(dashboardState.docsByPilot, crewList);
   if (token !== complianceRequestToken) return;
 
   const allDocuments = Array.from(docsByPilot.values()).flat();
@@ -410,20 +410,21 @@ export async function init(view, context) {
     };
   }
 
-  const [initialAircraft, initialCrew] = await Promise.all([
-    getAircraft(),
+  const [companyAircraft, initialCrew] = await Promise.all([
+    getCompanyAircraft(dashboardState.operatorUid),
     getCrew(dashboardState.operatorUid)
   ]);
 
-  dashboardState.aircraftFleet = initialAircraft;
+  dashboardState.aircraftFleet = companyAircraft.length ? companyAircraft : await getAircraft();
   dashboardState.crewList = initialCrew;
   dashboardState.lastSyncAt = new Date();
   renderDashboard();
   await refreshComplianceDocuments();
 
-  aircraftUnsubscribe = onAircraftSnapshot(
-    (snapshot) => {
-      dashboardState.aircraftFleet = snapshot.docs.map((item) => ({ reg: item.id, ...item.data() }));
+  aircraftUnsubscribe = onCompanyAircraftSnapshot(
+    dashboardState.operatorUid,
+    (fleet) => {
+      if (fleet.length > 0) dashboardState.aircraftFleet = fleet;
       dashboardState.lastSyncAt = new Date();
       renderDashboard();
     },

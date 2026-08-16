@@ -1,5 +1,5 @@
-﻿import { getAircraft, onAircraftSnapshot, getCompanyAircraft, onCompanyAircraftSnapshot } from '../../services/aircraftService.js';
-import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
+﻿import { getAircraft, getCompanyAircraft, onCompanyAircraftSnapshot } from '../../services/aircraftService.js';
+import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, syncCrewDocumentCache, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 import {
@@ -16,6 +16,7 @@ let flightsUnsubscribe = null;
 let latestAircraft = [];
 let latestCrew = [];
 let latestFlights = [];
+let latestDocsByPilot = new Map();
 let activeView = null;
 let activeOperatorUid = null;
 
@@ -43,7 +44,7 @@ async function renderDispatch() {
   const queueBody = activeView.querySelector('#dispatch-queue-body');
   if (!statusLabel || !queueBody) return;
 
-  const docsByPilot = await getCrewDocumentsByPilots(latestCrew);
+  const docsByPilot = latestDocsByPilot;
 
   const crewRows = latestCrew.map((pilot) => {
     const docs = docsByPilot.get(pilot.uid) || [];
@@ -270,15 +271,15 @@ export async function init(view, context) {
   view.querySelector('#dispatch-flight-form')?.addEventListener('submit', handleCreateFlight);
 
   try {
-    const [aircraftFleet, crewList, companyAircraft, flights] = await Promise.all([
-      getAircraft(),
-      getCrew(activeOperatorUid),
+    const [companyAircraft, crewList, flights] = await Promise.all([
       getCompanyAircraft(activeOperatorUid),
+      getCrew(activeOperatorUid),
       listFlights(activeOperatorUid)
     ]);
-    latestAircraft = companyAircraft.length ? companyAircraft : aircraftFleet;
+    latestAircraft = companyAircraft.length ? companyAircraft : await getAircraft();
     latestCrew = crewList;
     latestFlights = flights;
+    latestDocsByPilot = await getCrewDocumentsByPilots(crewList);
     populateFlightForm();
     await renderDispatch();
   } catch (error) {
@@ -289,11 +290,12 @@ export async function init(view, context) {
     }
   }
 
-  aircraftUnsubscribe = onAircraftSnapshot(
-    async (snapshot) => {
-      latestAircraft = snapshot.docs.map((item) => ({ reg: item.id, ...item.data() }));
+  aircraftUnsubscribe = onCompanyAircraftSnapshot(
+    activeOperatorUid,
+    (fleet) => {
+      if (fleet.length > 0) latestAircraft = fleet;
       populateFlightForm();
-      await renderDispatch();
+      renderDispatch();
     },
     (error) => console.error('Dispatch aircraft snapshot error:', error)
   );
@@ -302,6 +304,7 @@ export async function init(view, context) {
     activeOperatorUid,
     async (snapshot) => {
       latestCrew = snapshot.map((item) => ({ uid: item.uid || item.crewProfileId, ...item }));
+      latestDocsByPilot = await syncCrewDocumentCache(latestDocsByPilot, latestCrew);
       populateFlightForm();
       await renderDispatch();
     },
@@ -328,6 +331,7 @@ export async function init(view, context) {
       latestAircraft = [];
       latestCrew = [];
       latestFlights = [];
+      latestDocsByPilot = new Map();
       activeView = null;
       activeOperatorUid = null;
     }

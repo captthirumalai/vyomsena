@@ -9,11 +9,14 @@ import { deleteUserDocumentFile } from './storageService.js';
 
 const QUEUE_KEY = 'vams.crewDocumentSyncQueue.v1';
 const RETRY_INTERVAL_MS = 30000;
+const MAX_RETRY_BACKOFF_MS = 5 * 60 * 1000;
 
 let memoryQueue = [];
 let workerStarted = false;
 let retryTimer = null;
 let processing = false;
+let consecutiveFailures = 0;
+let onlineHandler = null;
 
 function nowIso() {
   return new Date().toISOString();
@@ -294,6 +297,7 @@ export function enqueueCrewDocumentCreate(payload) {
   const queue = readQueue();
   queue.push(operation);
   writeCompactedQueue(queue);
+  kickWorkQueue(RETRY_INTERVAL_MS);
   return operation;
 }
 
@@ -318,6 +322,7 @@ export function enqueueCrewDocumentUpdate({ documentId, updates, editedBy }) {
   const queue = readQueue();
   queue.push(operation);
   writeCompactedQueue(queue);
+  kickWorkQueue(RETRY_INTERVAL_MS);
   return operation;
 }
 
@@ -381,28 +386,74 @@ export async function processCrewDocumentSyncQueue() {
 export function startCrewDocumentSyncWorker() {
   if (workerStarted) return;
   workerStarted = true;
+  consecutiveFailures = 0;
 
   if (typeof window !== 'undefined') {
-    window.addEventListener('online', () => {
-      processCrewDocumentSyncQueue().catch((error) => {
-        console.warn('Crew document queue online sync failed:', error);
-      });
-    });
+    onlineHandler = () => kickWorkQueue();
+    window.addEventListener('online', onlineHandler);
   }
 
-  retryTimer = setInterval(() => {
-    processCrewDocumentSyncQueue().catch((error) => {
-      console.warn('Crew document queue periodic sync failed:', error);
-    });
-  }, RETRY_INTERVAL_MS);
+  kickWorkQueue(0);
 }
 
 export function stopCrewDocumentSyncWorker() {
-  if (!workerStarted) return;
   workerStarted = false;
+  consecutiveFailures = 0;
   if (retryTimer) {
-    clearInterval(retryTimer);
+    clearTimeout(retryTimer);
     retryTimer = null;
+  }
+  if (onlineHandler && typeof window !== 'undefined') {
+    window.removeEventListener('online', onlineHandler);
+    onlineHandler = null;
+  }
+}
+
+function retryDelayMs() {
+  const exponential = RETRY_INTERVAL_MS * Math.pow(2, Math.min(consecutiveFailures - 1, 6));
+  const jitter = Math.random() * RETRY_INTERVAL_MS;
+  return Math.round(Math.min(exponential + jitter, MAX_RETRY_BACKOFF_MS));
+}
+
+function kickWorkQueue(delayMs = 0) {
+  if (!workerStarted) return;
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    runWorkQueueOnce().catch(() => {});
+  }, Math.max(0, delayMs));
+}
+
+async function runWorkQueueOnce() {
+  if (!workerStarted) return;
+  if (readQueue().length === 0) {
+    consecutiveFailures = 0;
+    return;
+  }
+
+  let result;
+  try {
+    result = await processCrewDocumentSyncQueue();
+  } catch (error) {
+    console.warn('Crew document queue periodic sync failed:', error);
+    consecutiveFailures += 1;
+    kickWorkQueue(retryDelayMs());
+    return;
+  }
+
+  if (result.busy) {
+    kickWorkQueue(RETRY_INTERVAL_MS);
+    return;
+  }
+
+  if (result.remaining > 0) {
+    consecutiveFailures += 1;
+    kickWorkQueue(retryDelayMs());
+  } else {
+    consecutiveFailures = 0;
   }
 }
 

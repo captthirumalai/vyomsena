@@ -1,11 +1,12 @@
-﻿import { getAircraft, onAircraftSnapshot } from '../../services/aircraftService.js';
-import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
+﻿import { getAircraft, getCompanyAircraft, onCompanyAircraftSnapshot } from '../../services/aircraftService.js';
+import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, syncCrewDocumentCache, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
 import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 
 let aircraftUnsubscribe = null;
 let crewUnsubscribe = null;
 let latestAircraft = [];
 let latestCrew = [];
+let latestDocsByPilot = new Map();
 let activeView = null;
 let activeOperatorUid = null;
 
@@ -31,7 +32,7 @@ async function renderWeather() {
   const statusLabel = getModuleAction('weather-status');
   if (!watchlistBody || !statusLabel) return;
 
-  const docsByPilot = await getCrewDocumentsByPilots(latestCrew);
+  const docsByPilot = latestDocsByPilot;
 
   const nonOperationalAircraft = latestAircraft.filter((item) => `${item.status || ''}`.toLowerCase() !== 'operational');
   const crewConstraints = latestCrew
@@ -126,9 +127,10 @@ export async function init(view, context) {
   }
 
   try {
-    const [aircraftFleet, crewList] = await Promise.all([getAircraft(), getCrew(operatorUid)]);
-    latestAircraft = aircraftFleet;
+    const [companyAircraft, crewList] = await Promise.all([getCompanyAircraft(operatorUid), getCrew(operatorUid)]);
+    latestAircraft = companyAircraft.length ? companyAircraft : await getAircraft();
     latestCrew = crewList;
+    latestDocsByPilot = await getCrewDocumentsByPilots(crewList);
     await renderWeather();
   } catch (error) {
     console.error('Weather initial load failed:', error);
@@ -138,10 +140,11 @@ export async function init(view, context) {
     }
   }
 
-  aircraftUnsubscribe = onAircraftSnapshot(
-    async (snapshot) => {
-      latestAircraft = snapshot.docs.map((item) => ({ reg: item.id, ...item.data() }));
-      await renderWeather();
+  aircraftUnsubscribe = onCompanyAircraftSnapshot(
+    operatorUid,
+    (fleet) => {
+      if (fleet.length > 0) latestAircraft = fleet;
+      renderWeather();
     },
     (error) => console.error('Weather aircraft snapshot error:', error)
   );
@@ -150,6 +153,7 @@ export async function init(view, context) {
     operatorUid,
     async (snapshot) => {
       latestCrew = snapshot.map((item) => ({ uid: item.uid || item.crewProfileId, ...item }));
+      latestDocsByPilot = await syncCrewDocumentCache(latestDocsByPilot, latestCrew);
       await renderWeather();
     },
     (error) => console.error('Weather crew snapshot error:', error)
@@ -163,6 +167,7 @@ export async function init(view, context) {
       crewUnsubscribe = null;
       latestAircraft = [];
       latestCrew = [];
+      latestDocsByPilot = new Map();
       activeView = null;
       activeOperatorUid = null;
     }
