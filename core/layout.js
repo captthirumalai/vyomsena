@@ -161,21 +161,21 @@ export function initLayout() {
 
                   <div class="hero-headline-block">
                     <h1 class="brand-tagline">Run aviation company operations from one command surface.</h1>
-                    <p class="brand-desc">VyomSena is built by Capt. Thirumalai Kumaran — an airline pilot with more than a decade of NSOP operational experience — as a single workspace for every company's operations department to coordinate crew validity, fleet readiness, document sharing, and audit-critical oversight.</p>
+                    <p class="brand-desc">VyomSena is building practical aviation technology for pilots, operators and aviation teams — bringing crew compliance, documents, operational readiness and flight information into one connected workspace.</p>
                   </div>
 
                   <div class="hero-metrics">
                     <div class="hero-metric-card">
-                      <strong>Real-time</strong>
-                      <span>Document and profile updates sync instantly between the Android pilot app and the company workspace.</span>
+                      <strong>Real-time operational visibility</strong>
+                      <span>Crew and profile updates stay synchronized so teams can work from current operational information.</span>
                     </div>
                     <div class="hero-metric-card">
                       <strong>One source of truth</strong>
-                      <span>Web and Android share a single Firebase-backed contract for crew compliance data.</span>
+                      <span>Keep crew records, documents and operational information connected instead of scattered across spreadsheets, folders and messages.</span>
                     </div>
                     <div class="hero-metric-card">
-                      <strong>Audit-ready</strong>
-                      <span>Centralize expiry tracking, trainings, operator linkage, and regulated document change history.</span>
+                      <strong>Compliance visibility</strong>
+                      <span>Track crew compliance, document status, training and operational records with a clear history of changes.</span>
                     </div>
                   </div>
 
@@ -184,21 +184,21 @@ export function initLayout() {
                       <span class="feature-icon">01</span>
                       <div>
                         <h3>Crew Compliance Command</h3>
-                        <p>Track licence validity, medicals, and pilot-readiness exceptions without spreadsheet drift.</p>
+                        <p>Track licence validity, medicals, required documents and pilot-readiness exceptions without spreadsheet-driven follow-up.</p>
                       </div>
                     </div>
                     <div class="feature-item">
                       <span class="feature-icon">02</span>
                       <div>
                         <h3>Company Document Control</h3>
-                        <p>Manage shared crew records, operator visibility, and time-sensitive renewals from one web workspace.</p>
+                        <p>Manage shared crew records, operator visibility and time-sensitive renewals from one workspace.</p>
                       </div>
                     </div>
                     <div class="feature-item">
                       <span class="feature-icon">03</span>
                       <div>
                         <h3>Operational Readiness</h3>
-                        <p>Dispatch, flight documents, and operator-side oversight built around one shared flight record.</p>
+                        <p>Bring dispatch, flight documents and operator-side information together around the operational record.</p>
                       </div>
                     </div>
                   </div>
@@ -206,22 +206,35 @@ export function initLayout() {
                   <div class="hero-bottom-grid">
                     <div class="positioning-quote">
                       <p class="quote-label">Why this exists</p>
-                      <p class="quote-text">VyomSena turns fragmented aviation administration into a single, operator-grade command layer for crew, documents, and compliance visibility.</p>
+                      <p class="quote-text">Aviation operations generate information across licences, crew records, documents, training, flights and compliance workflows. VyomSena exists to bring these fragmented workflows into a connected operational workspace.</p>
                     </div>
                     <div class="founder-card">
                       <p class="quote-label">Built by a pilot</p>
                       <h3>Capt. Thirumalai Kumaran</h3>
-                      <p>A pilot with more than a decade of NSOP operations experience, engineering VyomSena for the operations department of every company.</p>
+                      <p>An airline pilot with more than a decade of NSOP operational experience, who experienced this operational problem first and began building VyomSena around the way aviation teams actually work. The objective is not to replace aviation expertise with software, but to give aviation professionals better tools to manage the information around their operations.</p>
                     </div>
                     <div class="pilot-callout-card">
                       <p class="pilot-callout-label">Pilot Access</p>
                       <h3>Pilots use the Android app</h3>
-                      <p>Individual and company-linked pilots access their workflows on mobile. This web workspace is reserved for company-side operations teams.</p>
+                      <p>Pilots use the Android app to manage their own aviation records and, where connected to an operator, access company-linked workflows.</p>
                     </div>
                     <div class="coming-soon-card">
-                      <p class="pilot-callout-label">Coming Soon <span class="soon-badge">Dev</span></p>
+                      <p class="pilot-callout-label">Coming Soon <span class="soon-badge">Under development</span></p>
                       <h3>Handheld e-ink EFB</h3>
-                      <p>A purpose-built electronic flight bag on an e-ink display for cockpit and ramp use — in development, and will be revealed soon.</p>
+                      <p>Purpose-built electronic flight bag technology for cockpit and ramp use — designed around practical operational workflows.</p>
+                    </div>
+                  </div>
+
+                  <div class="hero-mission">
+                    <div class="mission-card">
+                      <p class="quote-label">Our Mission</p>
+                      <h3>Make aviation operations more organised, connected and accessible</h3>
+                      <p>Through practical technology — while keeping safety, compliance and operational simplicity at the centre.</p>
+                    </div>
+                    <div class="mission-card">
+                      <p class="quote-label">Our Vision</p>
+                      <h3>A connected digital operating environment for aviation</h3>
+                      <p>Where pilots, operators, training teams and operational information can work together through one reliable platform.</p>
                     </div>
                   </div>
                 </div>

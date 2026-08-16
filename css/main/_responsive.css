@@ -12,7 +12,8 @@
   }
 
   .hero-metrics,
-  .hero-bottom-grid {
+  .hero-bottom-grid,
+  .hero-mission {
     grid-template-columns: 1fr;
   }
 }
