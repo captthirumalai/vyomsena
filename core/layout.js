@@ -211,7 +211,7 @@ export function initLayout() {
                     <div class="founder-card">
                       <p class="quote-label">Built by a pilot</p>
                       <h3>Capt. Thirumalai Kumaran</h3>
-                      <p>An airline pilot with more than a decade of NSOP operational experience, who experienced this operational problem first and began building VyomSena around the way aviation teams actually work. The objective is not to replace aviation expertise with software, but to give aviation professionals better tools to manage the information around their operations.</p>
+                      <p>An Commercial pilot with more than a decade of NSOP operational experience, who experienced this operational problem first and began building VyomSena around the way aviation teams actually work. The objective is not to replace aviation expertise with software, but to give aviation professionals better tools to manage the information around their operations.</p>
                     </div>
                     <div class="pilot-callout-card">
                       <p class="pilot-callout-label">Pilot Access</p>
