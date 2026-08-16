@@ -32,13 +32,6 @@ export function renderQueueSyncState() {
       : 'Last sync: —';
   }
 
-  const retryButton = query('#cm-sync-retry');
-  if (retryButton) {
-    retryButton.disabled = crewState.queueSyncBusy || pendingCount === 0;
-    const label = query('#cm-sync-retry-label');
-    if (label) label.textContent = crewState.queueSyncBusy ? 'Syncing...' : 'Retry Sync';
-  }
-
   const errorLabel = query('#cm-sync-error');
   if (errorLabel) {
     const message = crewState.queueSyncLastError || getLastQueueError(queue);

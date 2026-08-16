@@ -127,3 +127,11 @@
     width: 100%;
   }
 }
+
+.vs-topbar-user-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}

@@ -731,11 +731,17 @@
 .cm-doc-row-meta {
   font-size: 0.72rem;
   color: var(--cm-muted);
+  overflow-wrap: anywhere;
 }
 
 .cm-doc-row-status {
   text-align: right;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.cm-doc-row .cm-doc-row-status:last-child {
+  white-space: normal;
 }
 
 .cm-invite-box {

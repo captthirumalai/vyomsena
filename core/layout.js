@@ -127,12 +127,14 @@ export function initLayout() {
           </div>
           <div class="vs-topbar-actions">
             <div id="app-module-actions" class="vs-module-actions"></div>
-            <button id="btn-theme-toggle" class="vs-button vs-button--secondary vs-button--sm" type="button">🌙</button>
-            <button id="btn-user-info" class="vs-button vs-button--secondary vs-button--sm" type="button">
-              <span class="vs-user-icon">👤</span>
-              <span class="vs-user-info-name" id="btn-user-info-name">User</span>
-            </button>
-            <button id="btn-logout" class="vs-button vs-button--secondary vs-button--sm">Sign Out</button>
+            <div class="vs-topbar-user-actions">
+              <button id="btn-theme-toggle" class="vs-button vs-button--secondary vs-button--sm" type="button">🌙</button>
+              <button id="btn-user-info" class="vs-button vs-button--secondary vs-button--sm" type="button">
+                <span class="vs-user-icon">👤</span>
+                <span class="vs-user-info-name" id="btn-user-info-name">User</span>
+              </button>
+              <button id="btn-logout" class="vs-button vs-button--secondary vs-button--sm">Sign Out</button>
+            </div>
           </div>
         </header>
 

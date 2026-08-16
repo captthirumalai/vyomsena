@@ -368,10 +368,6 @@ function bindScreenControls() {
     renderCrewScreen();
   });
 
-  query('#cm-sync-retry')?.addEventListener('click', async () => {
-    await runQueueSync({ source: 'manual', refreshAfter: true });
-  });
-
   query('#cm-inactive-list')?.addEventListener('click', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -573,10 +569,6 @@ function mountCrewHeader() {
     </button>
     <div class="cm-sync-strip" aria-live="polite">
       <span class="cm-sync-pill" id="cm-sync-count">Pending Sync: 0</span>
-      <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-sync-retry" disabled>
-        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 6v6l4 2M12 3a9 9 0 1 0 9 9"/></svg>
-        <span id="cm-sync-retry-label">Retry Sync</span>
-      </button>
       <span class="cm-sync-pill cm-sync-pill-blue" id="cm-last-sync">Last sync: —</span>
       <span class="cm-sync-flash hidden" id="cm-sync-flash"></span>
       <span class="cm-sync-error" id="cm-sync-error">No retry errors yet.</span>
