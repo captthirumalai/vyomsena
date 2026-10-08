@@ -77,10 +77,11 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
   const pastBound = new Date(now.getTime() - 60 * MS_PER_DAY);
   const futureBound = new Date(now.getTime() + MAX_LEAD_DAYS * MS_PER_DAY);
 
-  let docsQuery = db.collection('user_documents')
+  // Single-field range only: adding operatorId here would demand a composite
+  // index, so company scoping is filtered in code below (cheap at our counts).
+  const docsQuery = db.collection('user_documents')
     .where('expiryDate', '>=', pastBound)
     .where('expiryDate', '<=', futureBound);
-  if (scopeCompanyId) docsQuery = docsQuery.where('operatorId', '==', scopeCompanyId);
   const docsSnap = await docsQuery.get();
 
   const byCompany = new Map();
@@ -88,6 +89,7 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
     const data = docSnap.data() || {};
     const operatorId = data.operatorId || null;
     if (!operatorId) continue;
+    if (scopeCompanyId && operatorId !== scopeCompanyId) continue;
     if (!byCompany.has(operatorId)) byCompany.set(operatorId, []);
     byCompany.get(operatorId).push({ id: docSnap.id, data });
   }
