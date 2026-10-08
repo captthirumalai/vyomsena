@@ -306,6 +306,7 @@ expiry. The app is a static SPA — no backend, no secrets, no scheduler.
 - **V0.3.17** — reminders go live: functions deployed to `vyomsena-888` (scheduled + callable ACTIVE), SMTP secrets set, `reminder_logs` server-only rule published to console rules.
 - **V0.3.18** — fix: Settings route required role `admin`, which no web user ever has (web roles are `OPERATIONS`/company owner) — the whole Settings page, including the new reminders card, was invisible with "Access denied". Permissions widened to `['admin', 'operations']` (pilots still blocked).
 - **V0.3.19** — fix: manual trigger failed with `FAILED_PRECONDITION` (missing composite index on `operatorId` + `expiryDate`). Removed the `operatorId` filter from the Firestore query — company scoping now happens in code — so the job needs no composite indexes by design.
+- **V0.3.20** — readability: root UI zoom raised 70% → 87.5% (+25% on everything, fonts and layout alike).
 
 ---
 
