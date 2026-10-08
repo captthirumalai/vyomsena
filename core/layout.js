@@ -63,6 +63,10 @@ function initShellActions() {
     openUserProfileEditor(authStore.user);
   });
 
+  query('#btn-workspace-settings')?.addEventListener('click', () => {
+    window.location.hash = '#/settings';
+  });
+
   const shellEl = query('#app-shell');
   const menuButton = query('#btn-menu-toggle');
   const backdrop = query('#app-sidebar-backdrop');
@@ -132,6 +136,10 @@ export function initLayout() {
               <button id="btn-user-info" class="vs-button vs-button--secondary vs-button--sm" type="button">
                 <span class="vs-user-icon">👤</span>
                 <span class="vs-user-info-name" id="btn-user-info-name">User</span>
+              </button>
+              <button id="btn-workspace-settings" class="vs-button vs-button--secondary vs-button--sm" type="button" title="Workspace settings" aria-label="Workspace settings">
+                <span aria-hidden="true">⚙️</span>
+                <span>Settings</span>
               </button>
               <button id="btn-logout" class="vs-button vs-button--secondary vs-button--sm">Sign Out</button>
             </div>
