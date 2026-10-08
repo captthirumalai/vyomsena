@@ -56,6 +56,49 @@
         </div>
       </div>
     </section>
+
+    <section class="vs-card">
+      <h3 class="vs-card__title">Licence Expiry Reminders</h3>
+      <p class="vs-card__body">Automatic daily email (06:00 IST) to pilots whose licences or documents are nearing expiry, plus a digest for operations. Escalation tiers are derived from each document's own reminder lead time.</p>
+      <form id="st-reminder-form" novalidate>
+        <div class="st-form-row">
+          <label class="st-field">
+            <span>Default lead time (days)</span>
+            <input type="number" id="st-reminder-lead" name="defaultLeadDays" min="1" max="365" value="30" />
+          </label>
+          <label class="st-field">
+            <span>Extra ops CC emails (comma-separated)</span>
+            <input type="text" id="st-reminder-cc" name="ccEmails" placeholder="ops2@operator.com" />
+          </label>
+        </div>
+        <div class="st-form-row">
+          <label class="st-field">
+            <span><input type="checkbox" id="st-reminder-enabled" name="enabled" checked /> Daily reminders enabled</span>
+          </label>
+          <label class="st-field">
+            <span><input type="checkbox" id="st-reminder-digest" name="digestToOps" checked /> Send daily digest to operations</span>
+          </label>
+          <label class="st-field">
+            <span><input type="checkbox" id="st-reminder-expired" name="includeExpired" checked /> Also notify on expired documents</span>
+          </label>
+        </div>
+        <div class="st-form-actions">
+          <button type="submit" class="vs-button vs-button--primary vs-button--md" id="st-reminder-submit">
+            <span class="st-btn-spinner hidden" aria-hidden="true"></span>
+            <span>Save reminders</span>
+          </button>
+          <button type="button" class="vs-button vs-button--secondary vs-button--md" id="st-reminder-run">
+            <span class="st-btn-spinner hidden" aria-hidden="true"></span>
+            <span>Run now</span>
+          </button>
+          <span class="st-status" id="st-reminder-status" aria-live="polite"></span>
+        </div>
+      </form>
+      <dl class="st-dl">
+        <div class="st-dl-row"><dt>Last run</dt><dd id="st-reminder-last-run">—</dd></div>
+        <div class="st-dl-row"><dt>Last run result</dt><dd id="st-reminder-last-result">—</dd></div>
+      </dl>
+    </section>
   </div>
 
   <section class="vs-card">

@@ -237,8 +237,52 @@ This file is a diary of product, architecture, and engineering decisions for Vyo
 
 ---
 
-## 9. What we deliberately did NOT decide (open items)
+## 10. Expiry reminders: server-side email (browser never sends)
 
+**Date:** 2026-10-08.
+
+**Context:** Operators need automatic reminders when pilot licences/documents near
+expiry. The app is a static SPA — no backend, no secrets, no scheduler.
+
+**Decision:**
+- New `functions/` Cloud Functions backend (`sendExpiryReminders` daily 06:00 IST
+  + `sendExpiryRemindersNow` callable), email via Nodemailer/SMTP (Gmail app
+  password — free, 500/day). No vendor SDKs.
+- Escalation tiers derived per document from its own `reminderLeadTimeDays`
+  (lead, ceil(lead/2), 7, 1), one mail per pilot per day, one `expired` notice.
+- Dedupe key `reminder_logs/{docId|expiryMs|tier}` — renewals (new expiry)
+  restart the cycle automatically; `reminder_runs/{runId}` powers the Settings
+  "Last run" card.
+- Settings UI in the Settings module (`reminder_settings/current`); per-doc
+  `reminderLeadTimeDays` remains the source of truth, company `defaultLeadDays`
+  is the fallback.
+- SMS deferred: never free in India + DLT registration. Email first.
+
+**Why:**
+- A browser tab cannot be a scheduler, and SMS/email API keys cannot live in
+  client JS. Scheduled functions are the only honest "automatic".
+- Gmail SMTP keeps v1 at ₹0; Blaze plan is a billing *requirement* for outbound
+  networking, not a real cost at this volume.
+
+**Alternatives rejected:**
+- Client-side "send when an operator has the tab open" — not automatic, keys leak.
+- Trigger-Email extension — heavier (extra collection + extension cost/behavior)
+  than one small scheduled function we fully own.
+- SMS/WhatsApp in v1 — pay-per-message + DLT paperwork; revisit when email
+  proves the workflow.
+
+**Consequences:**
+- First backend in the repo (`firebase.json`, `.firebaserc`, `functions/`);
+  deploy is a new manual step (`firebase deploy --only functions`) — hosting
+  stays on GitHub Pages.
+- Firestore rules must add the `reminder_logs` server-only block (documented in
+  `docs/firestorerules.md`) so clients can't forge sent-logs and suppress mail.
+
+**Status:** Built (V0.3.16), awaiting Blaze upgrade + secrets + first deploy.
+
+---
+
+## 9. What we deliberately did NOT decide (open items)
 - **When to tighten Firestore/Storage rules** (entry 5 roadmap). Do this *before* any real multi-company rollout.
 - **Cache / lean-query plan** (entry 7). Revisit on the documented triggers.
 - **Provisioning automation design** for per-tenant Firebase (entry 8).
@@ -258,6 +302,7 @@ This file is a diary of product, architecture, and engineering decisions for Vyo
 - **V0.3.13** — topbar cleanup: removed useless Retry Sync button from crew global header (auto-sync worker covers it); grouped theme/user/Sign Out buttons so Sign Out stays inline beside the user button; widened pilot-profile drawer (420→560px) and let document-row columns shrink/wrap so expired/expiring info is never hidden behind a horizontal scroll.
 - **V0.3.14** — welcome/login page copy corrected and updated: brand tagline "Made by a pilot · for the pilots"; headline and description now credit the founder (Capt. Thirumalai Kumaran, airline pilot, 10+ years NSOP experience) and the webapp's purpose (operations department of every company); added a founder card and a "Coming Soon" dev-badge card for the in-development handheld e-ink EFB device; bottom grid widened to 2×2; browser tab and app config rebranded from "VAMS V2" to "VyomSena".
 - **V0.3.15** — welcome/login page content refined (design untouched): value cards renamed to plain-language outcomes (Real-time operational visibility / One source of truth / Compliance visibility — "Audit-ready" dropped as an unverifiable certification claim); feature-strip copy tightened; "Why this exists", founder, pilot-access and e-ink EFB cards rewritten to verifiable, honest wording ("Under development" replaces the bare "Dev" badge); added a compact Our Mission / Our Vision two-card section (grid stacks below 980px); SEO metadata set (<title> "VyomSena | Aviation Operations & Compliance Technology" + meta description). The welcome screen stays fully static — no Firestore reads, no auth-dependent data on render.
+- **V0.3.16** — automatic licence-expiry email reminders: new `functions/` backend (scheduled daily 06:00 IST job + callable manual trigger), Nodemailer/SMTP, tier escalation from each document's `reminderLeadTimeDays`, server-only dedupe log + per-company run history, Settings UI card (enable/lead/CC/digest toggles, Run now, Last run). See `docs/reminders.md`. Pending: Blaze upgrade, SMTP secrets, first deploy.
 
 ---
 

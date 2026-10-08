@@ -369,6 +369,41 @@ Subcollections:
 
 - `companies/{companyId}/flights/{flightId}/audit` — per-flight audit entries (who, when, entity, field, before, after, reason, source).
 
+## Expiry reminders (server-side, Cloud Functions)
+
+The scheduled job `sendExpiryReminders` (daily 06:00 IST) scans `user_documents`
+by `expiryDate` window, escalates through tiers derived from each document's
+`reminderLeadTimeDays` (fallback: company default), and mails pilots + an ops
+digest. The callable `sendExpiryRemindersNow` runs the same job for one company
+on demand from Settings. Full setup: `docs/reminders.md`.
+
+Settings (web-readable/writable by the owning company):
+
+- `companies/{companyId}/reminder_settings/current`
+- `enabled` (bool, default true), `defaultLeadDays` (number 1–365, default 30,
+  used when a document has no `reminderLeadTimeDays`), `ccEmails` (array),
+  `digestToOps` (bool, default true), `includeExpired` (bool, default true),
+  `updatedBy`, `lastModified`, `companyId`
+
+Dedupe log (server-only writes; clients must not write):
+
+- `companies/{companyId}/reminder_logs/{docId|expiryMs|tier}`
+- `docId`, `userId`, `pilotEmail`, `tier` (`30`/`15`/`7`/`1`/… or `expired`),
+  `expiryMs`, `status` (`sent`), `sentAt`, `triggeredBy`
+- One mail per (document, tier, expiry) — re-mailing on re-run is impossible
+  without deleting the log entry.
+
+Run history (server-written, company-readable; powers the Settings "Last run" card):
+
+- `companies/{companyId}/reminder_runs/{runId}` where runId is a UTC timestamp
+  `YYYY-MM-DDTHH-mm-ss`
+- `sent` (pilot mails), `skippedNoEmail`, `skippedAlreadySent`, `failed`,
+  `details[]`, `at`, `triggeredBy` (`schedule` or caller uid)
+
+Pilot recipient resolution order: `users/{userId}.email` → `crew_profiles/{userId}.email`
+→ `crew_profiles where pilotUid == userId`. Ops digest goes to
+`companies/{companyId}.ownerEmail` + settings `ccEmails`.
+
 ## Service ownership
 
 UI modules must not query Firestore directly.
@@ -382,6 +417,7 @@ Use services:
 - `services/firestoreService.js`
 - `services/companyService.js` (admin_users, companies, company_accounts, company_invites, company module subcollections)
 - `services/aircraftService.js` (top-level `aircraft` and `companies/{companyId}/aircraft`)
+- `services/reminderSettingsService.js` (`reminder_settings`, `reminder_runs` reads, manual-trigger callable)
 
 ## Runtime schema validation
 

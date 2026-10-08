@@ -272,14 +272,30 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // EXPIRY REMINDER LOGS (server-only dedupe log).
+    // Written by Cloud Functions via Admin SDK (bypasses rules). Clients can
+    // read for audit but must never write — a client-written "sent" entry
+    // would silently suppress a real reminder.
+    match /companies/{companyId}/reminder_logs/{logId} {
+      allow read: if request.auth != null && (
+        isCompanyAdmin(companyId) ||
+        isCompanyAccountMember(companyId)
+      );
+      allow create, update, delete: if false;
+    }
+
     // COMPANY MODULE SUBCOLLECTIONS: companies/{companyId}/{module}/{docId}
+    // Covers reminder_settings/current (company-editable) and
+    // reminder_runs/* (server-written, company-readable) via the generic rule.
     match /companies/{companyId}/{module}/{docId} {
       allow read: if request.auth != null && (
         isCompanyAdmin(companyId) ||
         isCompanyAccountMember(companyId) ||
         isCompanyMember(companyId)
       );
-      allow create, update, delete: if request.auth != null && isCompanyAdmin(companyId);
+      allow create, update, delete: if request.auth != null
+        && isCompanyAdmin(companyId)
+        && module != 'reminder_logs';
     }
   }
 }
