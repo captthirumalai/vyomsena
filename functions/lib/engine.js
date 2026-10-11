@@ -2,6 +2,9 @@
  * Expiry-reminder engine. Scans user_documents, escalates through tiers,
  * sends one mail per pilot, dedupes via per-company reminder_logs so a
  * given (document, tier, expiry) fires exactly once.
+ *
+ * Query design: single-field filters only (no composite indexes required).
+ * Company scoping and tier math happen in code.
  */
 
 const {
@@ -13,14 +16,16 @@ const {
   tierToSend,
   reminderKey
 } = require('./tiers');
-const { sendPilotReminder, sendOpsDigest } = require('./email');
+const { sendPilotReminder, sendOpsDigest, sendFailureAlert } = require('./email');
 
 const DEFAULT_SETTINGS = {
   enabled: true,
   defaultLeadDays: DEFAULT_LEAD_DAYS,
+  defaultNotifyEmail: null,
   ccEmails: [],
   digestToOps: true,
-  includeExpired: true
+  includeExpired: true,
+  maxSendsPerDay: 450
 };
 
 function toEmailList(value) {
@@ -31,6 +36,15 @@ function toEmailList(value) {
   return [];
 }
 
+function toSingleEmail(value) {
+  const cleaned = `${value || ''}`.trim().toLowerCase();
+  return /.+@.+\..+/.test(cleaned) ? cleaned : null;
+}
+
+function clampLead(value, fallback) {
+  return Math.min(Math.max(Math.round(Number(value) || fallback), 1), MAX_LEAD_DAYS);
+}
+
 async function loadSettings(db, companyId) {
   const ref = db.doc(`companies/${companyId}/reminder_settings/current`);
   const snapshot = await ref.get();
@@ -38,10 +52,12 @@ async function loadSettings(db, companyId) {
   const raw = snapshot.data() || {};
   return {
     enabled: raw.enabled !== false,
-    defaultLeadDays: Math.min(Math.max(Math.round(Number(raw.defaultLeadDays) || DEFAULT_LEAD_DAYS), 1), MAX_LEAD_DAYS),
+    defaultLeadDays: clampLead(raw.defaultLeadDays, DEFAULT_LEAD_DAYS),
+    defaultNotifyEmail: toSingleEmail(raw.defaultNotifyEmail),
     ccEmails: toEmailList(raw.ccEmails),
     digestToOps: raw.digestToOps !== false,
-    includeExpired: raw.includeExpired !== false
+    includeExpired: raw.includeExpired !== false,
+    maxSendsPerDay: Math.min(Math.max(Math.round(Number(raw.maxSendsPerDay) || DEFAULT_SETTINGS.maxSendsPerDay), 1), 2000)
   };
 }
 
@@ -68,21 +84,25 @@ async function resolvePilotContact(db, userId) {
   return { name, email: email ? `${email}`.trim().toLowerCase() : null };
 }
 
+function toExpiryDate(value) {
+  if (!value) return null;
+  const raw = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+  return raw instanceof Date && !Number.isNaN(raw.getTime()) ? raw : null;
+}
+
 /**
- * Scan and send. scopeCompanyId restricts to one company (manual trigger);
- * without it, every company with in-window documents is processed.
- * Returns a machine-readable summary (also persisted per company).
+ * Shared scan: in-window documents grouped per company, tiers assigned,
+ * pilots grouped — but nothing resolved, sent, or logged. Used by both
+ * the live run and the dry-run preview.
  */
-async function runExpiryReminders({ db, transport, from, now = new Date(), scopeCompanyId = null, actorUid = null }) {
+async function collectCompanyBatches(db, now, scopeCompanyId = null) {
   const pastBound = new Date(now.getTime() - 60 * MS_PER_DAY);
   const futureBound = new Date(now.getTime() + MAX_LEAD_DAYS * MS_PER_DAY);
 
-  // Single-field range only: adding operatorId here would demand a composite
-  // index, so company scoping is filtered in code below (cheap at our counts).
-  const docsQuery = db.collection('user_documents')
+  const docsSnap = await db.collection('user_documents')
     .where('expiryDate', '>=', pastBound)
-    .where('expiryDate', '<=', futureBound);
-  const docsSnap = await docsQuery.get();
+    .where('expiryDate', '<=', futureBound)
+    .get();
 
   const byCompany = new Map();
   for (const docSnap of docsSnap.docs) {
@@ -94,132 +114,245 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
     byCompany.get(operatorId).push({ id: docSnap.id, data });
   }
 
-  const runId = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const summary = { runId, at: now.toISOString(), triggeredBy: actorUid || 'schedule', companies: {} };
-
+  const batches = [];
   for (const [companyId, docs] of byCompany.entries()) {
-    const companySummary = { sent: 0, skippedNoEmail: 0, skippedAlreadySent: 0, failed: 0, details: [] };
-    summary.companies[companyId] = companySummary;
-
     const settings = await loadSettings(db, companyId);
-    if (!settings.enabled) {
-      companySummary.details.push('reminders disabled in settings');
-      continue;
-    }
-
     const companySnap = await db.doc(`companies/${companyId}`).get();
     const companyData = companySnap.exists ? companySnap.data() || {} : {};
     const companyName = companyData.name || 'Your operator';
-    const opsRecipients = toEmailList([companyData.ownerEmail, ...settings.ccEmails]);
+    const opsRecipients = toEmailList([settings.defaultNotifyEmail || companyData.ownerEmail, ...settings.ccEmails]);
 
-    // Group in-window documents per pilot.
-    const pilots = new Map();
-    for (const { id, data } of docs) {
-      const days = daysUntil(data.expiryDate, now);
-      if (days === null) continue;
-      if (days < 0 && !settings.includeExpired) continue;
-      const lead = Math.min(Math.max(Math.round(Number(data.reminderLeadTimeDays) || settings.defaultLeadDays), 1), MAX_LEAD_DAYS);
-      const tier = tierToSend(days, tiersForLead(lead));
-      if (tier === null) continue;
-      const expiry = data.expiryDate?.toDate ? data.expiryDate.toDate() : new Date(data.expiryDate);
-      const item = {
-        docId: id,
-        documentName: data.documentName || 'Document',
-        documentCategory: data.documentCategory || null,
-        licenseOrCertificateNumber: data.licenseOrCertificateNumber || null,
-        expiryDate: expiry,
-        expiryMs: expiry.getTime(),
-        days,
-        tier,
-        userId: data.userId || null
-      };
-      const key = item.userId || 'unknown';
-      if (!pilots.has(key)) pilots.set(key, []);
-      pilots.get(key).push(item);
+    const pilotItems = new Map();
+    if (settings.enabled) {
+      for (const { id, data } of docs) {
+        const days = daysUntil(data.expiryDate, now);
+        if (days === null) continue;
+        if (days < 0 && !settings.includeExpired) continue;
+        const lead = clampLead(data.reminderLeadTimeDays, settings.defaultLeadDays);
+        const tier = tierToSend(days, tiersForLead(lead));
+        if (tier === null) continue;
+        const expiry = toExpiryDate(data.expiryDate);
+        if (!expiry) continue;
+        const item = {
+          docId: id,
+          documentName: data.documentName || 'Document',
+          documentCategory: data.documentCategory || null,
+          licenseOrCertificateNumber: data.licenseOrCertificateNumber || null,
+          expiryDate: expiry,
+          expiryMs: expiry.getTime(),
+          days,
+          tier,
+          userId: data.userId || null
+        };
+        const key = item.userId || 'unknown';
+        if (!pilotItems.has(key)) pilotItems.set(key, []);
+        pilotItems.get(key).push(item);
+      }
     }
+    batches.push({ companyId, companyName, opsRecipients, settings, pilotItems });
+  }
+  return batches;
+}
 
-    if (!pilots.size) {
+async function resolvePilotGroups(db, pilotItems) {
+  const groups = [];
+  for (const [userId, items] of pilotItems.entries()) {
+    const contact = userId === 'unknown'
+      ? { name: 'Unassigned document', email: null }
+      : await resolvePilotContact(db, userId);
+    groups.push({ userId, pilotName: contact.name, pilotEmail: contact.email, items });
+  }
+  return groups;
+}
+
+/**
+ * Dry-run preview for one company: who would be mailed today, no sends,
+ * no log writes. Returns JSON-serializable data for the callable.
+ */
+async function previewCompanyReminders({ db, companyId, now = new Date() }) {
+  const batches = await collectCompanyBatches(db, now, companyId);
+  const batch = batches.find((entry) => entry.companyId === companyId);
+  if (!batch) {
+    return { companyId, companyName: null, enabled: true, groups: [], totalDocs: 0, totalPilots: 0 };
+  }
+  const groups = await resolvePilotGroups(db, batch.pilotItems);
+  return {
+    companyId,
+    companyName: batch.companyName,
+    enabled: batch.settings.enabled,
+    groups: groups.map((group) => ({
+      pilotName: group.pilotName,
+      pilotEmail: group.pilotEmail,
+      items: group.items.map((item) => ({
+        documentName: item.documentName,
+        documentCategory: item.documentCategory,
+        days: item.days,
+        tier: `${item.tier}`,
+        expiryDate: item.expiryDate.toISOString().slice(0, 10)
+      }))
+    })),
+    totalDocs: groups.reduce((sum, group) => sum + group.items.length, 0),
+    totalPilots: groups.length
+  };
+}
+
+/**
+ * Scan and send. scopeCompanyId restricts to one company (manual trigger);
+ * without it, every company with in-window documents is processed.
+ * Returns a machine-readable summary (also persisted per company).
+ */
+async function runExpiryReminders({ db, transport, from, now = new Date(), scopeCompanyId = null, actorUid = null }) {
+  const runId = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const triggeredBy = actorUid || 'schedule';
+  const summary = { runId, at: now.toISOString(), triggeredBy, companies: {} };
+  const batches = await collectCompanyBatches(db, now, scopeCompanyId);
+
+  for (const batch of batches) {
+    const { companyId, companyName, opsRecipients, settings, pilotItems } = batch;
+    const companySummary = {
+      sent: 0,
+      skippedNoEmail: 0,
+      skippedAlreadySent: 0,
+      skippedQuota: 0,
+      failed: 0,
+      quotaReached: false,
+      details: []
+    };
+    summary.companies[companyId] = companySummary;
+
+    const persistRun = async () => {
       await db.doc(`companies/${companyId}/reminder_runs/${runId}`).set({
-        ...companySummary, at: now.toISOString(), triggeredBy: actorUid || 'schedule'
+        ...companySummary, at: now.toISOString(), triggeredBy
       });
-      continue;
-    }
+    };
 
-    // Dedupe: one mail per (document, tier, expiry). All tiers for a pilot
-    // land in a single mail only if every tier is unsent; sent tiers are
-    // excluded so nothing fires twice.
-    const allKeys = [];
-    for (const items of pilots.values()) {
-      for (const item of items) allKeys.push(reminderKey(item.docId, item.expiryMs, `${item.tier}`));
-    }
-    const logRefs = allKeys.map((key) => db.doc(`companies/${companyId}/reminder_logs/${key}`));
-    const logSnaps = logRefs.length ? await db.getAll(...logRefs) : [];
-    const alreadySent = new Set();
-    logSnaps.forEach((snap, index) => {
-      if (snap.exists && (snap.data() || {}).status === 'sent') alreadySent.add(allKeys[index]);
-    });
-
-    const pilotGroups = [];
-    for (const [userId, items] of pilots.entries()) {
-      const unsent = items.filter((item) => !alreadySent.has(reminderKey(item.docId, item.expiryMs, `${item.tier}`)));
-      companySummary.skippedAlreadySent += items.length - unsent.length;
-      if (!unsent.length) continue;
-      const contact = await resolvePilotContact(db, userId);
-      if (!contact.email) {
-        companySummary.skippedNoEmail += unsent.length;
-        companySummary.details.push(`no email for pilot ${contact.name} (${unsent.length} doc(s))`);
+    try {
+      if (!settings.enabled) {
+        companySummary.details.push('reminders disabled in settings');
+        await persistRun();
         continue;
       }
-      pilotGroups.push({ userId, pilotName: contact.name, pilotEmail: contact.email, items: unsent });
-    }
 
-    const batch = db.batch();
-    const sentItems = [];
-    for (const group of pilotGroups) {
-      try {
-        await sendPilotReminder(transport, {
-          from,
-          to: group.pilotEmail,
-          companyName,
-          pilotName: group.pilotName,
-          items: group.items
-        });
-        companySummary.sent += 1;
-        for (const item of group.items) {
-          batch.set(db.doc(`companies/${companyId}/reminder_logs/${reminderKey(item.docId, item.expiryMs, `${item.tier}`)}`), {
-            docId: item.docId,
-            userId: group.userId,
-            pilotEmail: group.pilotEmail,
-            tier: `${item.tier}`,
-            expiryMs: item.expiryMs,
-            status: 'sent',
-            sentAt: now,
-            triggeredBy: actorUid || 'schedule'
-          }, { merge: true });
+      if (!pilotItems.size) {
+        await persistRun();
+        continue;
+      }
+
+      // Dedupe: one mail per (document, tier, expiry).
+      const allKeys = [];
+      for (const items of pilotItems.values()) {
+        for (const item of items) allKeys.push(reminderKey(item.docId, item.expiryMs, `${item.tier}`));
+      }
+      const logRefs = allKeys.map((key) => db.doc(`companies/${companyId}/reminder_logs/${key}`));
+      const logSnaps = logRefs.length ? await db.getAll(...logRefs) : [];
+      const alreadySent = new Set();
+      logSnaps.forEach((snap, index) => {
+        if (snap.exists && (snap.data() || {}).status === 'sent') alreadySent.add(allKeys[index]);
+      });
+
+      const pilotGroups = [];
+      for (const [userId, items] of pilotItems.entries()) {
+        const unsent = items.filter((item) => !alreadySent.has(reminderKey(item.docId, item.expiryMs, `${item.tier}`)));
+        companySummary.skippedAlreadySent += items.length - unsent.length;
+        if (!unsent.length) continue;
+        const contact = userId === 'unknown'
+          ? { name: 'Unassigned document', email: null }
+          : await resolvePilotContact(db, userId);
+        if (!contact.email) {
+          companySummary.skippedNoEmail += unsent.length;
+          companySummary.details.push(`no email for pilot ${contact.name} (${unsent.length} doc(s))`);
+          continue;
         }
-        sentItems.push(group);
-      } catch (error) {
-        companySummary.failed += 1;
-        companySummary.details.push(`send failed for ${group.pilotEmail}: ${error.message || error}`);
+        pilotGroups.push({ userId, pilotName: contact.name, pilotEmail: contact.email, items: unsent });
+      }
+
+      // Gmail quota guard: stop before the provider locks the mailbox.
+      // Unsent groups simply retry on the next run (no log written).
+      let sendsUsed = 0;
+      const quota = settings.maxSendsPerDay;
+      const batch = db.batch();
+      const sentItems = [];
+      for (const group of pilotGroups) {
+        if (sendsUsed >= quota) {
+          companySummary.quotaReached = true;
+          companySummary.skippedQuota += group.items.length;
+          companySummary.details.push(`daily send quota reached (${quota}); ${group.pilotEmail} deferred to next run`);
+          continue;
+        }
+        try {
+          await sendPilotReminder(transport, {
+            from,
+            to: group.pilotEmail,
+            companyName,
+            pilotName: group.pilotName,
+            items: group.items
+          });
+          sendsUsed += 1;
+          companySummary.sent += 1;
+          for (const item of group.items) {
+            batch.set(db.doc(`companies/${companyId}/reminder_logs/${reminderKey(item.docId, item.expiryMs, `${item.tier}`)}`), {
+              docId: item.docId,
+              userId: group.userId,
+              pilotEmail: group.pilotEmail,
+              tier: `${item.tier}`,
+              expiryMs: item.expiryMs,
+              status: 'sent',
+              sentAt: now,
+              triggeredBy
+            }, { merge: true });
+          }
+          sentItems.push(group);
+        } catch (error) {
+          companySummary.failed += 1;
+          companySummary.details.push(`send failed for ${group.pilotEmail}: ${error.message || error}`);
+        }
+      }
+
+      if (settings.digestToOps && opsRecipients.length && sentItems.length && sendsUsed < quota) {
+        try {
+          await sendOpsDigest(transport, { from, to: opsRecipients, companyName, groups: sentItems });
+          sendsUsed += 1;
+          companySummary.details.push(`ops digest sent to ${opsRecipients.join(', ')}`);
+        } catch (error) {
+          companySummary.details.push(`ops digest failed: ${error.message || error}`);
+        }
+      }
+
+      await batch.commit();
+      await persistRun();
+
+      // Failure alert: a broken SMTP is otherwise silent. Mail ops directly.
+      if ((companySummary.failed > 0 || companySummary.quotaReached) && opsRecipients.length) {
+        try {
+          await sendFailureAlert(transport, { from, to: opsRecipients, companyName, companySummary });
+          companySummary.details.push('failure alert sent to ops');
+          await persistRun();
+        } catch (error) {
+          companySummary.details.push(`failure alert failed: ${error.message || error}`);
+          await persistRun();
+        }
+      }
+    } catch (error) {
+      companySummary.failed += 1;
+      companySummary.details.push(`run error: ${error.message || error}`);
+      await persistRun();
+      if (opsRecipients.length) {
+        try {
+          await sendFailureAlert(transport, { from, to: opsRecipients, companyName, companySummary });
+        } catch (alertError) {
+          companySummary.details.push(`failure alert failed: ${alertError.message || alertError}`);
+          await persistRun();
+        }
       }
     }
-
-    if (settings.digestToOps && opsRecipients.length && sentItems.length) {
-      try {
-        await sendOpsDigest(transport, { from, to: opsRecipients, companyName, groups: sentItems });
-        companySummary.details.push(`ops digest sent to ${opsRecipients.join(', ')}`);
-      } catch (error) {
-        companySummary.details.push(`ops digest failed: ${error.message || error}`);
-      }
-    }
-
-    await batch.commit();
-    await db.doc(`companies/${companyId}/reminder_runs/${runId}`).set({
-      ...companySummary, at: now.toISOString(), triggeredBy: actorUid || 'schedule'
-    });
   }
 
   return summary;
 }
 
-module.exports = { runExpiryReminders, loadSettings, DEFAULT_SETTINGS };
+module.exports = {
+  runExpiryReminders,
+  previewCompanyReminders,
+  loadSettings,
+  DEFAULT_SETTINGS
+};

@@ -19,6 +19,7 @@ import {
   isPilotRole
 } from './utils.js';
 import { getDocumentComplianceState } from '../../services/documentService.js';
+import { getReminderLogsForPilot } from '../../services/reminderSettingsService.js';
 import { createPilotDocument, updatePilotDocumentWithAudit, removePilotDocument } from '../../services/crewService.js';
 import { uploadUserDocumentFile, deleteUserDocumentFile } from '../../services/storageService.js';
 import { validateDocumentFile, DOCUMENT_MAX_SIZE_BYTES } from '../../services/uploadLimits.js';
@@ -36,7 +37,14 @@ import { selectPilot, refreshCrew } from './crew.js';
 
 /* ================= DRAWER DOCUMENTS VIEW ================= */
 
-export function renderPilotDocuments() {
+function reminderLineFor(log) {
+  if (!log) return '';
+  const tier = `${log.tier || ''}` === 'expired' ? 'expired notice' : `${log.tier}-day tier`;
+  const when = formatShortDate(log.sentAt);
+  return `✉️ Reminded (${tier})${when && when !== 'N/A' ? ` · ${when}` : ''}`;
+}
+
+export async function renderPilotDocuments() {
   const container = query('#cm-drawer-view');
   if (!container) return;
   const pilotUid = crewState.selectedPilotUid;
@@ -44,17 +52,26 @@ export function renderPilotDocuments() {
     .slice()
     .sort((a, b) => (daysUntil(a.expiryDate) ?? Number.MAX_SAFE_INTEGER) - (daysUntil(b.expiryDate) ?? Number.MAX_SAFE_INTEGER));
 
+  let reminderByDoc = new Map();
+  try {
+    reminderByDoc = await getReminderLogsForPilot(crewState.activeOperatorUid, pilotUid);
+  } catch (error) {
+    console.warn('Reminder log load failed:', error);
+  }
+
   const rows = docs
     .map((doc) => {
       const state = getDocumentComplianceState(doc);
       const expiry = formatExpiry(doc.expiryDate);
       const mark = state === 'Expired' ? '✕' : state === 'Expiring' ? '⚠' : '✓';
+      const reminded = reminderLineFor(reminderByDoc.get(doc.firestoreId));
       return `
       <button type="button" class="cm-doc-row" data-doc-open="${escapeHtml(doc.firestoreId)}">
         <span class="cm-doc-row-status ${state === 'Expired' ? 'is-danger' : state === 'Expiring' ? 'is-warn' : 'is-valid'}">${mark}</span>
         <span class="cm-doc-row-main">
           <strong>${escapeHtml(doc.documentName || 'Untitled')}</strong>
           <span class="cm-doc-row-meta">${escapeHtml((doc.documentCategory || 'GENERAL').toUpperCase())}${doc.licenseOrCertificateNumber ? ` · ${escapeHtml(doc.licenseOrCertificateNumber)}` : ''}</span>
+          ${reminded ? `<span class="cm-doc-row-reminded">${escapeHtml(reminded)}</span>` : ''}
         </span>
         <span class="cm-doc-row-status">${expiry.date !== 'N/A' ? `${escapeHtml(expiry.date)}${expiry.rel ? `<br />${escapeHtml(expiry.rel)}` : ''}` : 'No expiry'}</span>
         <span class="cm-doc-row-status">${getStatusBadgeHtml(state)}</span>
@@ -166,7 +183,7 @@ export function openDocumentForm(pilot, existingDoc = null) {
   });
 }
 
-export function openDocumentDetail(documentId) {
+export async function openDocumentDetail(documentId) {
   const pilotUid = crewState.selectedPilotUid;
   const docs = crewState.docsByPilotCache.get(pilotUid) || [];
   const doc = docs.find((item) => item.firestoreId === documentId);
@@ -176,6 +193,15 @@ export function openDocumentDetail(documentId) {
   const expiry = formatExpiry(doc.expiryDate);
   const canEdit = canPerformCrewAction(crewState.activeCurrentUser, 'edit');
   const canDelete = canPerformCrewAction(crewState.activeCurrentUser, 'delete');
+
+  let lastReminded = 'Not sent yet';
+  try {
+    const reminderByDoc = await getReminderLogsForPilot(crewState.activeOperatorUid, pilotUid);
+    const line = reminderLineFor(reminderByDoc.get(doc.firestoreId));
+    if (line) lastReminded = line;
+  } catch (error) {
+    console.warn('Reminder log load failed:', error);
+  }
 
   openModal(
     `
@@ -187,6 +213,7 @@ export function openDocumentDetail(documentId) {
       <div class="kv-row"><dt>Issue date</dt><dd>${escapeHtml(formatShortDate(doc.issueDate))}</dd></div>
       <div class="kv-row"><dt>Expiry</dt><dd>${escapeHtml(expiry.date)}${expiry.rel ? ` — ${escapeHtml(expiry.rel)}` : ''}</dd></div>
       <div class="kv-row"><dt>Reminder</dt><dd>${escapeHtml(`${doc.reminderLeadTimeDays ?? 'N/A'} day(s)`)}</dd></div>
+      <div class="kv-row"><dt>Last reminded</dt><dd>${escapeHtml(lastReminded)}</dd></div>
       ${doc.notesOrRemarks ? `<div class="kv-row"><dt>Notes</dt><dd>${escapeHtml(doc.notesOrRemarks)}</dd></div>` : ''}
     </dl>
     <div class="cm-modal-actions">

@@ -95,8 +95,55 @@ async function sendOpsDigest(transport, { from, to, companyName, groups }) {
   return transport.sendMail({ from, to, subject, text });
 }
 
+function failureText({ companyName, companySummary }) {
+  const lines = (companySummary.details || []).map((detail) => `• ${detail}`).join('\n');
+  return [
+    `VyomSena automatic reminders hit a problem for ${companyName}.`,
+    '',
+    `Pilot mails sent: ${companySummary.sent || 0}. Failed sends: ${companySummary.failed || 0}.`,
+    companySummary.quotaReached ? `Daily send quota was reached; remaining pilots retry on the next run.` : '',
+    '',
+    'Details:',
+    lines || '(no details recorded)',
+    '',
+    'If failures repeat, check the SMTP credentials (Firebase functions secrets) and the function logs.',
+    'Open the Notification Centre in the web app for the full run history.'
+  ].filter((line) => line !== '').join('\n');
+}
+
+async function sendFailureAlert(transport, { from, to, companyName, companySummary }) {
+  const subject = `VyomSena reminders need attention — ${companyName} (${companySummary.failed || 0} failed)`;
+  const text = failureText({ companyName, companySummary });
+  return transport.sendMail({ from, to, subject, text });
+}
+
+function testText({ companyName }) {
+  return [
+    `This is a test mail from the VyomSena expiry-reminder system for ${companyName}.`,
+    '',
+    '• Sample row: Medical Assessment expires in 12 days (20 Oct 2026) [30-day tier]',
+    '• Sample row: Pilot Licence (Aeroplane) expired on 01 Oct 2026 [expired notice]',
+    '',
+    'If you received this, the mail pipeline (Cloud Function → SMTP → inbox) works.',
+    'Real reminders bundle one pilot\'s pending tiers into a single mail, once per tier.',
+    '',
+    '— VyomSena'
+  ].join('\n');
+}
+
+async function sendTestMail(transport, { from, to, companyName }) {
+  const subject = `VyomSena test mail — reminder pipeline OK (${companyName})`;
+  const text = testText({ companyName });
+  const html = `<p>${escapeHtml(`This is a test mail from the VyomSena expiry-reminder system for ${companyName}.`)}</p>`
+    + `<p>If you received this, the mail pipeline (Cloud Function → SMTP → inbox) works.</p>`
+    + `<p>— VyomSena</p>`;
+  return transport.sendMail({ from, to, subject, text, html });
+}
+
 module.exports = {
   buildTransport,
   sendPilotReminder,
-  sendOpsDigest
+  sendOpsDigest,
+  sendFailureAlert,
+  sendTestMail
 };

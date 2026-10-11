@@ -734,6 +734,13 @@
   overflow-wrap: anywhere;
 }
 
+.cm-doc-row-reminded {
+  display: block;
+  font-size: 0.72rem;
+  color: #15803d;
+  overflow-wrap: anywhere;
+}
+
 .cm-doc-row-status {
   text-align: right;
   flex: 0 1 auto;

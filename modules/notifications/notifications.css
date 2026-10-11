@@ -1,0 +1,123 @@
+.nt-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.nt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.nt-dl {
+  margin: 1rem 0;
+}
+
+.nt-dl-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.nt-dl-row dt {
+  color: var(--muted-color, #64748b);
+}
+
+.nt-dl-row dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.nt-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.85rem;
+  margin: 1rem 0;
+}
+
+.nt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted-color, #64748b);
+}
+
+.nt-field input {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-color, #1f2937);
+  font-size: 0.88rem;
+}
+
+.nt-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.nt-status {
+  font-size: 0.85rem;
+}
+
+.nt-status.is-success {
+  color: #15803d;
+}
+
+.nt-status.is-error {
+  color: #b91c1c;
+}
+
+.nt-btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.36);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: nt-spin 0.9s linear infinite;
+}
+
+@keyframes nt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.nt-table-scroll {
+  overflow-x: auto;
+  margin-top: 0.75rem;
+}
+
+.nt-table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.nt-table-scroll th,
+.nt-table-scroll td {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.nt-table-scroll th {
+  color: var(--muted-color, #64748b);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.nt-empty {
+  color: var(--muted-color, #64748b);
+  font-style: italic;
+  padding: 1rem 0.75rem;
+}

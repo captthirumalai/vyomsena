@@ -1,0 +1,151 @@
+<section class="nt-shell">
+  <div class="nt-grid">
+    <section class="vs-card">
+      <h3 class="vs-card__title">Everyday Reminder Mail</h3>
+      <p class="vs-card__body">Automatic email runs daily at 06:00 IST. Every pilot with a document inside its reminder window gets one mail; operations gets a digest.</p>
+      <dl class="nt-dl">
+        <div class="nt-dl-row"><dt>Status</dt><dd id="nt-status">—</dd></div>
+        <div class="nt-dl-row"><dt>Schedule</dt><dd>Daily 06:00 IST</dd></div>
+        <div class="nt-dl-row"><dt>Last run</dt><dd id="nt-last-run">—</dd></div>
+        <div class="nt-dl-row"><dt>Last run result</dt><dd id="nt-last-result">—</dd></div>
+      </dl>
+      <div class="nt-form-actions">
+        <button type="button" class="vs-button vs-button--primary vs-button--md" id="nt-run-now">
+          <span class="nt-btn-spinner hidden" aria-hidden="true"></span>
+          <span>Run now</span>
+        </button>
+        <span class="nt-status" id="nt-run-status" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <section class="vs-card">
+      <h3 class="vs-card__title">Mail Settings</h3>
+      <p class="vs-card__body">Days-before window, default notification mailbox, and safety limits.</p>
+      <form id="nt-settings-form" novalidate>
+        <div class="nt-form-row">
+          <label class="nt-field">
+            <span><input type="checkbox" id="nt-enabled" name="enabled" checked /> Send reminder mail every day</span>
+          </label>
+          <label class="nt-field">
+            <span><input type="checkbox" id="nt-digest" name="digestToOps" checked /> Daily digest to operations</span>
+          </label>
+          <label class="nt-field">
+            <span><input type="checkbox" id="nt-expired" name="includeExpired" checked /> Notify on expired documents</span>
+          </label>
+        </div>
+        <div class="nt-form-row">
+          <label class="nt-field">
+            <span>Days before expiry to start reminding</span>
+            <input type="number" id="nt-lead" name="defaultLeadDays" min="1" max="365" value="30" />
+          </label>
+          <label class="nt-field">
+            <span>Default notification mail id</span>
+            <input type="email" id="nt-notify" name="defaultNotifyEmail" placeholder="ops@operator.com" />
+          </label>
+        </div>
+        <div class="nt-form-row">
+          <label class="nt-field">
+            <span>Extra ops CC mail ids (comma-separated)</span>
+            <input type="text" id="nt-cc" name="ccEmails" placeholder="ops2@operator.com" />
+          </label>
+          <label class="nt-field">
+            <span>Max mails per day (Gmail safety cap)</span>
+            <input type="number" id="nt-maxsends" name="maxSendsPerDay" min="1" max="2000" value="450" />
+          </label>
+        </div>
+        <div class="nt-form-actions">
+          <button type="submit" class="vs-button vs-button--primary vs-button--md" id="nt-save">
+            <span class="nt-btn-spinner hidden" aria-hidden="true"></span>
+            <span>Save settings</span>
+          </button>
+          <span class="nt-status" id="nt-save-status" aria-live="polite"></span>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="nt-grid">
+    <section class="vs-card">
+      <h3 class="vs-card__title">Send Test Mail</h3>
+      <p class="vs-card__body">Verify the mail pipeline end to end without touching real pilots.</p>
+      <div class="nt-form-row">
+        <label class="nt-field">
+          <span>Send test mail to</span>
+          <input type="email" id="nt-test-email" placeholder="you@operator.com" />
+        </label>
+      </div>
+      <div class="nt-form-actions">
+        <button type="button" class="vs-button vs-button--secondary vs-button--md" id="nt-test-send">
+          <span class="nt-btn-spinner hidden" aria-hidden="true"></span>
+          <span>Send test mail</span>
+        </button>
+        <span class="nt-status" id="nt-test-status" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <section class="vs-card">
+      <h3 class="vs-card__title">Preview Today's Mail</h3>
+      <p class="vs-card__body">Dry run: see who would be mailed right now. Sends nothing.</p>
+      <div class="nt-form-actions">
+        <button type="button" class="vs-button vs-button--secondary vs-button--md" id="nt-preview-btn">
+          <span class="nt-btn-spinner hidden" aria-hidden="true"></span>
+          <span>Preview</span>
+        </button>
+        <span class="nt-status" id="nt-preview-status" aria-live="polite"></span>
+      </div>
+      <div class="nt-table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Pilot</th>
+              <th>Email</th>
+              <th>Documents in window</th>
+            </tr>
+          </thead>
+          <tbody id="nt-preview-body">
+            <tr><td colspan="3" class="nt-empty">Press Preview to see today's recipients.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section class="vs-card">
+    <h3 class="vs-card__title">Recent Runs</h3>
+    <p class="vs-card__body">Latest daily runs and manual triggers, newest first.</p>
+    <div class="nt-table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Run</th>
+            <th>Triggered by</th>
+            <th>Sent</th>
+            <th>No email</th>
+            <th>Already sent</th>
+            <th>Failed</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="nt-runs-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="vs-card">
+    <h3 class="vs-card__title">Recent Sends</h3>
+    <p class="vs-card__body">Individual reminder mails recorded by the server (dedupe log).</p>
+    <div class="nt-table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Sent at</th>
+            <th>Pilot email</th>
+            <th>Tier</th>
+            <th>Document</th>
+          </tr>
+        </thead>
+        <tbody id="nt-logs-body"></tbody>
+      </table>
+    </div>
+  </section>
+</section>

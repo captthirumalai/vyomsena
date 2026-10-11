@@ -381,8 +381,10 @@ Settings (web-readable/writable by the owning company):
 
 - `companies/{companyId}/reminder_settings/current`
 - `enabled` (bool, default true), `defaultLeadDays` (number 1–365, default 30,
-  used when a document has no `reminderLeadTimeDays`), `ccEmails` (array),
+  used when a document has no `reminderLeadTimeDays`), `defaultNotifyEmail`
+  (ops digest recipient; falls back to company `ownerEmail`), `ccEmails` (array),
   `digestToOps` (bool, default true), `includeExpired` (bool, default true),
+  `maxSendsPerDay` (number 1–2000, default 450 — Gmail safety cap),
   `updatedBy`, `lastModified`, `companyId`
 
 Dedupe log (server-only writes; clients must not write):
@@ -397,8 +399,9 @@ Run history (server-written, company-readable; powers the Settings "Last run" ca
 
 - `companies/{companyId}/reminder_runs/{runId}` where runId is a UTC timestamp
   `YYYY-MM-DDTHH-mm-ss`
-- `sent` (pilot mails), `skippedNoEmail`, `skippedAlreadySent`, `failed`,
-  `details[]`, `at`, `triggeredBy` (`schedule` or caller uid)
+- `sent` (pilot mails), `skippedNoEmail`, `skippedAlreadySent`, `skippedQuota`
+  (deferred by the daily cap — retried next run), `quotaReached` (bool),
+  `failed`, `details[]`, `at`, `triggeredBy` (`schedule` or caller uid)
 
 Pilot recipient resolution order: `users/{userId}.email` → `crew_profiles/{userId}.email`
 → `crew_profiles where pilotUid == userId`. Ops digest goes to

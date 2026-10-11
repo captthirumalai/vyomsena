@@ -14,8 +14,8 @@ const admin = require('firebase-admin');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
-const { buildTransport } = require('./lib/email');
-const { runExpiryReminders } = require('./lib/engine');
+const { buildTransport, sendTestMail } = require('./lib/email');
+const { runExpiryReminders, previewCompanyReminders } = require('./lib/engine');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -90,4 +90,26 @@ exports.sendExpiryRemindersNow = onCall({ secrets: ALL_SECRETS }, async (request
     actorUid: request.auth.uid
   });
   return summary.companies[caller.companyId] || { sent: 0, details: ['No in-window documents found.'] };
+});
+
+exports.previewReminders = onCall(async (request) => {
+  const caller = await assertCallerAllowed(request.auth?.uid);
+  return previewCompanyReminders({ db, companyId: caller.companyId, now: new Date() });
+});
+
+exports.sendTestReminder = onCall({ secrets: ALL_SECRETS }, async (request) => {
+  const caller = await assertCallerAllowed(request.auth?.uid);
+  const to = `${request.data?.to || ''}`.trim().toLowerCase();
+  if (!/.+@.+\..+/.test(to)) {
+    throw new HttpsError('invalid-argument', 'Provide a valid "to" email address.');
+  }
+  const smtp = readSmtpConfig();
+  if (!smtp.host || !smtp.from) {
+    throw new HttpsError('failed-precondition', 'Email is not configured on the server (SMTP secrets missing).');
+  }
+  const companySnap = await db.doc(`companies/${caller.companyId}`).get();
+  const companyName = (companySnap.exists ? companySnap.data() || {} : {}).name || 'Your operator';
+  const transport = buildTransport(smtp);
+  await sendTestMail(transport, { from: smtp.from, to, companyName });
+  return { ok: true, to };
 });

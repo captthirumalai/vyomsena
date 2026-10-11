@@ -5,12 +5,7 @@
   listCompanyInvites,
   generateCompanyInvite
 } from '../../services/companyService.js';
-import {
-  getReminderSettings,
-  saveReminderSettings,
-  getLatestReminderRun,
-  runRemindersNow
-} from '../../services/reminderSettingsService.js';
+import { getLatestReminderRun } from '../../services/reminderSettingsService.js';
 
 const ROLE_LABELS = {
   OWNER: 'Owner',
@@ -109,20 +104,6 @@ function renderInvites(invites) {
     .join('');
 }
 
-function renderReminderSettings(settings) {
-  if (!settings) return;
-  const enabled = query('#st-reminder-enabled');
-  const lead = query('#st-reminder-lead');
-  const cc = query('#st-reminder-cc');
-  const digest = query('#st-reminder-digest');
-  const expired = query('#st-reminder-expired');
-  if (enabled) enabled.checked = settings.enabled !== false;
-  if (lead) lead.value = settings.defaultLeadDays;
-  if (cc) cc.value = (settings.ccEmails || []).join(', ');
-  if (digest) digest.checked = settings.digestToOps !== false;
-  if (expired) expired.checked = settings.includeExpired !== false;
-}
-
 function renderReminderRun(run) {
   const when = query('#st-reminder-last-run');
   const result = query('#st-reminder-last-result');
@@ -168,11 +149,10 @@ export async function init(view, context) {
   let lastInvite = null;
 
   async function loadAll() {
-    const [companyResult, accountsResult, invitesResult, reminderSettings, reminderRun] = await Promise.all([
+    const [companyResult, accountsResult, invitesResult, reminderRun] = await Promise.all([
       getCompany(companyId),
       listCompanyAccounts(companyId),
       listCompanyInvites(companyId),
-      getReminderSettings(companyId).catch(() => null),
       getLatestReminderRun(companyId).catch(() => null)
     ]);
     company = companyResult;
@@ -181,7 +161,6 @@ export async function init(view, context) {
     renderCompanyInfo(company);
     renderAccounts(accounts);
     renderInvites(invites);
-    renderReminderSettings(reminderSettings);
     renderReminderRun(reminderRun);
   }
 
@@ -267,63 +246,6 @@ export async function init(view, context) {
   query('#st-share-close')?.addEventListener('click', () => {
     resultEl?.classList.add('hidden');
   });
-
-  const reminderForm = query('#st-reminder-form');
-  const reminderSubmit = query('#st-reminder-submit');
-  const reminderRunButton = query('#st-reminder-run');
-  const reminderStatus = query('#st-reminder-status');
-
-  async function handleReminderSubmit(event) {
-    event.preventDefault();
-    if (!(reminderForm instanceof HTMLFormElement)) return;
-    setButtonState(reminderSubmit, true);
-    setStatus(reminderStatus, 'Saving reminder settings...');
-    try {
-      const saved = await saveReminderSettings(
-        companyId,
-        {
-          enabled: reminderForm.enabled?.checked !== false,
-          defaultLeadDays: reminderForm.defaultLeadDays?.value,
-          ccEmails: reminderForm.ccEmails?.value,
-          digestToOps: reminderForm.digestToOps?.checked !== false,
-          includeExpired: reminderForm.includeExpired?.checked !== false
-        },
-        currentUser?.email || currentUser?.uid || null
-      );
-      renderReminderSettings(saved);
-      setStatus(reminderStatus, 'Reminder settings saved.', 'success');
-    } catch (error) {
-      console.error('Reminder settings save failed:', error);
-      setStatus(reminderStatus, error.message || 'Unable to save reminder settings.', 'error');
-    } finally {
-      setButtonState(reminderSubmit, false);
-    }
-  }
-
-  async function handleReminderRunNow() {
-    setButtonState(reminderRunButton, true);
-    setStatus(reminderStatus, 'Running expiry reminders for this company...');
-    try {
-      const result = await runRemindersNow();
-      setStatus(
-        reminderStatus,
-        `Run finished: ${result?.sent || 0} pilot mail(s) sent.`,
-        'success'
-      );
-      renderReminderRun(await getLatestReminderRun(companyId).catch(() => null));
-    } catch (error) {
-      console.error('Manual reminder run failed:', error);
-      const message = /does not exist|not deployed|NOT_FOUND/i.test(error.message || '')
-        ? 'Reminder function is not deployed yet. Deploy functions/ first (see docs/reminders.md).'
-        : error.message || 'Unable to run reminders.';
-      setStatus(reminderStatus, message, 'error');
-    } finally {
-      setButtonState(reminderRunButton, false);
-    }
-  }
-
-  reminderForm?.addEventListener('submit', handleReminderSubmit);
-  reminderRunButton?.addEventListener('click', handleReminderRunNow);
 
   try {
     await loadAll();

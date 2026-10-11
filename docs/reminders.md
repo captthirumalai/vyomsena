@@ -5,14 +5,19 @@ plus a digest for operations. Free at our scale (Gmail SMTP + Firebase free tier
 
 ## How it works
 
-- `functions/index.js` exports two Cloud Functions:
+- `functions/index.js` exports four Cloud Functions:
   - `sendExpiryReminders` — runs **daily 06:00 IST**, scans every company.
-  - `sendExpiryRemindersNow` — callable manual trigger from **Settings → Run now**
-    (signed-in owner/admin/operations only, restricted to their own company).
-- `functions/lib/engine.js` — scans `user_documents` where `expiryDate` falls in
-  the window, groups by `operatorId` (== companyId), resolves pilot emails, sends.
+  - `sendExpiryRemindersNow` — callable manual trigger from the Notification
+    Centre → Run now (signed-in owner/admin/operations only, own company).
+  - `previewReminders` — callable dry run: who would be mailed today, sends
+    nothing, writes nothing.
+  - `sendTestReminder` — callable test mail to one address (verifies SMTP).
+- `functions/lib/engine.js` — scans `user_documents` by `expiryDate` window, groups by `operatorId` (== companyId), resolves pilot emails, sends.
 - `functions/lib/tiers.js` — escalation math.
 - `functions/lib/email.js` — Nodemailer transport + mail templates.
+- Web **Notification Centre** (`/notifications` route): everyday-mail master
+  switch, days-before lead time, default notification mail id, CCs, safety cap,
+  test mail, preview, run history, recent sends.
 
 ## Escalation tiers
 
@@ -51,8 +56,8 @@ document (new expiry) starts a fresh reminder cycle automatically.
 5. Deploy functions only (hosting stays on GitHub Pages):
    `firebase deploy --only functions`
 6. Verify: Firebase console → Functions → `sendExpiryReminders` shows
-   "next run 06:00 Asia/Kolkata". Or open the web app → Settings →
-   Licence Expiry Reminders → **Run now**, then check the "Last run" card.
+   "next run 06:00 Asia/Kolkata". Or open the web app → Notification Centre →
+   **Send test mail** to yourself, then **Preview** and **Run now**.
 7. Publish the rules change in `docs/firestorerules.md` (reminder_logs block)
    to the Firebase console rules editor so clients cannot forge sent-logs.
 
@@ -62,11 +67,18 @@ Local secret overrides (optional dev): copy `functions/.env.example` to
 ## Operating notes
 
 - Settings live at `companies/{companyId}/reminder_settings/current`, editable in
-  the web Settings module: enabled flag, default lead days (used when a document
-  has no `reminderLeadTimeDays`), extra ops CC emails, digest toggle, expired toggle.
+  the web Notification Centre: everyday-mail master switch, default lead days
+  ("days before expiry", used when a document has no `reminderLeadTimeDays`),
+  default notification mail id (ops digest recipient), extra ops CC emails,
+  digest toggle, expired toggle, max mails/day safety cap (Gmail guard,
+  default 450 — deferred pilots retry on the next run).
+- A broken run is not silent: failed sends or a hit quota trigger a failure
+  alert mail to the ops recipients.
 - Last-run summaries at `companies/{companyId}/reminder_runs/{runId}` power the
-  Settings "Last run" card: mails sent, pilots skipped (no email on file),
-  already-sent skips, failures.
+  Notification Centre history: mails sent, pilots skipped (no email on file),
+  already-sent skips, quota-deferred, failures.
+- Crew module shows per-document "✉️ Reminded (tier) · date" from the same
+  dedupe log, so ops can see who was notified without opening this page.
 - Pilots with **no email on file** are listed in the run `details[]` and counted
   in `skippedNoEmail` — fill the email in the crew profile to include them.
 - Failed sends are retried the next day (no log entry is written on failure).
