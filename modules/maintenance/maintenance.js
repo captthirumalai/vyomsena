@@ -28,6 +28,22 @@ function setStatus(message) {
   if (label) label.textContent = message;
 }
 
+function setFormMessage(message, tone = '') {
+  if (!activeView) return;
+  const el = activeView.querySelector('#mx-form-message');
+  if (!el) return;
+  el.hidden = !message;
+  el.textContent = message || '';
+  el.classList.toggle('mx-form-message--error', tone === 'error');
+  el.classList.toggle('mx-form-message--ok', tone === 'ok');
+}
+
+function describeError(error) {
+  const code = error?.code ? ` (${error.code})` : '';
+  const detail = error?.message ? `: ${error.message}` : '';
+  return `${code}${detail}`;
+}
+
 function setFormMode() {
   if (!activeView) return;
   const title = activeView.querySelector('#mx-form-title');
@@ -91,15 +107,20 @@ function startEditAircraft(reg) {
   setStatus(`Editing ${reg}. Registration itself cannot change.`);
 }
 
-function cancelEditMode() {
+function cancelEditMode(keepMessage = false) {
   editingReg = null;
   activeView?.querySelector('#mx-fleet-form')?.reset();
   setFormMode();
+  if (!keepMessage) setFormMessage('');
 }
 
 async function handleSaveFleet(event) {
   event.preventDefault();
-  if (!activeCompanyId) return;
+  if (!activeCompanyId) {
+    setStatus('No authorized operator found — cannot save.');
+    setFormMessage('No authorized operator found — please sign in again.', 'error');
+    return;
+  }
 
   const regInput = activeView.querySelector('#mx-aircraft-reg');
   const type = activeView.querySelector('#mx-aircraft-type')?.value.trim();
@@ -108,27 +129,43 @@ async function handleSaveFleet(event) {
   const reg = editingReg || regInput?.value.trim().toUpperCase();
 
   if (!reg || !type) {
-    setStatus('Registration and type are required.');
+    const message = 'Registration and type are required.';
+    setStatus(message);
+    setFormMessage(message, 'error');
     return;
   }
+
+  const submitButton = activeView.querySelector('#mx-fleet-submit');
+  if (submitButton) submitButton.disabled = true;
+  setFormMessage(editingReg ? `Saving ${editingReg}…` : `Adding ${reg}…`);
 
   try {
     if (editingReg) {
       await updateCompanyAircraft(activeCompanyId, editingReg, { type, status, nextInspection });
-      setStatus(`Aircraft ${editingReg} updated. Dispatch picks it up live.`);
+      const message = `Aircraft ${editingReg} updated. Dispatch picks it up live.`;
+      setStatus(message);
+      setFormMessage(message, 'ok');
     } else {
       const exists = latestFleet.some((item) => `${item.reg || ''}`.toUpperCase() === reg);
       if (exists) {
-        setStatus(`Aircraft ${reg} already exists — use Edit instead.`);
+        const message = `Aircraft ${reg} already exists — use Edit instead.`;
+        setStatus(message);
+        setFormMessage(message, 'error');
         return;
       }
       await addCompanyAircraft(activeCompanyId, { reg, type, status, nextInspection });
-      setStatus(`Aircraft ${reg} added. It is now in the Dispatch dropdown.`);
+      const message = `Aircraft ${reg} added. It is now in the Dispatch dropdown.`;
+      setStatus(message);
+      setFormMessage(message, 'ok');
     }
-    cancelEditMode();
+    cancelEditMode(true);
   } catch (error) {
     console.error('Save aircraft failed:', error);
-    setStatus(editingReg ? 'Failed to update the aircraft.' : 'Failed to add the aircraft.');
+    const message = `${editingReg ? 'Failed to update' : 'Failed to add'} the aircraft${describeError(error)}.`;
+    setStatus(message);
+    setFormMessage(message, 'error');
+  } finally {
+    if (submitButton) submitButton.disabled = false;
   }
 }
 
@@ -190,7 +227,10 @@ export async function init(view, context) {
     renderFleet();
   } catch (error) {
     console.error('Maintenance fleet load failed:', error);
-    setStatus('Unable to load the fleet right now.');
+    const message = `Unable to load the fleet right now${describeError(error)}.`;
+    setStatus(message);
+    const body = activeView?.querySelector('#mx-fleet-body');
+    if (body) body.innerHTML = `<tr><td colspan="5" class="mx-empty">${escapeHtml(message)}</td></tr>`;
   }
 
   fleetUnsubscribe = onCompanyAircraftSnapshot(

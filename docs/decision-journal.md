@@ -314,6 +314,7 @@ expiry. The app is a static SPA — no backend, no secrets, no scheduler.
  - **V0.3.25** — pilot mails upgraded to the same dashboard-style HTML: header band, expiring/expired KPI strip, personal document watchlist with status pills, tier + licence-number sub-lines. Plain-text version unchanged.
  - **V0.3.26** — dispatch becomes the central flight-movement entry point: plan + actuals close-out (planned/active/completed derived from chocks times), edit with EFB-final preservation, cancel/reactivate (no hard delete), pilot + status filters + search, expandable details with reconciliation and inline audit trail, FDTL pre-flight projection and post-flight verdicts. Services: `recordEfbActuals` preserves `dispatch+efb` provenance, `flightsToDutyRecords` credits both P1 and P2, new `listFlightAuditEntries` helper.
  - **V0.3.27** — maintenance gains the missing fleet manager (the app had no way to add aircraft, leaving the dispatch dropdown empty): add/edit/remove company registrations in `companies/{companyId}/aircraft` with type, status and next inspection; only Operational counts as dispatch-ready. Dispatch shows a Maintenance pointer banner when the fleet is empty instead of a blank list.
+ - **V0.3.28** — maintenance save feedback made impossible to miss: inline form message under the Add button (saving indicator, success, validation) with the real Firestore error surfaced on failure, submit locked while saving, fleet-load errors shown in the table. No more silent dead button when rules deny the write.
 
 ---
 
