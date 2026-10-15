@@ -29,7 +29,7 @@ async function loadModuleCss(route) {
 
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = `${route.css}?${assetSuffix}`;
+  link.href = `${route.css}?${moduleSuffix()}`;
   link.dataset.moduleCss = route.path;
   document.head.appendChild(link);
 }
@@ -38,23 +38,47 @@ async function importModuleJs(route) {
   if (!route.js) return;
 
   try {
-    const module = await import(`../${route.js}?${assetSuffix}`);
+    const module = await import(`../${route.js}?${moduleSuffix()}`);
     return module;
   } catch (firstError) {
     // A stale or truncated cached copy can fail to parse; retry once
     // bypassing the HTTP cache before giving up, so one poisoned entry
     // can never wedge a module permanently.
     try {
-      return await import(`../${route.js}?${assetSuffix}&retry=${Date.now()}`);
+      return await import(`../${route.js}?${moduleSuffix()}&retry=${Date.now()}`);
     } catch (error) {
       console.warn('Failed to import module JS:', error);
-      return null;
+      return { __loadError: error };
     }
   }
 }
 
 let activeModule = null;
 let renderCounter = 0;
+let loadGeneration = 0;
+
+function moduleSuffix() {
+  return `${assetSuffix}&gen=${loadGeneration}`;
+}
+
+function escapeHtml(value) {
+  return `${value ?? ''}`
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function moduleErrorCard(route, user, title, detail) {
+  return `<section class="card">
+    <h2>${escapeHtml(route.title || route.name)} failed to load</h2>
+    <p>${escapeHtml(title)}</p>
+    <p class="muted">App ${escapeHtml(appConfig.releaseVersion || '')} · signed in as ${escapeHtml(user?.uid || 'unknown')} (${escapeHtml(user?.role || 'no role')})</p>
+    <p class="muted">Detail: ${escapeHtml(detail || 'no detail')}</p>
+    <button type="button" id="route-retry" class="vs-button vs-button--primary">Retry fresh load</button>
+  </section>`;
+}
 
 function cleanupActiveModule() {
   if (activeModule && typeof activeModule.destroy === 'function') {
@@ -119,6 +143,22 @@ export async function initRouter() {
 
     const module = await importModuleJs(route);
     if (renderId !== renderCounter) return;
+
+    const wireRetry = () => {
+      view.querySelector('#route-retry')?.addEventListener('click', () => {
+        loadGeneration += 1;
+        render();
+      });
+    };
+
+    if (module?.__loadError) {
+      cleanupActiveModule();
+      const detail = module.__loadError?.message || `${module.__loadError}`;
+      view.innerHTML = moduleErrorCard(route, user, 'The module file could not be loaded. This is usually a stuck browser cache — retry forces a fresh load.', detail);
+      wireRetry();
+      return;
+    }
+
     cleanupActiveModule();
 
     const context = {
@@ -145,15 +185,29 @@ export async function initRouter() {
         module[routeInitName];
 
       if (typeof initFn === 'function') {
-        const moduleInstance = await initFn(view, context);
-        if (renderId !== renderCounter) {
-          if (moduleInstance && typeof moduleInstance.destroy === 'function') {
-            moduleInstance.destroy();
+        try {
+          const moduleInstance = await initFn(view, context);
+          if (renderId !== renderCounter) {
+            if (moduleInstance && typeof moduleInstance.destroy === 'function') {
+              moduleInstance.destroy();
+            }
+            return;
           }
+          if (moduleInstance && typeof moduleInstance.destroy === 'function') {
+            activeModule = moduleInstance;
+          }
+        } catch (initError) {
+          console.error(`Module init failed for ${route.name}:`, initError);
+          if (renderId !== renderCounter) return;
+          cleanupActiveModule();
+          view.innerHTML = moduleErrorCard(
+            route,
+            user,
+            'The module started but crashed during setup. Nothing on this page is live.',
+            initError?.message || `${initError}`
+          );
+          wireRetry();
           return;
-        }
-        if (moduleInstance && typeof moduleInstance.destroy === 'function') {
-          activeModule = moduleInstance;
         }
       } else {
         console.warn(`Route module for ${route.name} has no init function`);

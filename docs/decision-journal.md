@@ -318,6 +318,7 @@ expiry. The app is a static SPA — no backend, no secrets, no scheduler.
  - **V0.3.29** — dispatch init hardened: live fleet/crew/flight listeners attach before the one-off loads, so a single failing read can no longer leave the board frozen; crew-doc and scheme failures degrade gracefully, snapshot errors report their code in the status chip, and fleet removals now reflect (company fleet is authoritative over the legacy global fallback).
  - **V0.3.30** — router pins module JS/CSS to the release version (`?v=`): a deploy can never leave the browser executing a stale or truncated mid-deploy copy, which previously surfaced as `SyntaxError` on import and a permanently dead module. One manual cache clear is still needed once to pick up the new loader itself.
  - **V0.3.31** — router self-heals poisoned module cache: a failed versioned import retries once with a cache-busting timestamp before giving up, so one corrupt entry can never wedge a module again. (Confirmed live `dashboard.js`/`dispatch.js` parse clean — the `SyntaxError`s were cached truncated copies, same root cause as the frozen Dispatch board.)
+ - **V0.3.32** — router shows on-screen failure cards: a module that fails to import or crashes in init now renders the error, app version, signed-in uid/role and a Retry-fresh-load button instead of a silently dead page. Retries bump a loader generation so every attempt uses fresh URLs.
 
 ---
 
