@@ -40,9 +40,16 @@ async function importModuleJs(route) {
   try {
     const module = await import(`../${route.js}?${assetSuffix}`);
     return module;
-  } catch (error) {
-    console.warn('Failed to import module JS:', error);
-    return null;
+  } catch (firstError) {
+    // A stale or truncated cached copy can fail to parse; retry once
+    // bypassing the HTTP cache before giving up, so one poisoned entry
+    // can never wedge a module permanently.
+    try {
+      return await import(`../${route.js}?${assetSuffix}&retry=${Date.now()}`);
+    } catch (error) {
+      console.warn('Failed to import module JS:', error);
+      return null;
+    }
   }
 }
 
