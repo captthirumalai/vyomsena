@@ -480,11 +480,18 @@ function populateFlightForm() {
   const aircraftSelect = activeView.querySelector('#dispatch-flight-aircraft');
   if (aircraftSelect) {
     const previous = aircraftSelect.value;
-    aircraftSelect.innerHTML =
-      '<option value="">Select aircraft</option>' +
-      latestAircraft.map((item) => `<option value="${escapeHtml(item.reg)}">${escapeHtml(item.reg)} · ${escapeHtml(item.type || '')}</option>`).join('');
-    if (previous) aircraftSelect.value = previous;
+    if (!latestAircraft.length) {
+      aircraftSelect.innerHTML = '<option value="">No aircraft — add fleet in Maintenance</option>';
+    } else {
+      aircraftSelect.innerHTML =
+        '<option value="">Select aircraft</option>' +
+        latestAircraft.map((item) => `<option value="${escapeHtml(item.reg)}">${escapeHtml(item.reg)} · ${escapeHtml(item.type || '')}</option>`).join('');
+      if (previous) aircraftSelect.value = previous;
+    }
   }
+
+  const fleetWarning = activeView.querySelector('#dispatch-fleet-warning');
+  if (fleetWarning) fleetWarning.hidden = latestAircraft.length > 0;
 
   const p1Select = activeView.querySelector('#dispatch-flight-p1');
   const p2Select = activeView.querySelector('#dispatch-flight-p2');

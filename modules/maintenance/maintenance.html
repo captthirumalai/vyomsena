@@ -1,3 +1,53 @@
-﻿<section class="card">
-  <div id="maintenance-content" class="module-placeholder"></div>
+﻿<section class="card" id="mx-fleet-card">
+  <div class="card-heading">
+    <h3 id="mx-form-title">Add Aircraft</h3>
+    <p class="muted">Company fleet lives in <code>companies/{companyId}/aircraft</code>. Registrations added here appear live in the Dispatch aircraft dropdown and drive dispatch readiness (only <strong>Operational</strong> aircraft count as ready).</p>
+  </div>
+  <form id="mx-fleet-form" class="mx-form">
+    <label class="mx-form-field">
+      <span>Registration</span>
+      <input type="text" id="mx-aircraft-reg" placeholder="e.g. VT-IIC" required />
+    </label>
+    <label class="mx-form-field">
+      <span>Type</span>
+      <input type="text" id="mx-aircraft-type" placeholder="e.g. C172, A320" required />
+    </label>
+    <label class="mx-form-field">
+      <span>Status</span>
+      <select id="mx-aircraft-status">
+        <option value="Operational">Operational</option>
+        <option value="Maintenance">Maintenance</option>
+        <option value="Grounded">Grounded</option>
+      </select>
+    </label>
+    <label class="mx-form-field">
+      <span>Next Inspection</span>
+      <input type="date" id="mx-aircraft-inspection" />
+    </label>
+    <div class="mx-form-actions">
+      <button type="button" id="mx-fleet-cancel-edit" class="vs-button vs-button--sm" hidden>Cancel editing</button>
+      <button type="submit" id="mx-fleet-submit" class="vs-button vs-button--primary vs-button--sm">Add Aircraft</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="card-heading">
+    <h3>Fleet</h3>
+    <p class="muted">Live company fleet. Removing an aircraft does not rewrite past flight history (movements keep the registration string).</p>
+  </div>
+  <div class="mx-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Reg</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Next Inspection</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="mx-fleet-body"></tbody>
+    </table>
+  </div>
 </section>

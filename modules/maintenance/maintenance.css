@@ -1,3 +1,93 @@
-﻿#maintenance-content {
+﻿/* Fleet manager: self-contained (module CSS is swapped per route, so shared
+   dispatch/fdtl classes are re-declared here instead of imported). */
+
+#maintenance-content {
   margin-top: 1rem;
+}
+
+.mx-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+}
+
+.mx-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.mx-form-field input,
+.mx-form-field select {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: #ffffff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mx-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.mx-table-wrap {
+  margin-top: 0.8rem;
+  overflow-x: auto;
+}
+
+.mx-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mx-table-wrap th,
+.mx-table-wrap td {
+  text-align: left;
+  padding: 0.6rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.mx-row-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.mx-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.mx-badge--good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.mx-badge--watch {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.mx-badge--critical {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.mx-empty {
+  text-align: center;
+  color: #64748b;
+  padding: 1.5rem 0;
 }
