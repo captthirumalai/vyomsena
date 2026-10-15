@@ -934,47 +934,31 @@ export async function init(view, context) {
     renderFlightBoard();
   });
 
-  try {
-    const [companyAircraft, crewList, flights] = await Promise.all([
-      getCompanyAircraft(activeOperatorUid),
-      getCrew(activeOperatorUid),
-      listFlights(activeOperatorUid)
-    ]);
-    latestAircraft = companyAircraft.length ? companyAircraft : await getAircraft();
-    latestCrew = crewList;
-    latestFlights = flights;
-    latestDocsByPilot = await getCrewDocumentsByPilots(crewList);
-    try {
-      latestScheme = await getFdtlScheme(activeOperatorUid);
-    } catch (schemeError) {
-      console.warn('Dispatch scheme load failed, using default:', schemeError);
-      latestScheme = getDefaultScheme();
-    }
-    populateFlightForm();
-    await renderDispatch();
-  } catch (error) {
-    console.error('Dispatch initial load failed:', error);
-    const statusLabel = getModuleAction('dispatch-status');
-    if (statusLabel) {
-      statusLabel.textContent = 'Unable to load dispatch data right now.';
-    }
-  }
-
+  // Attach live listeners first: the board must stay live even if one of the
+  // one-off loads below fails (previously a single throw left dispatch frozen).
   aircraftUnsubscribe = onCompanyAircraftSnapshot(
     activeOperatorUid,
     (fleet) => {
-      if (fleet.length > 0) latestAircraft = fleet;
+      latestAircraft = fleet;
       populateFlightForm();
       renderDispatch();
     },
-    (error) => console.error('Dispatch aircraft snapshot error:', error)
+    (error) => {
+      console.error('Dispatch aircraft snapshot error:', error);
+      const statusLabel = getModuleAction('dispatch-status');
+      if (statusLabel) statusLabel.textContent = `Fleet live update failed (${error?.code || 'unknown error'}). Refresh to retry.`;
+    }
   );
 
   crewUnsubscribe = onCrewSnapshot(
     activeOperatorUid,
     async (snapshot) => {
       latestCrew = snapshot.map((item) => ({ uid: item.uid || item.crewProfileId, ...item }));
-      latestDocsByPilot = await syncCrewDocumentCache(latestDocsByPilot, latestCrew);
+      try {
+        latestDocsByPilot = await syncCrewDocumentCache(latestDocsByPilot, latestCrew);
+      } catch (docsError) {
+        console.warn('Dispatch crew-doc sync failed:', docsError);
+      }
       populateFlightForm();
       await renderDispatch();
     },
@@ -990,6 +974,36 @@ export async function init(view, context) {
     },
     (error) => console.error('Dispatch flights snapshot error:', error)
   );
+
+  try {
+    const [companyAircraft, crewList, flights] = await Promise.all([
+      getCompanyAircraft(activeOperatorUid),
+      getCrew(activeOperatorUid),
+      listFlights(activeOperatorUid)
+    ]);
+    latestAircraft = companyAircraft.length ? companyAircraft : await getAircraft();
+    latestCrew = crewList;
+    latestFlights = flights;
+    try {
+      latestDocsByPilot = await getCrewDocumentsByPilots(crewList);
+    } catch (docsError) {
+      console.warn('Dispatch crew-doc load failed:', docsError);
+    }
+    try {
+      latestScheme = await getFdtlScheme(activeOperatorUid);
+    } catch (schemeError) {
+      console.warn('Dispatch scheme load failed, using default:', schemeError);
+      latestScheme = getDefaultScheme();
+    }
+    populateFlightForm();
+    await renderDispatch();
+  } catch (error) {
+    console.error('Dispatch initial load failed:', error);
+    const statusLabel = getModuleAction('dispatch-status');
+    if (statusLabel) {
+      statusLabel.textContent = `Unable to load dispatch data right now (${error?.code || 'unknown error'}). Live updates still active — refresh to retry.`;
+    }
+  }
 
   return {
     destroy() {
