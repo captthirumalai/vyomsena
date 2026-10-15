@@ -50,4 +50,121 @@
   grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.dispatch-row-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.dispatch-fieldset {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.8rem;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  padding: 0.8rem;
+  margin: 0;
+}
+
+.dispatch-fieldset legend {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+  padding: 0 0.4rem;
+}
+
+.dispatch-fdtl-preview {
+  grid-column: 1 / -1;
+  border: 1px dashed rgba(15, 23, 42, 0.2);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.82rem;
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.dispatch-fdtl-preview--good {
+  border-color: rgba(22, 163, 74, 0.5);
+  background: rgba(22, 163, 74, 0.06);
+}
+
+.dispatch-fdtl-preview--watch {
+  border-color: rgba(202, 138, 4, 0.5);
+  background: rgba(202, 138, 4, 0.07);
+}
+
+.dispatch-fdtl-preview--critical {
+  border-color: rgba(220, 38, 38, 0.5);
+  background: rgba(220, 38, 38, 0.06);
+}
+
+.dispatch-toolbar {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-top: 0.8rem;
+  align-items: flex-end;
+}
+
+.dispatch-toolbar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #334155;
+}
+
+.dispatch-toolbar-field--grow {
+  flex: 1 1 200px;
+}
+
+.dispatch-toolbar-field select,
+.dispatch-toolbar-field input {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 6px;
+  font-size: 0.84rem;
+  background: #fff;
+}
+
+.dispatch-detail-row td {
+  background: rgba(15, 23, 42, 0.025);
+}
+
+.dispatch-detail {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+  font-size: 0.82rem;
+}
+
+.dispatch-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.5rem;
+}
+
+.dispatch-audit-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.fdtl-badge--watch {
+  background: rgba(202, 138, 4, 0.14);
+  color: #854d0e;
+}
+
+.fdtl-badge--good {
+  background: rgba(22, 163, 74, 0.12);
+  color: #166534;
+}
+
+.fdtl-badge--critical {
+  background: rgba(220, 38, 38, 0.12);
+  color: #991b1b;
 }

@@ -10,7 +10,7 @@ export {
   approveFdtlScheme,
   onFdtlSchemeSnapshot
 } from './scheme.js';
-export { buildAuditEntry, writeAuditEntry, listAuditEntries, onAuditSnapshot, diffObject } from './audit.js';
+export { buildAuditEntry, writeAuditEntry, listAuditEntries, listFlightAuditEntries, onAuditSnapshot, diffObject } from './audit.js';
 export {
   VERDICTS,
   VERDICT_LABELS,

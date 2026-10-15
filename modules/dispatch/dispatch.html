@@ -19,12 +19,14 @@
   </div>
 </section>
 
-<section class="card">
+<section class="card" id="dispatch-flight-card">
   <div class="card-heading">
-    <h3>Create Planned Flight</h3>
-    <p class="muted">Writes to <code>companies/{companyId}/flights</code>. The EFB module records actuals against the same record and FDTL evaluates it for compliance.</p>
+    <h3 id="dispatch-form-title">Plan Flight Movement</h3>
+    <p class="muted">Central entry point for flight movements. Writes to <code>companies/{companyId}/flights</code> with linked pilots (P1/P2). EFB actuals sync onto the same record as final; dispatch can correct afterwards (all changes audited). FDTL pre-flight projection below, post-flight verdicts on the board.</p>
   </div>
   <form id="dispatch-flight-form" class="dispatch-form">
+    <fieldset class="dispatch-fieldset">
+      <legend>Flight plan</legend>
     <label class="dispatch-form-field">
       <span>Flight No.</span>
       <input type="text" id="dispatch-flight-number" placeholder="e.g. VT-IIC-001" required />
@@ -88,8 +90,45 @@
       <span>Remarks</span>
       <textarea id="dispatch-flight-remarks" rows="2"></textarea>
     </label>
+    </fieldset>
+    <fieldset class="dispatch-fieldset">
+      <legend>Movement / actuals (dispatch close-out until EFB is live)</legend>
+      <label class="dispatch-form-field">
+        <span>Chocks Off (actual)</span>
+        <input type="datetime-local" id="dispatch-actual-chocks-off" />
+      </label>
+      <label class="dispatch-form-field">
+        <span>Takeoff (actual)</span>
+        <input type="datetime-local" id="dispatch-actual-takeoff" />
+      </label>
+      <label class="dispatch-form-field">
+        <span>Landing (actual)</span>
+        <input type="datetime-local" id="dispatch-actual-landing" />
+      </label>
+      <label class="dispatch-form-field">
+        <span>Chocks On (actual)</span>
+        <input type="datetime-local" id="dispatch-actual-chocks-on" />
+      </label>
+      <label class="dispatch-form-field">
+        <span>IR Time (min)</span>
+        <input type="number" id="dispatch-actual-ir" min="0" step="1" value="0" />
+      </label>
+      <label class="dispatch-form-field">
+        <span>XC Time (min)</span>
+        <input type="number" id="dispatch-actual-xc" min="0" step="1" value="0" />
+      </label>
+      <div class="dispatch-form-field">
+        <span>Block (auto)</span>
+        <strong id="dispatch-actual-block">—</strong>
+        <span class="muted" id="dispatch-actual-hint">Empty = stays planned. Partial = active. All four = completed.</span>
+      </div>
+    </fieldset>
+    <div id="dispatch-fdtl-preview" class="dispatch-fdtl-preview" aria-live="polite">
+      <strong>Pre-flight FDTL:</strong> <span id="dispatch-fdtl-preview-text">Select crew and scheduled times to project compliance.</span>
+    </div>
     <div class="dispatch-form-actions">
-      <button type="submit" class="vs-button vs-button--primary vs-button--sm">Create Flight</button>
+      <button type="button" id="dispatch-flight-cancel-edit" class="vs-button vs-button--sm" hidden>Cancel editing</button>
+      <button type="submit" id="dispatch-flight-submit" class="vs-button vs-button--primary vs-button--sm">Create Flight</button>
     </div>
   </form>
 </section>
@@ -114,7 +153,29 @@
 <section class="card">
   <div class="card-heading">
     <h3>Flight Board</h3>
-    <p class="muted">Planned and active flights created by dispatch. Completed flights carry EFB actuals and feed the FDTL module.</p>
+    <p class="muted">All movements dispatched centrally. Completed flights carry actuals (dispatch close-out or final EFB sync) and feed FDTL compliance. Expand a row for times, reconciliation and audit history.</p>
+  </div>
+  <div class="dispatch-toolbar">
+    <label class="dispatch-toolbar-field">
+      <span>Pilot</span>
+      <select id="dispatch-crew-filter">
+        <option value="__all__">All pilots</option>
+      </select>
+    </label>
+    <label class="dispatch-toolbar-field">
+      <span>Status</span>
+      <select id="dispatch-status-filter">
+        <option value="__all__">All statuses</option>
+        <option value="planned">Planned</option>
+        <option value="active">Active</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </label>
+    <label class="dispatch-toolbar-field dispatch-toolbar-field--grow">
+      <span>Search</span>
+      <input type="search" id="dispatch-flight-search" placeholder="Flight no., route, aircraft…" />
+    </label>
   </div>
   <div class="dispatch-table-wrap">
     <table>
@@ -123,9 +184,12 @@
           <th>Date</th>
           <th>Flight</th>
           <th>Route</th>
-          <th>P1</th>
+          <th>Crew (P1 / P2)</th>
+          <th>Block</th>
           <th>Status</th>
+          <th>FDTL</th>
           <th>Source</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody id="dispatch-flights-body"></tbody>

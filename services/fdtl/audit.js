@@ -32,6 +32,16 @@ export async function listAuditEntries(companyId, max = 50) {
   return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
 }
 
+export async function listFlightAuditEntries(companyId, flightId, max = 100) {
+  if (!companyId || !flightId) return [];
+  // Client-side filter over the recent trail: avoids a composite index on
+  // (entityType, entityId, timestamp) while dispatch/EFB/FDTL share one log.
+  const entries = await listAuditEntries(companyId, max);
+  return entries.filter(
+    (entry) => entry.entityType === 'flight' && (entry.entityId === flightId || entry.entityId?.flightId === flightId)
+  );
+}
+
 export function onAuditSnapshot(companyId, onNext, onError) {
   if (!companyId) {
     onNext?.([]);

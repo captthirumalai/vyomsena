@@ -281,6 +281,21 @@ export async function recordEfbActuals(companyId, flightId, actuals, actor, reas
     takeoff: actuals.takeoff || null,
     landing: actuals.landing || null
   };
+  // EFB entries are final: once a dispatch-planned flight receives EFB actuals,
+  // preserve the joint provenance instead of clobbering `dispatch` -> `efb`.
+  let nextSource = actuals.source || FLIGHT_SOURCES.EFB;
+  try {
+    const before = await getFlight(companyId, flightId);
+    if (
+      before &&
+      (before.source === FLIGHT_SOURCES.DISPATCH || before.source === FLIGHT_SOURCES.DISPATCH_EFB) &&
+      !actuals.source
+    ) {
+      nextSource = FLIGHT_SOURCES.DISPATCH_EFB;
+    }
+  } catch (readError) {
+    console.warn('recordEfbActuals source check failed, defaulting source:', readError);
+  }
   return updateFlight(
     companyId,
     flightId,
@@ -293,7 +308,7 @@ export async function recordEfbActuals(companyId, flightId, actuals, actor, reas
       irTimeMinutes: Number(actuals.irTimeMinutes) || 0,
       xcTimeMinutes: Number(actuals.xcTimeMinutes) || 0,
       status: FLIGHT_STATUSES.COMPLETED,
-      source: actuals.source || FLIGHT_SOURCES.EFB
+      source: nextSource
     },
     actor,
     reason
@@ -328,15 +343,20 @@ export function flightsToDutyRecords(scheme, flights) {
   const reportingMinutes = Number(scheme.operationalAdjustments?.reportingTimeMinutes ?? 0);
   const postFlightAllowanceMinutes = Number(scheme.operationalAdjustments?.postFlightAllowanceMinutes ?? 0);
 
-  const completed = (flights || [])
-    .filter((flight) => flight.status === FLIGHT_STATUSES.COMPLETED)
-    .filter((flight) => flight.p1?.crewProfileId);
+  const completed = (flights || []).filter((flight) => flight.status === FLIGHT_STATUSES.COMPLETED);
 
   const byCrew = new Map();
-  completed.forEach((flight) => {
-    const crewId = flight.p1.crewProfileId;
+  const pushForCrew = (crewId, flight) => {
+    if (!crewId) return;
     if (!byCrew.has(crewId)) byCrew.set(crewId, []);
     byCrew.get(crewId).push(flight);
+  };
+  // Both operating pilots accrue duty/flight time for the same movement.
+  completed.forEach((flight) => {
+    pushForCrew(flight.p1?.crewProfileId, flight);
+    if (flight.p2?.crewProfileId && flight.p2.crewProfileId !== flight.p1?.crewProfileId) {
+      pushForCrew(flight.p2.crewProfileId, flight);
+    }
   });
 
   const records = [];
@@ -354,10 +374,16 @@ export function flightsToDutyRecords(scheme, flights) {
       const fdpEnd = parseDate(landing);
       const chocksOnDate = parseDate(chocksOn);
       const reportDate = parseDate(chocksOff);
+      const crewName =
+        flight.p1?.crewProfileId === crewId
+          ? flight.p1?.name || null
+          : flight.p2?.crewProfileId === crewId
+            ? flight.p2?.name || null
+            : flight.p1?.name || null;
 
       records.push({
         crewProfileId: crewId,
-        crewName: flight.p1?.name || null,
+        crewName,
         operationType: flight.operationType || 'commercial',
         operationCrew: 'two',
         dutyDate: flight.flightDate,
