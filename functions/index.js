@@ -80,6 +80,7 @@ exports.sendExpiryRemindersNow = onCall({ secrets: ALL_SECRETS }, async (request
   if (!smtp.host || !smtp.from) {
     throw new HttpsError('failed-precondition', 'Email is not configured on the server (SMTP secrets missing).');
   }
+  const forceResend = request.data?.forceResend === true;
   const transport = buildTransport(smtp);
   const summary = await runExpiryReminders({
     db,
@@ -87,9 +88,11 @@ exports.sendExpiryRemindersNow = onCall({ secrets: ALL_SECRETS }, async (request
     from: smtp.from,
     now: new Date(),
     scopeCompanyId: caller.companyId,
-    actorUid: request.auth.uid
+    actorUid: request.auth.uid,
+    forceResend
   });
-  return summary.companies[caller.companyId] || { sent: 0, details: ['No in-window documents found.'] };
+  const companySummary = summary.companies[caller.companyId] || { sent: 0, details: ['No in-window documents found.'] };
+  return { ...companySummary, forced: forceResend };
 });
 
 exports.previewReminders = onCall(async (request) => {

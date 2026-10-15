@@ -30,6 +30,9 @@ pilot are bundled into a single mail.
 Dedupe key: `companies/{companyId}/reminder_logs/{docId|expiryMs|tier}` with
 `status: 'sent'`. Because the expiry timestamp is part of the key, a renewed
 document (new expiry) starts a fresh reminder cycle automatically.
+Manual **Resend to all** (Notification Centre checkbox) bypasses the dedupe
+for that run only and refreshes the log entries — the daily schedule never
+forces, so automatic runs still mail each tier exactly once.
 
 ## Cost
 

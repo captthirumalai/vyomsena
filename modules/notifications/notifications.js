@@ -239,11 +239,21 @@ export async function init(view, context) {
   const runStatus = query('#nt-run-status');
 
   async function handleRunNow() {
+    const forceResend = query('#nt-force')?.checked === true;
     setButtonState(runButton, true);
-    setStatus(runStatus, 'Running expiry reminders for this company...');
+    setStatus(
+      runStatus,
+      forceResend
+        ? 'Resending to every in-window pilot with the latest details...'
+        : 'Running expiry reminders for this company...'
+    );
     try {
-      const result = await runRemindersNow();
-      setStatus(runStatus, `Run finished: ${result?.sent || 0} pilot mail(s) sent.`, 'success');
+      const result = await runRemindersNow({ forceResend });
+      setStatus(
+        runStatus,
+        `Run finished: ${result?.sent || 0} pilot mail(s) sent${result?.forced ? ' (forced resend).' : '.'}`,
+        'success'
+      );
       const latest = await refreshHistory();
       const settings = await getReminderSettings(companyId).catch(() => null);
       renderStatus(settings, latest);

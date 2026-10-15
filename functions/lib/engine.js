@@ -199,12 +199,14 @@ async function previewCompanyReminders({ db, companyId, now = new Date() }) {
 /**
  * Scan and send. scopeCompanyId restricts to one company (manual trigger);
  * without it, every company with in-window documents is processed.
+ * forceResend bypasses the already-sent dedupe (manual "mail everyone with
+ * the latest details"); the daily schedule always runs with it off.
  * Returns a machine-readable summary (also persisted per company).
  */
-async function runExpiryReminders({ db, transport, from, now = new Date(), scopeCompanyId = null, actorUid = null }) {
+async function runExpiryReminders({ db, transport, from, now = new Date(), scopeCompanyId = null, actorUid = null, forceResend = false }) {
   const runId = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const triggeredBy = actorUid || 'schedule';
-  const summary = { runId, at: now.toISOString(), triggeredBy, companies: {} };
+  const triggeredBy = `${actorUid || 'schedule'}${forceResend ? '+force' : ''}`;
+  const summary = { runId, at: now.toISOString(), triggeredBy, companies: {}, forced: forceResend === true };
   const batches = await collectCompanyBatches(db, now, scopeCompanyId);
 
   for (const batch of batches) {
@@ -252,8 +254,13 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
 
       const pilotGroups = [];
       for (const [userId, items] of pilotItems.entries()) {
-        const unsent = items.filter((item) => !alreadySent.has(reminderKey(item.docId, item.expiryMs, `${item.tier}`)));
-        companySummary.skippedAlreadySent += items.length - unsent.length;
+        // Forced resends mail every in-window tier again with the latest
+        // details (log entries are refreshed on success). Normal runs skip
+        // tiers already recorded as sent.
+        const unsent = forceResend
+          ? items
+          : items.filter((item) => !alreadySent.has(reminderKey(item.docId, item.expiryMs, `${item.tier}`)));
+        companySummary.skippedAlreadySent += forceResend ? 0 : items.length - unsent.length;
         if (!unsent.length) continue;
         const contact = userId === 'unknown'
           ? { name: 'Unassigned document', email: null }

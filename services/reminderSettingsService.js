@@ -138,12 +138,12 @@ export async function getReminderLogsForPilot(companyId, pilotUid, { refresh = f
 
 /**
  * Manually trigger the daily job for this company (Cloud Function
- * `sendExpiryRemindersNow`). Throws a readable error when the function
- * is not deployed or the caller lacks permission.
+ * `sendExpiryRemindersNow`). Pass forceResend to mail every in-window pilot
+ * again with the latest details, ignoring the already-sent log.
  */
-export async function runRemindersNow() {
+export async function runRemindersNow({ forceResend = false } = {}) {
   const call = httpsCallable(getFunctions(), 'sendExpiryRemindersNow');
-  const result = await call({});
+  const result = await call({ forceResend: forceResend === true });
   return result?.data || null;
 }
 
