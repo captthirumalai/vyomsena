@@ -54,19 +54,55 @@ function pilotText({ pilotName, companyName, items }) {
 }
 
 function pilotHtml({ pilotName, companyName, items }) {
-  const rows = items
+  const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const expiredCount = items.filter((item) => item.tier === 'expired').length;
+  const expiringCount = items.length - expiredCount;
+
+  const sorted = items.slice().sort((left, right) => left.expiryMs - right.expiryMs);
+  const rows = sorted
     .map((item) => {
-      const tone = item.tier === 'expired' ? '#b42318' : '#b54708';
-      return `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;">${escapeHtml(item.documentName)}</td>`
-        + `<td style="padding:6px 10px;border-bottom:1px solid #eee;">${escapeHtml(formatExpiryDate(item.expiryDate))}</td>`
-        + `<td style="padding:6px 10px;border-bottom:1px solid #eee;color:${tone};font-weight:600;">${escapeHtml(docLine(item))}</td></tr>`;
+      const expired = item.tier === 'expired';
+      const tierNote = expired ? 'expired notice' : `${item.tier}-day tier`;
+      return `<tr>`
+        + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;">${escapeHtml(item.documentName)}<br />`
+        + `<span style="font-size:12px;color:#64748b;">${escapeHtml(tierNote)}${item.licenseOrCertificateNumber ? ` · ${escapeHtml(item.licenseOrCertificateNumber)}` : ''}</span></td>`
+        + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;white-space:nowrap;">${escapeHtml(formatExpiryDate(item.expiryDate))}<br />`
+        + `<span style="font-size:12px;color:#64748b;">${escapeHtml(digestRelLabel(item))}</span></td>`
+        + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(expired ? 'Expired' : 'Expiring', expired ? 'critical' : 'watch')}</td>`
+        + `</tr>`;
     })
     .join('');
-  return `<p>Dear ${escapeHtml(pilotName)},</p>`
-    + `<p>This is an automatic licence/document expiry reminder from <strong>${escapeHtml(companyName)}</strong> (VyomSena).</p>`
-    + `<table style="border-collapse:collapse;min-width:280px;"><tbody>${rows}</tbody></table>`
-    + `<p>Please renew the above before expiry and share the updated document with your operations team.</p>`
-    + `<p>— Operations, ${escapeHtml(companyName)}</p>`;
+
+  const kpiCell = (value, label) => `<td style="padding:10px;border:1px solid #e2e8f0;border-radius:8px;text-align:center;background:#f8fafc;" width="50%">`
+    + `<div style="font-size:22px;font-weight:800;">${value}</div>`
+    + `<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;">${label}</div></td>`;
+
+  return `<div style="font-family:Arial,Helvetica,sans-serif;background:#eef4fb;padding:24px;color:#1f2937;">`
+    + `<div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">`
+    + `<div style="background:#1d4ed8;color:#ffffff;padding:18px 24px;">`
+    + `<div style="font-size:18px;font-weight:700;">VyomSena — Document Expiry Reminder</div>`
+    + `<div style="font-size:13px;opacity:0.85;">${escapeHtml(companyName)} · ${escapeHtml(today)}</div>`
+    + `</div>`
+    + `<div style="padding:20px 24px;">`
+    + `<p style="margin:0 0 16px;">Dear ${escapeHtml(pilotName)}, this is an automatic reminder that the following need your attention.</p>`
+    + `<table role="presentation" cellpadding="0" cellspacing="8" width="100%" style="border-collapse:separate;margin:0 0 20px;"><tr>`
+    + kpiCell(String(expiringCount), 'Docs expiring')
+    + kpiCell(String(expiredCount), 'Docs expired')
+    + `</tr></table>`
+    + `<h3 style="margin:0 0 8px;font-size:15px;">Your document watchlist</h3>`
+    + `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin:0 0 16px;">`
+    + `<tr>`
+    + `<th style="text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;border-bottom:2px solid #e2e8f0;background:#f8fafc;">Document</th>`
+    + `<th style="text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;border-bottom:2px solid #e2e8f0;background:#f8fafc;">Expiry</th>`
+    + `<th style="text-align:center;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;border-bottom:2px solid #e2e8f0;background:#f8fafc;">Status</th>`
+    + `</tr>`
+    + rows
+    + `</table>`
+    + `<p style="margin:0 0 8px;">Please renew the above before expiry and share the updated document with your operations team.</p>`
+    + `<p style="font-size:12px;color:#64748b;margin:0;">— Operations, ${escapeHtml(companyName)}</p>`
+    + `</div>`
+    + `</div>`
+    + `</div>`;
 }
 
 function opsText({ companyName, groups }) {

@@ -311,6 +311,7 @@ expiry. The app is a static SPA — no backend, no secrets, no scheduler.
 - **V0.3.22** — Notification Centre (`/notifications`): dedicated everyday-mail manager — master switch, days-before lead time, default notification mail id, CCs, Gmail safety cap, test mail, dry-run preview, run history, recent sends. Engine adds quota guard + ops failure alerts + `previewReminders`/`sendTestReminder` callables. Crew drawer shows per-document "✉️ Reminded (tier) · date" from the dedupe log. Settings card slimmed to a status + link.
 - **V0.3.23** — Run now gains "Resend to all (ignore already-sent)": mails every in-window pilot again with the latest details and refreshes the log. Daily schedule unchanged (still dedupes).
 - **V0.3.24** — ops digest upgraded to dashboard-style HTML: KPI strip (pilots mailed / docs expiring / docs expired) + crew risk matrix + document watchlist with the same red/amber/green status pills. Plain-text version kept as fallback.
+- **V0.3.25** — pilot mails upgraded to the same dashboard-style HTML: header band, expiring/expired KPI strip, personal document watchlist with status pills, tier + licence-number sub-lines. Plain-text version unchanged.
 
 ---
 
