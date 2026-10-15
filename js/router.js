@@ -37,20 +37,26 @@ async function loadModuleCss(route) {
 async function importModuleJs(route) {
   if (!route.js) return;
 
-  try {
-    const module = await import(`../${route.js}?${moduleSuffix()}`);
-    return module;
-  } catch (firstError) {
-    // A stale or truncated cached copy can fail to parse; retry once
-    // bypassing the HTTP cache before giving up, so one poisoned entry
-    // can never wedge a module permanently.
+  // Deploys propagate across CDN edges over seconds/minutes; a fetch that
+  // lands mid-propagation can return a truncated file that then fails to
+  // parse. Retry with backoff on fresh URLs so one bad edge response can
+  // never wedge a module permanently. (Callers already drop stale renders.)
+  const delays = [0, 2000, 6000];
+  let lastError = null;
+  for (let attempt = 0; attempt < delays.length; attempt += 1) {
+    if (delays[attempt] > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+    const url = attempt === 0 ? `../${route.js}?${moduleSuffix()}` : `../${route.js}?${moduleSuffix()}&retry=${Date.now()}`;
     try {
-      return await import(`../${route.js}?${moduleSuffix()}&retry=${Date.now()}`);
+      return await import(url);
     } catch (error) {
-      console.warn('Failed to import module JS:', error);
-      return { __loadError: error };
+      lastError = error;
+      console.warn(`Module import attempt ${attempt + 1} failed for ${route.name}:`, error);
     }
   }
+  console.warn('Failed to import module JS:', lastError);
+  return { __loadError: lastError };
 }
 
 let activeModule = null;
