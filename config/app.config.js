@@ -1,6 +1,6 @@
 export const appConfig = {
   appName: 'VyomSena',
-  releaseVersion: 'V0.3.23',
+  releaseVersion: 'V0.3.24',
   defaultRoute: '/dashboard',
   theme: 'light'
 };
