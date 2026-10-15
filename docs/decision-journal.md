@@ -316,6 +316,7 @@ expiry. The app is a static SPA — no backend, no secrets, no scheduler.
  - **V0.3.27** — maintenance gains the missing fleet manager (the app had no way to add aircraft, leaving the dispatch dropdown empty): add/edit/remove company registrations in `companies/{companyId}/aircraft` with type, status and next inspection; only Operational counts as dispatch-ready. Dispatch shows a Maintenance pointer banner when the fleet is empty instead of a blank list.
  - **V0.3.28** — maintenance save feedback made impossible to miss: inline form message under the Add button (saving indicator, success, validation) with the real Firestore error surfaced on failure, submit locked while saving, fleet-load errors shown in the table. No more silent dead button when rules deny the write.
  - **V0.3.29** — dispatch init hardened: live fleet/crew/flight listeners attach before the one-off loads, so a single failing read can no longer leave the board frozen; crew-doc and scheme failures degrade gracefully, snapshot errors report their code in the status chip, and fleet removals now reflect (company fleet is authoritative over the legacy global fallback).
+ - **V0.3.30** — router pins module JS/CSS to the release version (`?v=`): a deploy can never leave the browser executing a stale or truncated mid-deploy copy, which previously surfaced as `SyntaxError` on import and a permanently dead module. One manual cache clear is still needed once to pick up the new loader itself.
 
 ---
 

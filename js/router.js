@@ -2,6 +2,11 @@ import { appRoutes, defaultRoute, canAccessRoute } from '../shared/routes.js';
 import { authStore, themeStore } from '../stores/index.js';
 import { emit as emitEvent } from '../services/eventBus.js';
 import { clearModuleActions, setModuleSubtitle } from '../shared/moduleHeader.js';
+import { appConfig } from '../config/app.config.js';
+
+// Version-pinned asset URLs: module JS/CSS are cached per release, so a new
+// deploy can never keep executing a stale (or truncated mid-deploy) copy.
+const assetSuffix = `v=${encodeURIComponent(appConfig.releaseVersion || 'dev')}`;
 
 async function loadModuleHtml(route) {
   try {
@@ -24,7 +29,7 @@ async function loadModuleCss(route) {
 
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = route.css;
+  link.href = `${route.css}?${assetSuffix}`;
   link.dataset.moduleCss = route.path;
   document.head.appendChild(link);
 }
@@ -33,7 +38,7 @@ async function importModuleJs(route) {
   if (!route.js) return;
 
   try {
-    const module = await import(`../${route.js}`);
+    const module = await import(`../${route.js}?${assetSuffix}`);
     return module;
   } catch (error) {
     console.warn('Failed to import module JS:', error);
