@@ -43,6 +43,7 @@ async function importModuleJs(route) {
   // never wedge a module permanently. (Callers already drop stale renders.)
   const delays = [0, 2000, 6000];
   let lastError = null;
+  let lastProbe = '';
   for (let attempt = 0; attempt < delays.length; attempt += 1) {
     if (delays[attempt] > 0) {
       await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
@@ -53,10 +54,12 @@ async function importModuleJs(route) {
     } catch (error) {
       lastError = error;
       console.warn(`Module import attempt ${attempt + 1} failed for ${route.name}:`, error);
+      lastProbe = await probeModuleUrl(url);
     }
   }
   console.warn('Failed to import module JS:', lastError);
-  return { __loadError: lastError };
+  const detail = `${lastError?.message || lastError}${lastProbe ? ` | delivery probe: ${lastProbe}` : ''}`;
+  return { __loadError: new Error(detail) };
 }
 
 let activeModule = null;
@@ -74,6 +77,22 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+async function probeModuleUrl(url) {
+  // Fetch the same URL as plain text (bypassing cache): tells us whether the
+  // failure is delivery (truncated/HTML/garbage bytes) or parsing of good
+  // bytes. Result is shown on the failure card for remote diagnosis.
+  try {
+    const response = await fetch(url, { cache: 'reload' });
+    if (!response.ok) return `HTTP ${response.status} on text re-fetch`;
+    const text = await response.text();
+    const head = text.slice(0, 60).replace(/\s+/g, ' ');
+    const tail = text.slice(-60).replace(/\s+/g, ' ');
+    return `${text.length} bytes as text; starts "${head}"; ends "${tail}"`;
+  } catch (error) {
+    return `text re-fetch failed (${error?.message || error})`;
+  }
 }
 
 function moduleErrorCard(route, user, title, detail) {

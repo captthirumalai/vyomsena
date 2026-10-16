@@ -10,7 +10,16 @@ import {
   setCompanyModuleDoc,
   companyModuleCollection
 } from './companyService.js';
-import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
+// Lazily imported: the functions SDK is only needed for Run/Preview/Test
+// callables. Static-importing it would make the entire Notification Centre
+// (including settings + history) fail if that single CDN file ever fails.
+let functionsModulePromise = null;
+async function functionsModule() {
+  if (!functionsModulePromise) {
+    functionsModulePromise = import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js');
+  }
+  return functionsModulePromise;
+}
 
 const REMINDER_MODULE = 'reminder_settings';
 const REMINDER_DOC_ID = 'current';
@@ -142,6 +151,7 @@ export async function getReminderLogsForPilot(companyId, pilotUid, { refresh = f
  * again with the latest details, ignoring the already-sent log.
  */
 export async function runRemindersNow({ forceResend = false } = {}) {
+  const { getFunctions, httpsCallable } = await functionsModule();
   const call = httpsCallable(getFunctions(), 'sendExpiryRemindersNow');
   const result = await call({ forceResend: forceResend === true });
   return result?.data || null;
@@ -151,6 +161,7 @@ export async function runRemindersNow({ forceResend = false } = {}) {
  * Dry-run preview: who would be mailed today, without sending anything.
  */
 export async function previewReminders() {
+  const { getFunctions, httpsCallable } = await functionsModule();
   const call = httpsCallable(getFunctions(), 'previewReminders');
   const result = await call({});
   return result?.data || null;
@@ -160,6 +171,7 @@ export async function previewReminders() {
  * Send a test mail to one address to verify the SMTP pipeline.
  */
 export async function sendTestReminder(to) {
+  const { getFunctions, httpsCallable } = await functionsModule();
   const call = httpsCallable(getFunctions(), 'sendTestReminder');
   const result = await call({ to });
   return result?.data || null;
