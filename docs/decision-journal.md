@@ -328,6 +328,7 @@ expiry. The app is a static SPA — no backend, no secrets, no scheduler.
  - **V0.3.39** — fix: membership lookup uses direct `company_accounts/{uid}` read instead of a collection query. Firestore cannot prove a `where(uid==X)` list satisfies the document-ID self-read rule, so the query was denied outright (live symptom: "membership lookup skipped"). Direct get passes trivially; all membership rows are uid-keyed by construction, so nothing reachable is missed.
  - **V0.3.40** — notification centre overhaul: interval-based re-reminders (daily when urgent ≤7d, weekly otherwise, expired weekly) replace fire-once tiers; ops digest now carries the full daily watchlist with mailed-today pills (sent even on quiet days); preview shows due/notified/no-email status; settings rewritten in plain language with a live "mails will go to" recipient list (To + CCs) and a resend counter on runs.
  - **V0.3.41** — notification resilience + import X-ray: the gstatic functions SDK is lazy-loaded only when a callable runs, so settings/history survive even if that CDN file fails; module import failures now fetch the URL as text and display byte-size plus head/tail on the failure card, distinguishing delivery corruption from parse errors remotely.
+ - **V0.3.42** — diagnostic rename: notifications module file becomes `centre.js` (manifest updated, zero behavior change). The failing URL served byte-perfect content to text probes yet failed `import()` in two browsers, pointing at a URL-keyed poisoned cache entry; a fresh path forces a fresh entry and settles it.
 
 ---
 

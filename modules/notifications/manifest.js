@@ -9,6 +9,6 @@ export const manifest = {
   subtitle: 'Manage everyday expiry reminder mails: schedule, lead time, recipients, tests and history.',
   breadcrumbs: ['Home', 'Notifications'],
   html: 'modules/notifications/notifications.html',
-  js: 'modules/notifications/notifications.js',
+  js: 'modules/notifications/centre.js',
   css: 'modules/notifications/notifications.css'
 };
