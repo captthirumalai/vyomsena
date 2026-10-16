@@ -101,6 +101,22 @@
   background: rgba(220, 38, 38, 0.06);
 }
 
+.dispatch-fdtl-preview .vs-button {
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
+
+#dispatch-fleet-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+#dispatch-fleet-error[hidden] {
+  display: none;
+}
+
 .dispatch-toolbar {
   display: flex;
   gap: 0.7rem;

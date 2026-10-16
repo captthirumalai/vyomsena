@@ -320,6 +320,7 @@ expiry. The app is a static SPA — no backend, no secrets, no scheduler.
  - **V0.3.31** — router self-heals poisoned module cache: a failed versioned import retries once with a cache-busting timestamp before giving up, so one corrupt entry can never wedge a module again. (Confirmed live `dashboard.js`/`dispatch.js` parse clean — the `SyntaxError`s were cached truncated copies, same root cause as the frozen Dispatch board.)
  - **V0.3.32** — router shows on-screen failure cards: a module that fails to import or crashes in init now renders the error, app version, signed-in uid/role and a Retry-fresh-load button instead of a silently dead page. Retries bump a loader generation so every attempt uses fresh URLs.
  - **V0.3.33** — module import retries with backoff (immediate, +2s, +6s on fresh URLs): testing seconds after a push could catch the CDN mid-propagation with a truncated file, and the instant retry re-fetched before propagation finished. Stale renders are still dropped by the existing render guard.
+ - **V0.3.34** — dispatch aircraft source correction: removed the silent legacy top-level `aircraft` fallback — Dispatch reads ONLY `companies/{companyId}/aircraft` via `getCompanyAircraft` + `onCompanyAircraftSnapshot`. Empty fleet shows the Maintenance pointer; failed reads show an error banner with Retry (fleet errors also tracked separately from crew/flight loads). Legacy service untouched for the other modules' later retirement.
 
 ---
 

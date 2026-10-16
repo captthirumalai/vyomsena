@@ -126,6 +126,10 @@
     <div id="dispatch-fleet-warning" class="dispatch-fdtl-preview dispatch-fdtl-preview--watch" hidden>
       <strong>No aircraft in fleet.</strong> <span>Add registrations in the <a href="#/maintenance">Maintenance module</a> — they appear here live.</span>
     </div>
+    <div id="dispatch-fleet-error" class="dispatch-fdtl-preview dispatch-fdtl-preview--critical" hidden>
+      <strong>Unable to load company aircraft.</strong> <span id="dispatch-fleet-error-text"></span>
+      <button type="button" id="dispatch-fleet-retry" class="vs-button vs-button--sm">Retry</button>
+    </div>
     <div id="dispatch-fdtl-preview" class="dispatch-fdtl-preview" aria-live="polite">
       <strong>Pre-flight FDTL:</strong> <span id="dispatch-fdtl-preview-text">Select crew and scheduled times to project compliance.</span>
     </div>

@@ -1,4 +1,4 @@
-﻿import { getAircraft, getCompanyAircraft, onCompanyAircraftSnapshot } from '../../services/aircraftService.js';
+﻿import { getCompanyAircraft, onCompanyAircraftSnapshot } from '../../services/aircraftService.js';
 import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, syncCrewDocumentCache, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
@@ -30,6 +30,7 @@ let editingFlightId = null;
 let crewFilter = '__all__';
 let statusFilter = '__all__';
 let searchQuery = '';
+let fleetError = null;
 const expandedFlightIds = new Set();
 const auditCache = new Map();
 
@@ -92,7 +93,7 @@ function completedFlightsForCrew(crewId) {
   return latestFlights
     .filter((flight) => flight.status === FLIGHT_STATUSES.COMPLETED && crewIdsForFlight(flight).includes(crewId))
     .slice()
-    .sort((left, right) => (toDate(left.flightDate)?.getTime() || 0) - (toDate(right.flightDate)?.getTime() || 0);
+    .sort((left, right) => (toDate(left.flightDate)?.getTime() || 0) - (toDate(right.flightDate)?.getTime() || 0));
 }
 
 // --- FDTL linkage (pre-flight projection + post-flight verdict) ---
@@ -474,6 +475,32 @@ async function loadFlightAudit(flightId) {
 
 // --- Form handling ---
 
+function renderFleetState() {
+  if (!activeView) return;
+  const hasFleet = latestAircraft.length > 0;
+  const warning = activeView.querySelector('#dispatch-fleet-warning');
+  const errorBox = activeView.querySelector('#dispatch-fleet-error');
+  const errorText = activeView.querySelector('#dispatch-fleet-error-text');
+  if (warning) warning.hidden = hasFleet || Boolean(fleetError);
+  if (errorBox) errorBox.hidden = !fleetError || hasFleet;
+  if (errorText && fleetError) errorText.textContent = fleetError;
+}
+
+// Single authoritative fleet source: companies/{companyId}/aircraft.
+// No fallback to any legacy collection — empty means empty, failure means error.
+async function loadFleet() {
+  if (!activeOperatorUid) return;
+  try {
+    latestAircraft = await getCompanyAircraft(activeOperatorUid);
+    fleetError = null;
+  } catch (error) {
+    console.error('Dispatch fleet load failed:', error);
+    fleetError = `Unable to load company aircraft (${error?.code || error?.message || 'unknown error'}).`;
+  }
+  populateFlightForm();
+  await renderDispatch();
+}
+
 function populateFlightForm() {
   if (!activeView) return;
 
@@ -481,7 +508,9 @@ function populateFlightForm() {
   if (aircraftSelect) {
     const previous = aircraftSelect.value;
     if (!latestAircraft.length) {
-      aircraftSelect.innerHTML = '<option value="">No aircraft — add fleet in Maintenance</option>';
+      aircraftSelect.innerHTML = fleetError
+        ? '<option value="">Aircraft unavailable — see error below</option>'
+        : '<option value="">No aircraft — add fleet in Maintenance</option>';
     } else {
       aircraftSelect.innerHTML =
         '<option value="">Select aircraft</option>' +
@@ -490,8 +519,7 @@ function populateFlightForm() {
     }
   }
 
-  const fleetWarning = activeView.querySelector('#dispatch-fleet-warning');
-  if (fleetWarning) fleetWarning.hidden = latestAircraft.length > 0;
+  renderFleetState();
 
   const p1Select = activeView.querySelector('#dispatch-flight-p1');
   const p2Select = activeView.querySelector('#dispatch-flight-p2');
@@ -895,6 +923,7 @@ export async function init(view, context) {
   crewFilter = '__all__';
   statusFilter = '__all__';
   searchQuery = '';
+  fleetError = null;
   expandedFlightIds.clear();
   auditCache.clear();
   latestScheme = getDefaultScheme();
@@ -921,6 +950,15 @@ export async function init(view, context) {
     if (status) status.textContent = 'Editing discarded.';
   });
   view.querySelector('#dispatch-flights-body')?.addEventListener('click', handleBoardClick);
+  view.querySelector('#dispatch-fleet-retry')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    if (button) button.disabled = true;
+    try {
+      await loadFleet();
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
   view.querySelector('#dispatch-crew-filter')?.addEventListener('change', (event) => {
     crewFilter = event.target.value;
     renderFlightBoard();
@@ -940,13 +978,14 @@ export async function init(view, context) {
     activeOperatorUid,
     (fleet) => {
       latestAircraft = fleet;
+      fleetError = null;
       populateFlightForm();
       renderDispatch();
     },
     (error) => {
       console.error('Dispatch aircraft snapshot error:', error);
-      const statusLabel = getModuleAction('dispatch-status');
-      if (statusLabel) statusLabel.textContent = `Fleet live update failed (${error?.code || 'unknown error'}). Refresh to retry.`;
+      fleetError = `Fleet live update failed (${error?.code || error?.message || 'unknown error'}).`;
+      populateFlightForm();
     }
   );
 
@@ -975,13 +1014,13 @@ export async function init(view, context) {
     (error) => console.error('Dispatch flights snapshot error:', error)
   );
 
+  await loadFleet();
+
   try {
-    const [companyAircraft, crewList, flights] = await Promise.all([
-      getCompanyAircraft(activeOperatorUid),
+    const [crewList, flights] = await Promise.all([
       getCrew(activeOperatorUid),
       listFlights(activeOperatorUid)
     ]);
-    latestAircraft = companyAircraft.length ? companyAircraft : await getAircraft();
     latestCrew = crewList;
     latestFlights = flights;
     try {
@@ -1020,6 +1059,7 @@ export async function init(view, context) {
       latestScheme = null;
       activeView = null;
       activeOperatorUid = null;
+      fleetError = null;
       activeActor = null;
       editingFlightId = null;
       expandedFlightIds.clear();

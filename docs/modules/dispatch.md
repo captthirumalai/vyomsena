@@ -16,7 +16,7 @@ Dispatch is the **central entry point for flight movements**. It writes to the s
 - **FDTL pre-flight projection** under the form (projected block, per-pilot FDP/rest/cumulative verdict from the company scheme + completed history) — advisory, never blocks save.
 - **FDTL post-flight verdicts** on the board for completed movements (FDP base limit, 7/28-day cumulative, rest vs previous duty; worst of P1/P2).
 - Live updates via `onFlightsSnapshot`; P1+P2 both accrue duty records through `flightsToDutyRecords`.
-- Aircraft dropdown reads the company fleet live (`companies/{companyId}/aircraft`, managed in the Maintenance module). With an empty fleet the form shows a pointer to Maintenance instead of a blank list.
+- Aircraft dropdown reads ONLY the company fleet live (`companies/{companyId}/aircraft`, managed in the Maintenance module) — the legacy top-level `aircraft` fallback is removed, so Dispatch can never show another source's registrations. Empty fleet shows a Maintenance pointer; a failed read shows an error banner with Retry instead of substituting data.
 
 ### Data flow
 ```
