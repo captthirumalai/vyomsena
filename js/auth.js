@@ -13,6 +13,7 @@ import {
 } from '../services/authService.js';
 import { initRouter, destroyActiveModule } from './router.js';
 import { emit as emitEvent } from '../services/eventBus.js';
+import { getUserMembership } from '../services/companyService.js';
 
 let routerStarted = false;
 
@@ -272,7 +273,26 @@ export function initAuth() {
           return;
         }
 
-        if (normalizeRole(profileData.role) === 'OPERATIONS') {
+        // Authoritative membership is resolved once per session and attached to
+        // the profile; getCurrentOrganizationContext() consumes it (sync) in
+        // every module. A valid membership is never replaced by the own-UID
+        // fallback, and members never get solo workspaces or admin rows.
+        let membershipCompanyId = null;
+        try {
+          const membership = await getUserMembership(user.uid);
+          if (membership?.companyId) {
+            membershipCompanyId = membership.companyId;
+            profileData.companyId = membership.companyId;
+            profileData.membershipRole = membership.role || null;
+          }
+        } catch (err) {
+          console.warn('Company membership lookup skipped:', err);
+        }
+
+        if (membershipCompanyId) {
+          // Member of an existing company: use it. No solo workspace bootstrap,
+          // no admin/user grant creation — membership confers read context only.
+        } else if (normalizeRole(profileData.role) === 'OPERATIONS') {
           try {
             await bootstrapCompanyWorkspace({
               uid: user.uid,
@@ -285,6 +305,12 @@ export function initAuth() {
           } catch (err) {
             console.warn('Company workspace bootstrap skipped:', err);
           }
+        } else if (!['ADMIN', 'OWNER'].includes(normalizeRole(profileData.role))) {
+          // Non-pilot, non-admin, no membership and no solo bootstrap path:
+          // fail loudly instead of signing into an empty, misleading workspace.
+          showError(loginError, 'No organisation found for this account. Ask your company admin for an invite.');
+          await signOutUser();
+          return;
         }
 
         authStore.setUser(profileData);

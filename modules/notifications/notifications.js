@@ -9,6 +9,7 @@ import {
   sendTestReminder
 } from '../../services/reminderSettingsService.js';
 import { getCompany } from '../../services/companyService.js';
+import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 
 function query(selector) {
   return document.querySelector(selector);
@@ -157,7 +158,7 @@ function renderLogs(logs) {
 
 export async function init(view, context) {
   const currentUser = context?.currentUser;
-  const companyId = currentUser?.uid || null;
+  const companyId = getCurrentOrganizationContext(currentUser).organizationId || currentUser?.uid || null;
 
   if (!companyId) {
     const title = view.querySelector('.vs-card__title');

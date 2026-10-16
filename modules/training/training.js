@@ -1,4 +1,5 @@
 ﻿import { listTrainingCenters, listTrainingOfferings, watchTrainingBookings } from '../../services/trainingService.js';
+import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 
 let bookingsUnsubscribe = null;
@@ -104,7 +105,7 @@ export async function init(view, context) {
   });
 
   const operatorUid = context?.currentUser?.uid || null;
-  activeOperatorUid = operatorUid;
+  activeOperatorUid = getCurrentOrganizationContext(context?.currentUser).organizationId || operatorUid;
 
   if (!operatorUid) {
     const statusLabel = getModuleAction('training-status');

@@ -13,6 +13,7 @@ import {
   serverTimestamp
 } from './firestoreService.js';
 import { validateContract } from './schemaContract.js';
+import { resolveAdminCompanyId } from './organizationService.js';
 
 const ADMIN_USERS = 'admin_users';
 const COMPANIES = 'companies';
@@ -105,7 +106,10 @@ export async function ensureAdminUser({ uid, email = null, displayName = null, c
   if (existing.exists()) {
     const current = normalizeAdminUser(existing);
     const patches = {};
-    if (companyId && current.companyId !== companyId) patches.companyId = companyId;
+    // Clobber-guard: a valid stored companyId is NEVER overwritten by login.
+    // A member's company (or a solo owner's own company) survives re-login.
+    const resolved = resolveAdminCompanyId(current.companyId, companyId);
+    if (resolved.shouldUpdate) patches.companyId = resolved.companyId;
     if (email && !current.email) patches.email = `${email}`.trim().toLowerCase();
     if (displayName && !current.displayName) patches.displayName = displayName;
     if (Object.keys(patches).length > 0) {
@@ -222,6 +226,20 @@ export async function getCompanyAccount(accountId) {
   if (!accountId) return null;
   const snapshot = await getDoc(doc(COMPANY_ACCOUNTS, accountId));
   return snapshot.exists() ? normalizeAccount(snapshot) : null;
+}
+
+export async function getUserMembership(uid) {
+  if (!uid) return null;
+  // Single-field query (no composite index) + client-side filter.
+  // Only rows explicitly marked as staff membership count: pilot-linkage rows
+  // (role PILOT without isMember) and unclaimed placeholders (uid null) never
+  // confer a company context.
+  const accountsRef = collection(COMPANY_ACCOUNTS);
+  const snapshot = await getDocs(query(accountsRef, where('uid', '==', uid)));
+  const member = snapshot.docs
+    .map((item) => normalizeAccount(item))
+    .find((account) => account.isMember === true && account.companyId);
+  return member || null;
 }
 
 export async function listCompanyAccounts(companyId) {

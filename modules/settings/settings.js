@@ -6,6 +6,7 @@
   generateCompanyInvite
 } from '../../services/companyService.js';
 import { getLatestReminderRun } from '../../services/reminderSettingsService.js';
+import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import {
   issueCompanyUserViaCallable,
   listCompanyUsersViaCallable,
@@ -144,7 +145,7 @@ function setStatus(element, message, tone = '') {
 
 export async function init(view, context) {
   const currentUser = context?.currentUser;
-  const companyId = currentUser?.uid || null;
+  const companyId = getCurrentOrganizationContext(currentUser).organizationId || currentUser?.uid || null;
 
   if (!companyId) {
     const content = view.querySelector('#st-company-name');

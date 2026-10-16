@@ -1,5 +1,6 @@
 ﻿import { getAircraft, getCompanyAircraft, onCompanyAircraftSnapshot } from '../../services/aircraftService.js';
 import { getCrew, onCrewSnapshot, getCrewDocumentsByPilots, syncCrewDocumentCache, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
+import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 
 let aircraftUnsubscribe = null;
@@ -114,7 +115,7 @@ export async function init(view, context) {
   });
 
   const operatorUid = context?.currentUser?.uid || null;
-  activeOperatorUid = operatorUid;
+  activeOperatorUid = getCurrentOrganizationContext(context?.currentUser).organizationId || operatorUid;
 
   if (!operatorUid) {
     const statusLabel = getModuleAction('weather-status');

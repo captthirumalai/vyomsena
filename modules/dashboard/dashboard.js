@@ -1,6 +1,7 @@
 import { getAircraft, getCompanyAircraft, onCompanyAircraftSnapshot } from '../../services/aircraftService.js';
 import { getCrew, onCrewSnapshot, syncCrewDocumentCache, summarizeCrewDocumentCompliance } from '../../services/crewService.js';
 import { appConfig } from '../../config/app.config.js';
+import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { mountModuleActions, getModuleAction, setModuleSubtitle } from '../../shared/moduleHeader.js';
 
 let aircraftUnsubscribe = null;
@@ -396,7 +397,7 @@ export async function init(view, context) {
     card.setAttribute('data-index', index + 1);
   });
 
-  dashboardState.operatorUid = context?.currentUser?.uid || null;
+  dashboardState.operatorUid = getCurrentOrganizationContext(context?.currentUser).organizationId || context?.currentUser?.uid || null;
   bindDashboardControls();
 
   if (!dashboardState.operatorUid) {
