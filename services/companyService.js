@@ -230,16 +230,21 @@ export async function getCompanyAccount(accountId) {
 
 export async function getUserMembership(uid) {
   if (!uid) return null;
-  // Single-field query (no composite index) + client-side filter.
+  // Direct document read, NOT a collection query: Firestore cannot prove a
+  // where('uid','==',X) list query satisfies the document-ID self-read rule
+  // (request.auth.uid == accountId), so the whole query is denied even when
+  // every matching document would pass. A direct get of the uid-keyed row
+  // passes trivially. Membership rows are always keyed by uid (bootstrap,
+  // pilot-linkage, and P2 upsert all use deterministic uid keys), so no
+  // reachable membership is missed by skipping the query.
   // Only rows explicitly marked as staff membership count: pilot-linkage rows
   // (role PILOT without isMember) and unclaimed placeholders (uid null) never
   // confer a company context.
-  const accountsRef = collection(COMPANY_ACCOUNTS);
-  const snapshot = await getDocs(query(accountsRef, where('uid', '==', uid)));
-  const member = snapshot.docs
-    .map((item) => normalizeAccount(item))
-    .find((account) => account.isMember === true && account.companyId);
-  return member || null;
+  const snapshot = await getDoc(doc(COMPANY_ACCOUNTS, uid));
+  if (!snapshot.exists()) return null;
+  const account = normalizeAccount(snapshot);
+  if (account.isMember !== true || !account.companyId) return null;
+  return account;
 }
 
 export async function listCompanyAccounts(companyId) {
