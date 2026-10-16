@@ -242,9 +242,18 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && request.auth.uid == companyId;
     }
 
-    // COMPANY ACCOUNTS
+    // COMPANY ACCOUNTS (P4 Stage 1: self-read + admin roster read; no open read)
+    // Reads: company admin retains full roster access (Settings accounts
+    // table, crew invite email lookup); any authenticated user may read ONLY
+    // their own document (doc-ID match covers P2 uid-keyed member rows and
+    // pilot rows keyed by pilotUid). Members can no longer enumerate rosters.
+    // Writes: UNCHANGED (admin-only). PUBLISH STATUS: doc-only — console
+    // publish explicitly deferred until deployed-rule parity is verified.
     match /company_accounts/{accountId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && (
+        isCompanyAdmin(resource.data.companyId) ||
+        request.auth.uid == accountId
+      );
       allow create: if request.auth != null && isCompanyAdmin(request.resource.data.companyId);
       allow update: if request.auth != null && isCompanyAdmin(resource.data.companyId);
       allow delete: if request.auth != null && isCompanyAdmin(resource.data.companyId);

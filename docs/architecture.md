@@ -10,6 +10,56 @@ This project follows a layered structure:
 
 ---
 
+## Architecture diagram
+
+```mermaid
+flowchart TD
+    Person[User] --> Browser[Browser]
+    Browser --> Entry[index.html]
+    Entry --> App[js/app.js]
+
+    subgraph Client["VyomSena web application"]
+        App --> Auth[js/auth.js]
+        App --> Layout[core/layout.js]
+        App --> Theme[core/theme.js]
+        Auth --> AuthService[services/authService.js]
+        AuthService --> AuthStore[stores/authStore.js]
+        AuthStore --> Layout
+        AuthStore --> Router[js/router.js]
+
+        Layout --> RouteManifest[shared/routes.js]
+        Router --> RouteManifest
+        RouteManifest --> Manifests[Feature manifests]
+        Router -->|Loads route HTML, CSS, and JS| Modules[Feature modules]
+
+        Modules --> Shared[shared helpers and stores]
+        Modules --> Components[components]
+        Modules --> Services[Business services]
+        Services --> FirebaseService[services/firebaseService.js]
+        FirebaseService --> FirebaseSDK[Firebase web SDK]
+    end
+
+    subgraph Firebase["Firebase platform"]
+        FirebaseSDK --> FirebaseAuth[Authentication]
+        FirebaseSDK --> Firestore[Cloud Firestore]
+        FirebaseSDK --> Storage[Cloud Storage]
+        Functions[functions/] --> Firestore
+        Functions --> Mail[SMTP email provider]
+    end
+
+    Firestore --> Functions
+    Scheduler[Scheduled expiry reminders] --> Functions
+    Admin[Authorized admin or operations user] -->|Callable reminder actions| Functions
+```
+
+The router checks route permissions against the signed-in user before loading a
+feature module. Modules use shared helpers and business services rather than
+accessing Firebase directly. The Cloud Functions service handles scheduled and
+authorized callable document-expiry reminders; it reads Firestore and sends
+email through the configured SMTP provider.
+
+---
+
 ## Development Log
 
 ### 2026-07-26 00:09:29
