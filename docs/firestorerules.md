@@ -264,6 +264,18 @@ service cloud.firestore {
       allow delete: if request.auth != null && isCompanyAdmin(resource.data.companyId);
     }
 
+    // COMPANY USERS (Phase C1 foundation — Admin-issued Company User registry).
+    // Reads/writes restricted to the company admin. Issuance and passcode
+    // verification run server-side via callables (Admin SDK bypasses rules);
+    // company sessions (custom-token claims) get NO direct registry access.
+    // NOTE: publish to the Firebase console with the hardening milestone and
+    // verify console matches this file before relying on it.
+    match /company_users/{userId} {
+      allow read: if request.auth != null && isCompanyAdmin(resource.data.companyId);
+      allow create: if request.auth != null && isCompanyAdmin(request.resource.data.companyId);
+      allow update, delete: if request.auth != null && isCompanyAdmin(resource.data.companyId);
+    }
+
     // COMPANY MEMBERSHIPS (Android link record, keyed by the anonymous company-session uid).
     // Created during invite redemption and immutable afterwards.
     match /company_members/{memberUid} {

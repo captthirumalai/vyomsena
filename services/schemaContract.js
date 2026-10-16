@@ -54,6 +54,20 @@ const CONTRACTS = {
   },
   company_invites: {
     required: ['code', 'companyId', 'accountId', 'email', 'role', 'createdAt', 'expiresAt', 'usedBy', 'usedAt']
+  },
+  company_users: {
+    required: [
+      'companyUserId',
+      'companyId',
+      'displayName',
+      'role',
+      'permissions',
+      'linkedCrewProfileId',
+      'status',
+      'passcodeHash',
+      'createdAt',
+      'lastModified'
+    ]
   }
 };
 

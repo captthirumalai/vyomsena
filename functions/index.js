@@ -16,6 +16,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { buildTransport, sendTestMail } = require('./lib/email');
 const { runExpiryReminders, previewCompanyReminders } = require('./lib/engine');
+const companyUsers = require('./lib/companyUsers');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -98,6 +99,62 @@ exports.sendExpiryRemindersNow = onCall({ secrets: ALL_SECRETS }, async (request
 exports.previewReminders = onCall(async (request) => {
   const caller = await assertCallerAllowed(request.auth?.uid);
   return previewCompanyReminders({ db, companyId: caller.companyId, now: new Date() });
+});
+
+async function assertOwnerOrAdmin(uid) {
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Sign in to manage company users.');
+  }
+  const snap = await db.doc(`admin_users/${uid}`).get();
+  const data = snap.exists ? snap.data() || {} : {};
+  const role = `${data.role || ''}`.toUpperCase();
+  if (!snap.exists || !['OWNER', 'ADMIN'].includes(role)) {
+    throw new HttpsError('permission-denied', 'Only the company owner or admin can manage company users.');
+  }
+  return { role, companyId: data.companyId || uid };
+}
+
+// Phase C1: Admin-only issuance of Company Users (ID + one-time passcode).
+// The plaintext passcode is returned ONCE in this response and never stored.
+exports.issueCompanyUser = onCall(async (request) => {
+  const caller = await assertOwnerOrAdmin(request.auth?.uid);
+  const data = request.data || {};
+  const targetCompanyId = data.companyId || caller.companyId;
+  if (targetCompanyId !== caller.companyId) {
+    throw new HttpsError('permission-denied', 'Company users can only be issued for your own organisation.');
+  }
+  try {
+    return await companyUsers.issueCompanyUser(db, {
+      companyId: targetCompanyId,
+      displayName: data.displayName,
+      role: data.role,
+      permissions: data.permissions,
+      linkedCrewProfileId: data.linkedCrewProfileId || null,
+      status: data.status,
+      createdBy: request.auth.uid
+    });
+  } catch (error) {
+    if (error.message && /pilot record .* was not found|required|permissions|status/i.test(error.message)) {
+      throw new HttpsError('invalid-argument', error.message);
+    }
+    throw new HttpsError('internal', 'Unable to issue the company user.');
+  }
+});
+
+// Phase C1: server-side Company User verification (Company Home login primitive).
+// Unauthenticated by design — this IS the login endpoint. Throttling + lockout
+// are enforced inside the library; no Android/client integration in C1.
+exports.verifyCompanyUser = onCall(async (request) => {
+  const data = request.data || {};
+  const result = await companyUsers.verifyCompanyUser(db, {
+    companyUserId: data.companyUserId,
+    passcode: data.passcode
+  });
+  if (!result.ok) {
+    throw new HttpsError('unauthenticated', 'Invalid credentials or inactive account.');
+  }
+  const token = await admin.auth().createCustomToken(result.claims.companyUserId, result.claims);
+  return { token, claims: result.claims };
 });
 
 exports.sendTestReminder = onCall({ secrets: ALL_SECRETS }, async (request) => {
