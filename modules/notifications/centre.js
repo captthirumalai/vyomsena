@@ -93,6 +93,7 @@ function renderSettings(settings) {
   set('#nt-cc', (settings.ccEmails || []).join(', '));
   set('#nt-maxsends', settings.maxSendsPerDay);
   renderRecipients();
+}
 
 function renderStatus(settings, run) {
   const status = query('#nt-status');
