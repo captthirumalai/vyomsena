@@ -44,10 +44,15 @@ export function getRouteByPath(path) {
   return appRoutes.find((route) => route.path === path);
 }
 
+const SUPER_ROLES = ['admin', 'owner'];
+
 export function canAccessRoute(route, user) {
   if (!route.permissions || route.permissions.length === 0) return true;
   if (!user) return false;
   const role = normalizeRole(user.role);
+  // Company admins manage the whole workspace: they see every module,
+  // including operations-only ones (dispatch, crew, maintenance, ...).
+  if (SUPER_ROLES.includes(role)) return true;
   return route.permissions.some((permission) => normalizeRole(permission) === role);
 }
 
