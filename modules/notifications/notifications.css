@@ -121,3 +121,52 @@
   font-style: italic;
   padding: 1rem 0.75rem;
 }
+
+.nt-field small {
+  font-size: 0.76rem;
+  color: var(--muted-color, #64748b);
+  line-height: 1.35;
+}
+
+.nt-explainer {
+  margin: 0.9rem 0 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px dashed rgba(37, 99, 235, 0.45);
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.05);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.nt-recipients {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.045);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.nt-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nt-badge-green {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.nt-badge-red {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.nt-badge-blue {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}

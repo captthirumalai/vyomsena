@@ -14,7 +14,8 @@ const {
   daysUntil,
   tiersForLead,
   tierToSend,
-  reminderKey
+  reminderKey,
+  isDue
 } = require('./tiers');
 const { sendPilotReminder, sendOpsDigest, sendFailureAlert } = require('./email');
 
@@ -176,6 +177,9 @@ async function previewCompanyReminders({ db, companyId, now = new Date() }) {
     return { companyId, companyName: null, enabled: true, groups: [], totalDocs: 0, totalPilots: 0 };
   }
   const groups = await resolvePilotGroups(db, batch.pilotItems);
+  // Due-state per item so the preview shows what today will actually do:
+  // mailed (due now), notified already (inside resend interval), or no email.
+  const sentAtByKey = batch.settings.enabled ? await loadSentAtByKey(db, companyId, batch.pilotItems) : new Map();
   return {
     companyId,
     companyName: batch.companyName,
@@ -183,17 +187,43 @@ async function previewCompanyReminders({ db, companyId, now = new Date() }) {
     groups: groups.map((group) => ({
       pilotName: group.pilotName,
       pilotEmail: group.pilotEmail,
-      items: group.items.map((item) => ({
-        documentName: item.documentName,
-        documentCategory: item.documentCategory,
-        days: item.days,
-        tier: `${item.tier}`,
-        expiryDate: item.expiryDate.toISOString().slice(0, 10)
-      }))
+      items: group.items.map((item) => {
+        if (!group.pilotEmail) return { ...previewItem(item), status: 'no-email' };
+        const due = isDue(sentAtByKey.get(reminderKey(item.docId, item.expiryMs, `${item.tier}`)) || 0, item, now.getTime());
+        return { ...previewItem(item), status: due ? 'due' : 'notified' };
+      })
     })),
     totalDocs: groups.reduce((sum, group) => sum + group.items.length, 0),
     totalPilots: groups.length
   };
+}
+
+function previewItem(item) {
+  return {
+    documentName: item.documentName,
+    documentCategory: item.documentCategory,
+    days: item.days,
+    tier: `${item.tier}`,
+    expiryDate: item.expiryDate.toISOString().slice(0, 10)
+  };
+}
+
+async function loadSentAtByKey(db, companyId, pilotItems) {
+  const allKeys = [];
+  for (const items of pilotItems.values()) {
+    for (const item of items) allKeys.push(reminderKey(item.docId, item.expiryMs, `${item.tier}`));
+  }
+  const logRefs = allKeys.map((key) => db.doc(`companies/${companyId}/reminder_logs/${key}`));
+  const logSnaps = logRefs.length ? await db.getAll(...logRefs) : [];
+  const sentAtByKey = new Map();
+  logSnaps.forEach((snap, index) => {
+    const data = (snap.exists && snap.data()) || {};
+    if (data.status !== 'sent' || !data.sentAt) return;
+    const raw = typeof data.sentAt.toDate === 'function' ? data.sentAt.toDate() : new Date(data.sentAt);
+    const ms = raw instanceof Date && !Number.isNaN(raw.getTime()) ? raw.getTime() : 0;
+    if (ms) sentAtByKey.set(allKeys[index], ms);
+  });
+  return sentAtByKey;
 }
 
 /**
@@ -213,6 +243,7 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
     const { companyId, companyName, opsRecipients, settings, pilotItems } = batch;
     const companySummary = {
       sent: 0,
+      resent: 0,
       skippedNoEmail: 0,
       skippedAlreadySent: 0,
       skippedQuota: 0,
@@ -240,26 +271,23 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
         continue;
       }
 
-      // Dedupe: one mail per (document, tier, expiry).
-      const allKeys = [];
-      for (const items of pilotItems.values()) {
-        for (const item of items) allKeys.push(reminderKey(item.docId, item.expiryMs, `${item.tier}`));
-      }
-      const logRefs = allKeys.map((key) => db.doc(`companies/${companyId}/reminder_logs/${key}`));
-      const logSnaps = logRefs.length ? await db.getAll(...logRefs) : [];
-      const alreadySent = new Set();
-      logSnaps.forEach((snap, index) => {
-        if (snap.exists && (snap.data() || {}).status === 'sent') alreadySent.add(allKeys[index]);
-      });
+      // Resend intervals: same (document, tier, expiry) re-notifies daily when
+      // urgent (7 days or less, expired weekly-otherwise-weekly). The log
+      // entry is refreshed on every send, so the interval counts from the
+      // latest mail, not the first.
+      const sentAtByKey = await loadSentAtByKey(db, companyId, pilotItems);
 
       const pilotGroups = [];
       for (const [userId, items] of pilotItems.entries()) {
         // Forced resends mail every in-window tier again with the latest
-        // details (log entries are refreshed on success). Normal runs skip
-        // tiers already recorded as sent.
+        // details (log entries are refreshed on success).
         const unsent = forceResend
           ? items
-          : items.filter((item) => !alreadySent.has(reminderKey(item.docId, item.expiryMs, `${item.tier}`)));
+          : items.filter((item) => isDue(
+              sentAtByKey.get(reminderKey(item.docId, item.expiryMs, `${item.tier}`)) || 0,
+              item,
+              now.getTime()
+            ));
         companySummary.skippedAlreadySent += forceResend ? 0 : items.length - unsent.length;
         if (!unsent.length) continue;
         const contact = userId === 'unknown'
@@ -297,6 +325,9 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
           sendsUsed += 1;
           companySummary.sent += 1;
           for (const item of group.items) {
+            if (!forceResend && sentAtByKey.has(reminderKey(item.docId, item.expiryMs, `${item.tier}`))) {
+              companySummary.resent += 1;
+            }
             batch.set(db.doc(`companies/${companyId}/reminder_logs/${reminderKey(item.docId, item.expiryMs, `${item.tier}`)}`), {
               docId: item.docId,
               userId: group.userId,
@@ -315,11 +346,19 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
         }
       }
 
-      if (settings.digestToOps && opsRecipients.length && sentItems.length && sendsUsed < quota) {
+      // Ops digest carries the FULL daily watchlist (every in-window document,
+      // mailed today or not), so operations always sees the complete picture —
+      // never only the newly-mailed subset, never silent on quiet days.
+      if (settings.digestToOps && opsRecipients.length && sendsUsed < quota) {
         try {
-          await sendOpsDigest(transport, { from, to: opsRecipients, companyName, groups: sentItems });
+          const mailedIds = new Set(sentItems.map((group) => group.userId));
+          const watchGroups = (await resolvePilotGroups(db, pilotItems)).map((group) => ({
+            ...group,
+            mailedToday: mailedIds.has(group.userId)
+          }));
+          await sendOpsDigest(transport, { from, to: opsRecipients, companyName, groups: watchGroups });
           sendsUsed += 1;
-          companySummary.details.push(`ops digest sent to ${opsRecipients.join(', ')}`);
+          companySummary.details.push(`ops digest (full watchlist) sent to ${opsRecipients.join(', ')}`);
         } catch (error) {
           companySummary.details.push(`ops digest failed: ${error.message || error}`);
         }

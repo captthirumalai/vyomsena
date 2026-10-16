@@ -114,7 +114,7 @@ function opsText({ companyName, groups }) {
     '',
     lines || 'No documents in a reminder window today.',
     '',
-    'Reminder rules: one mail per pilot per escalation tier; expired documents get one expiry notice.'
+    'Reminder rules: pilots are mailed per tier — daily when urgent (7 days or less), weekly otherwise; expired documents repeat weekly.'
   ].join('\n');
 }
 
@@ -177,9 +177,11 @@ function opsDigestHtml({ companyName, groups }) {
     .map((row) => {
       const tone = row.expired > 0 ? 'critical' : 'watch';
       const earliestDate = new Date(row.earliest).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      const mailed = row.group.mailedToday === true;
       return `<tr>`
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;">${escapeHtml(row.group.pilotName)}<br />`
         + `<span style="font-size:12px;color:#64748b;">${escapeHtml(row.group.pilotEmail || '')}</span></td>`
+        + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(mailed ? 'Mailed' : '—', mailed ? 'good' : 'neutral')}</td>`
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(String(row.expired), row.expired > 0 ? 'critical' : 'good')}</td>`
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(String(row.expiring), row.expiring > 0 ? 'watch' : 'good')}</td>`
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(escapeHtml(earliestDate), tone)}</td>`
@@ -221,15 +223,15 @@ function opsDigestHtml({ companyName, groups }) {
     + `<div style="font-size:13px;opacity:0.85;">${escapeHtml(companyName)} · ${escapeHtml(today)}</div>`
     + `</div>`
     + `<div style="padding:20px 24px;">`
-    + `<p style="margin:0 0 16px;">Documents nearing expiry across your crew. Pilots listed below were mailed individually today.</p>`
+    + `<p style="margin:0 0 16px;">Full daily watchlist of documents nearing expiry across your crew. Pilots marked mailed were also mailed individually today.</p>`
     + `<table role="presentation" cellpadding="0" cellspacing="8" width="100%" style="border-collapse:separate;margin:0 0 20px;"><tr>`
-    + kpiCell(String(groups.length), 'Pilots mailed')
+    + kpiCell(String(groups.length), 'Pilots in window')
     + kpiCell(String(totalExpiring), 'Docs expiring')
     + kpiCell(String(totalExpired), 'Docs expired')
     + `</tr></table>`
     + `<h3 style="margin:0 0 8px;font-size:15px;">Crew risk matrix</h3>`
     + `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin:0 0 20px;">`
-    + tableHead([{ label: 'Pilot' }, { label: 'Expired', align: 'center' }, { label: 'Expiring', align: 'center' }, { label: 'Earliest', align: 'center' }])
+    + tableHead([{ label: 'Pilot' }, { label: 'Mailed', align: 'center' }, { label: 'Expired', align: 'center' }, { label: 'Expiring', align: 'center' }, { label: 'Earliest', align: 'center' }])
     + riskBody
     + `</table>`
     + `<h3 style="margin:0 0 8px;font-size:15px;">Document watchlist</h3>`
@@ -237,7 +239,7 @@ function opsDigestHtml({ companyName, groups }) {
     + tableHead([{ label: 'Pilot' }, { label: 'Document' }, { label: 'Expiry' }, { label: 'Status', align: 'center' }])
     + watchRows
     + `</table>`
-    + `<p style="font-size:12px;color:#64748b;margin:0;">Reminder rules: one mail per pilot per escalation tier; expired documents get one expiry notice. Manage this in the web app → Notification Centre.</p>`
+    + `<p style="font-size:12px;color:#64748b;margin:0;">Reminder rules: pilots are mailed per tier — daily when urgent (7 days or less), weekly otherwise; expired documents repeat weekly. Manage this in the web app → Notification Centre.</p>`
     + `</div>`
     + `</div>`
     + `</div>`;
@@ -273,7 +275,7 @@ function testText({ companyName }) {
     '• Sample row: Pilot Licence (Aeroplane) expired on 01 Oct 2026 [expired notice]',
     '',
     'If you received this, the mail pipeline (Cloud Function → SMTP → inbox) works.',
-    'Real reminders bundle one pilot\'s pending tiers into a single mail, once per tier.',
+    'Real reminders bundle one pilot\'s pending tiers into a single mail — daily when urgent, weekly otherwise.',
     '',
     '— VyomSena'
   ].join('\n');

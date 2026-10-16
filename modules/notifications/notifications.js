@@ -51,9 +51,28 @@ function setStatus(element, message, tone = '') {
 
 function summarizeRun(run) {
   if (!run) return '—';
-  return `sent ${run.sent || 0} · no email ${run.skippedNoEmail || 0} · already sent ${run.skippedAlreadySent || 0}`
+  return `sent ${run.sent || 0}${run.resent ? ` (${run.resent} reminders)` : ''} · no email ${run.skippedNoEmail || 0} · skipped ${run.skippedAlreadySent || 0}`
     + (run.skippedQuota ? ` · quota-deferred ${run.skippedQuota}` : '')
     + (run.failed ? ` · failed ${run.failed}` : '');
+}
+
+let cachedOwnerEmail = null;
+
+function renderRecipients() {
+  const list = query('#nt-recipients-list');
+  if (!list) return;
+  const read = (selector) => query(selector)?.value || '';
+  const to = read('#nt-notify').trim().toLowerCase() || cachedOwnerEmail || null;
+  const ccs = `${read('#nt-cc')}`.split(/[,\s;]+/).map((email) => email.trim().toLowerCase()).filter(Boolean);
+  const uniqueCcs = [...new Set(ccs.filter((email) => email !== to))];
+  if (!to && !uniqueCcs.length) {
+    list.textContent = 'No mailbox configured — set the operations mailbox above.';
+    return;
+  }
+  const parts = [];
+  if (to) parts.push(`${to} (digest + alerts)`);
+  uniqueCcs.forEach((email) => parts.push(`${email} (CC)`));
+  list.textContent = parts.join(' · ');
 }
 
 function renderSettings(settings) {
@@ -73,7 +92,7 @@ function renderSettings(settings) {
   set('#nt-notify', settings.defaultNotifyEmail || '');
   set('#nt-cc', (settings.ccEmails || []).join(', '));
   set('#nt-maxsends', settings.maxSendsPerDay);
-}
+  renderRecipients();
 
 function renderStatus(settings, run) {
   const status = query('#nt-status');
@@ -93,16 +112,22 @@ function tierLabel(tier) {
 function renderPreview(preview) {
   const body = query('#nt-preview-body');
   if (!body) return;
+  const groupStatus = (group) => {
+    if (!group.pilotEmail) return { label: 'No email', tone: 'red' };
+    const states = (group.items || []).map((item) => item.status || 'due');
+    if (states.includes('due')) return { label: 'Will be mailed', tone: 'green' };
+    return { label: 'Already notified', tone: 'blue' };
+  };
   if (!preview) {
-    body.innerHTML = '<tr><td colspan="3" class="nt-empty">Preview unavailable.</td></tr>';
+    body.innerHTML = '<tr><td colspan="4" class="nt-empty">Preview unavailable.</td></tr>';
     return;
   }
   if (!preview.enabled) {
-    body.innerHTML = '<tr><td colspan="3" class="nt-empty">Daily mails are OFF — no one would be mailed. Turn them on to preview recipients.</td></tr>';
+    body.innerHTML = '<tr><td colspan="4" class="nt-empty">Daily mails are OFF — no one would be mailed. Turn them on to preview recipients.</td></tr>';
     return;
   }
   if (!preview.groups?.length) {
-    body.innerHTML = '<tr><td colspan="3" class="nt-empty">No documents in a reminder window today. Nothing would be sent.</td></tr>';
+    body.innerHTML = '<tr><td colspan="4" class="nt-empty">No documents in a reminder window today. Nothing would be sent.</td></tr>';
     return;
   }
   body.innerHTML = preview.groups
@@ -110,10 +135,12 @@ function renderPreview(preview) {
       const docs = group.items
         .map((item) => `${escapeHtml(item.documentName)} (${item.days < 0 ? 'expired' : `in ${item.days}d`} · ${escapeHtml(tierLabel(item.tier))})`)
         .join('<br />');
+      const status = groupStatus(group);
       return `<tr>
         <td>${escapeHtml(group.pilotName)}</td>
         <td>${escapeHtml(group.pilotEmail || 'no email on file')}</td>
         <td>${docs}</td>
+        <td><span class="nt-badge nt-badge-${status.tone}">${status.label}</span></td>
       </tr>`;
     })
     .join('');
@@ -123,7 +150,7 @@ function renderRuns(runs) {
   const body = query('#nt-runs-body');
   if (!body) return;
   if (!runs.length) {
-    body.innerHTML = '<tr><td colspan="7" class="nt-empty">No runs recorded yet. Press Run now or wait for the 06:00 IST schedule.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="nt-empty">No runs recorded yet. Press Run now or wait for the 06:00 IST schedule.</td></tr>';
     return;
   }
   body.innerHTML = runs
@@ -131,6 +158,7 @@ function renderRuns(runs) {
       <td>${escapeHtml(formatShortDateTime(run.at || run.lastModified))}</td>
       <td>${escapeHtml(run.triggeredBy || '—')}</td>
       <td>${run.sent || 0}</td>
+      <td>${run.resent || 0}</td>
       <td>${run.skippedNoEmail || 0}</td>
       <td>${run.skippedAlreadySent || 0}</td>
       <td>${run.failed || 0}</td>
@@ -193,10 +221,12 @@ export async function init(view, context) {
     } catch (error) {
       console.error('Notification settings load failed:', error);
     }
+    cachedOwnerEmail = `${company?.ownerEmail || ''}`.trim().toLowerCase() || null;
     renderSettings(settings);
-    if (!query('#nt-notify')?.value && company?.ownerEmail) {
-      query('#nt-notify').value = company.ownerEmail;
+    if (!query('#nt-notify')?.value && cachedOwnerEmail) {
+      query('#nt-notify').value = cachedOwnerEmail;
     }
+    renderRecipients();
     const latest = await refreshHistory();
     renderStatus(settings, latest);
   }
@@ -314,6 +344,7 @@ export async function init(view, context) {
   }
 
   form?.addEventListener('submit', handleSave);
+  form?.addEventListener('input', renderRecipients);
   runButton?.addEventListener('click', handleRunNow);
   testButton?.addEventListener('click', handleTestSend);
   previewButton?.addEventListener('click', handlePreview);

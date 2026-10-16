@@ -23,38 +23,53 @@
 
     <section class="vs-card">
       <h3 class="vs-card__title">Mail Settings</h3>
-      <p class="vs-card__body">Days-before window, default notification mailbox, and safety limits.</p>
+      <p class="vs-card__body">Who gets reminded, when, and where the mail goes. No manual needed — each option explains itself.</p>
+      <div class="nt-explainer" aria-label="How reminding works">
+        <strong>How reminding works:</strong> every morning operations gets the <em>full watchlist</em> of documents nearing expiry.
+        Pilots are mailed when a document enters a reminder tier, then <em>daily while urgent (7 days or less)</em>,
+        <em>weekly</em> otherwise — expired documents repeat weekly until renewed.
+      </div>
       <form id="nt-settings-form" novalidate>
         <div class="nt-form-row">
           <label class="nt-field">
-            <span><input type="checkbox" id="nt-enabled" name="enabled" checked /> Send reminder mail every day</span>
+            <span><input type="checkbox" id="nt-enabled" name="enabled" checked /> Send reminder mail every day (06:00 IST)</span>
+            <small>Off pauses everything below. Nothing is sent while off.</small>
           </label>
           <label class="nt-field">
-            <span><input type="checkbox" id="nt-digest" name="digestToOps" checked /> Daily digest to operations</span>
+            <span><input type="checkbox" id="nt-digest" name="digestToOps" checked /> Send operations the full daily watchlist</span>
+            <small>One digest every morning with every document nearing expiry — even on quiet days.</small>
           </label>
           <label class="nt-field">
-            <span><input type="checkbox" id="nt-expired" name="includeExpired" checked /> Notify on expired documents</span>
+            <span><input type="checkbox" id="nt-expired" name="includeExpired" checked /> Include already-expired documents</span>
+            <small>Expired licences repeat weekly until renewed.</small>
           </label>
         </div>
         <div class="nt-form-row">
           <label class="nt-field">
-            <span>Days before expiry to start reminding</span>
+            <span>Start reminding this many days before expiry</span>
             <input type="number" id="nt-lead" name="defaultLeadDays" min="1" max="365" value="30" />
+            <small>Individual documents can set their own window; this is the default.</small>
           </label>
           <label class="nt-field">
-            <span>Default notification mail id</span>
+            <span>Operations mailbox (receives digest + alerts)</span>
             <input type="email" id="nt-notify" name="defaultNotifyEmail" placeholder="ops@operator.com" />
+            <small>Empty = company owner's email is used.</small>
           </label>
         </div>
         <div class="nt-form-row">
           <label class="nt-field">
-            <span>Extra ops CC mail ids (comma-separated)</span>
-            <input type="text" id="nt-cc" name="ccEmails" placeholder="ops2@operator.com" />
+            <span>Extra mailboxes, also on every ops mail (comma-separated)</span>
+            <input type="text" id="nt-cc" name="ccEmails" placeholder="ops2@operator.com, safety@operator.com" />
+            <small>Everyone listed here gets the same digest and alerts.</small>
           </label>
           <label class="nt-field">
             <span>Max mails per day (Gmail safety cap)</span>
             <input type="number" id="nt-maxsends" name="maxSendsPerDay" min="1" max="2000" value="450" />
+            <small>Unsent pilots automatically retry tomorrow. Never raise this above your Gmail limit.</small>
           </label>
+        </div>
+        <div class="nt-recipients" aria-live="polite">
+          <strong>Mails will go to:</strong> <span id="nt-recipients-list">—</span>
         </div>
         <div class="nt-form-actions">
           <button type="submit" class="vs-button vs-button--primary vs-button--md" id="nt-save">
@@ -103,10 +118,11 @@
               <th>Pilot</th>
               <th>Email</th>
               <th>Documents in window</th>
+              <th>Status today</th>
             </tr>
           </thead>
           <tbody id="nt-preview-body">
-            <tr><td colspan="3" class="nt-empty">Press Preview to see today's recipients.</td></tr>
+            <tr><td colspan="4" class="nt-empty">Press Preview to see today's recipients.</td></tr>
           </tbody>
         </table>
       </div>
@@ -123,8 +139,9 @@
             <th>Run</th>
             <th>Triggered by</th>
             <th>Sent</th>
+            <th>Resent</th>
             <th>No email</th>
-            <th>Already sent</th>
+            <th>Skipped</th>
             <th>Failed</th>
             <th>Notes</th>
           </tr>

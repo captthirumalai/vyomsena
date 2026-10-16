@@ -51,13 +51,42 @@ function reminderKey(docId, expiryMs, tier) {
   return `${docId}|${expiryMs}|${tier}`;
 }
 
+const URGENT_DAYS = 7;
+const RESEND_INTERVAL_DAYS = 7;
+
+/**
+ * How often the same (document, tier) may re-notify, in days.
+ * Expired documents repeat weekly; anything within the urgent window
+ * re-notifies daily; all other in-window tiers repeat weekly.
+ */
+function resendIntervalDays(item) {
+  if (!item) return RESEND_INTERVAL_DAYS;
+  if (`${item.tier}` === 'expired') return RESEND_INTERVAL_DAYS;
+  if (Number(item.days) <= URGENT_DAYS) return 1;
+  return RESEND_INTERVAL_DAYS;
+}
+
+/**
+ * True when a reminder is due: never sent, or the last send is older than
+ * the item's resend interval. Pure and unit-testable.
+ */
+function isDue(lastSentMs, item, nowMs = Date.now()) {
+  if (!lastSentMs) return true;
+  const intervalMs = resendIntervalDays(item) * MS_PER_DAY;
+  return nowMs - lastSentMs >= intervalMs;
+}
+
 module.exports = {
   MS_PER_DAY,
   DEFAULT_LEAD_DAYS,
   MAX_LEAD_DAYS,
+  URGENT_DAYS,
+  RESEND_INTERVAL_DAYS,
   toDateValue,
   daysUntil,
   tiersForLead,
   tierToSend,
-  reminderKey
+  reminderKey,
+  resendIntervalDays,
+  isDue
 };
