@@ -225,6 +225,85 @@ async function verifyCompanyUser(db, { companyUserId, passcode, now = new Date()
   };
 }
 
+function sanitizeCompanyUser(record) {
+  if (!record) return null;
+  const {
+    passcodeHash,
+    failedAttempts,
+    lockedUntil,
+    ...publicView
+  } = record;
+  void passcodeHash;
+  void failedAttempts;
+  void lockedUntil;
+  return publicView;
+}
+
+async function requireCompanyUserInCompany(db, callerCompanyId, companyUserId) {
+  const record = await getCompanyUser(db, companyUserId);
+  if (!record) {
+    throw new Error(`Company user ${companyUserId} was not found.`);
+  }
+  if (!callerCompanyId || record.companyId !== callerCompanyId) {
+    throw new Error('Company users can only be managed inside your own organisation.');
+  }
+  return record;
+}
+
+async function listCompanyUsers(db, companyId) {
+  if (!companyId) return [];
+  const snapshot = await db.collection(COLLECTION).where('companyId', '==', companyId).get();
+  return snapshot.docs
+    .map((item) => sanitizeCompanyUser({ companyUserId: item.id, ...item.data() }))
+    .sort((left, right) => `${left.displayName || ''}`.localeCompare(`${right.displayName || ''}`));
+}
+
+async function updateCompanyUser(db, { callerCompanyId, companyUserId, patch = {}, now = new Date() } = {}) {
+  await requireCompanyUserInCompany(db, callerCompanyId, companyUserId);
+
+  const allowed = {};
+  if (patch.displayName !== undefined) {
+    const displayName = `${patch.displayName || ''}`.trim();
+    if (!displayName) throw new Error('displayName must not be empty.');
+    allowed.displayName = displayName;
+  }
+  if (patch.role !== undefined) {
+    allowed.role = `${patch.role || ''}`.trim().toUpperCase() || 'OPERATIONS';
+  }
+  if (patch.permissions !== undefined) {
+    allowed.permissions = normalizePermissions(patch.permissions);
+  }
+  if (patch.status !== undefined) {
+    allowed.status = normalizeStatus(patch.status);
+  }
+  if (patch.linkedCrewProfileId !== undefined) {
+    // Read-only existence check. NEVER creates, moves, or rewrites the pilot record.
+    await assertCrewProfileExists(db, patch.linkedCrewProfileId || null);
+    allowed.linkedCrewProfileId = patch.linkedCrewProfileId || null;
+  }
+  if (Object.keys(allowed).length === 0) {
+    throw new Error('Nothing to update. Provide displayName, role, permissions, status, or linkedCrewProfileId.');
+  }
+
+  await companyUserRef(db, companyUserId).update({ ...allowed, lastModified: now });
+  return sanitizeCompanyUser(await getCompanyUser(db, companyUserId));
+}
+
+async function resetCompanyUserPasscode(db, { callerCompanyId, companyUserId, now = new Date() } = {}) {
+  await requireCompanyUserInCompany(db, callerCompanyId, companyUserId);
+
+  const passcode = generatePasscode();
+  await companyUserRef(db, companyUserId).update({
+    passcodeHash: hashPasscode(passcode),
+    failedAttempts: 0,
+    lockedUntil: null,
+    lastModified: now
+  });
+
+  // ONE-TIME ONLY. Never persisted. Hand it to the user now.
+  return { companyUserId, passcode };
+}
+
 module.exports = {
   COLLECTION,
   VALID_STATUSES,
@@ -238,5 +317,9 @@ module.exports = {
   normalizeStatus,
   issueCompanyUser,
   getCompanyUser,
-  verifyCompanyUser
+  verifyCompanyUser,
+  sanitizeCompanyUser,
+  listCompanyUsers,
+  updateCompanyUser,
+  resetCompanyUserPasscode
 };

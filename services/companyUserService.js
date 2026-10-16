@@ -1,4 +1,5 @@
 import { collection, getDocs, getDoc, query, where, updateDoc, deleteDoc, doc, serverTimestamp } from './firestoreService.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
 import { validateContract } from './schemaContract.js';
 
 // Company User registry lives at the TOP LEVEL (not under companies/{id}/...)
@@ -92,4 +93,45 @@ export async function unlinkCompanyUserFromPilot(companyUserId) {
 export async function deleteCompanyUser(companyUserId) {
   await deleteDoc(companyUserDocRef(companyUserId));
   return { companyUserId, deleted: true };
+}
+
+// ---------------------------------------------------------------------------
+// Admin callable path (Phase C2). The Settings Users UI uses THESE wrappers,
+// not the direct Firestore functions above: issuance, verification-adjacent
+// management, and listing run through admin-checked callables (Admin SDK), so
+// C2 requires NO Firestore console rule changes and company_users stays
+// deny-by-default for direct client access. The direct functions remain as
+// the documented API for the post-hardening direct-access phase.
+// ---------------------------------------------------------------------------
+
+async function callCompanyUserFn(name, payload) {
+  const call = httpsCallable(getFunctions(), name);
+  const result = await call(payload);
+  return result?.data ?? null;
+}
+
+export async function issueCompanyUserViaCallable({ displayName, role, permissions, linkedCrewProfileId = null, status = 'ACTIVE' }) {
+  // Returns { companyUserId, ..., passcode } — passcode shown ONCE by the UI,
+  // never persisted (not in Firestore, storage, logs, or console).
+  return callCompanyUserFn('issueCompanyUser', {
+    displayName,
+    role,
+    permissions,
+    linkedCrewProfileId,
+    status
+  });
+}
+
+export async function listCompanyUsersViaCallable() {
+  const users = await callCompanyUserFn('listCompanyUsers', {});
+  return Array.isArray(users) ? users : [];
+}
+
+export async function updateCompanyUserViaCallable(companyUserId, patch) {
+  return callCompanyUserFn('updateCompanyUser', { companyUserId, ...(patch || {}) });
+}
+
+export async function resetCompanyUserPasscodeViaCallable(companyUserId) {
+  // Returns { companyUserId, passcode } — display once, never persist.
+  return callCompanyUserFn('resetCompanyUserPasscode', { companyUserId });
 }

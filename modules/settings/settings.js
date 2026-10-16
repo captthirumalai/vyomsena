@@ -6,12 +6,21 @@
   generateCompanyInvite
 } from '../../services/companyService.js';
 import { getLatestReminderRun } from '../../services/reminderSettingsService.js';
+import {
+  issueCompanyUserViaCallable,
+  listCompanyUsersViaCallable,
+  updateCompanyUserViaCallable,
+  resetCompanyUserPasscodeViaCallable
+} from '../../services/companyUserService.js';
+import { getCrew } from '../../services/crewService.js';
+import { appRoutes } from '../../shared/routes.js';
 
 const ROLE_LABELS = {
   OWNER: 'Owner',
   ADMIN: 'Admin',
   OPERATIONS: 'Operations',
   PILOT: 'Pilot',
+  AME: 'AME (Maintenance)',
   MEMBER: 'Member'
 };
 
@@ -254,6 +263,376 @@ export async function init(view, context) {
     renderCompanyInfo(null);
     renderAccounts([]);
     renderInvites([]);
+  }
+
+  // ---- Users & Access — Company Users (Phase C2, Admin only) ----
+  // Company Users (company_users/{CMU-…}) are separate from Aviation accounts.
+  // Issuance/verification stay server-side; the UI only ever displays a
+  // passcode ONCE and never persists, logs, or caches it.
+  const usersCard = view.querySelector('#st-users-card');
+  const canManageUsers = ['OWNER', 'ADMIN'].includes(`${currentUser?.role || ''}`.trim().toUpperCase());
+  if (usersCard && canManageUsers) {
+    usersCard.hidden = false;
+    initCompanyUsers();
+  }
+
+  function permissionModules() {
+    return appRoutes
+      .filter((route) => route && route.showInMenu !== false && route.path && route.name)
+      .map((route) => ({ key: `${route.path}`.replace(/^\//, ''), label: route.name }))
+      .sort((left, right) => left.label.localeCompare(right.label));
+  }
+
+  function initCompanyUsers() {
+    let usersCache = [];
+    let crewCache = [];
+    let expandedId = null;
+    let pendingCreds = null;
+
+    const statusEl = query('#st-users-status');
+    const form = query('#st-user-form');
+    const searchInput = query('#st-user-search');
+    const body = query('#st-users-body');
+    const permsBody = query('#st-user-perms');
+    const resultEl = query('#st-user-result');
+
+    const setUsersStatus = (message, tone = '') => setStatus(statusEl, message, tone);
+
+    const pilotName = (crewProfileId) => {
+      if (!crewProfileId) return '—';
+      const found = crewCache.find((item) => (item.uid || item.crewProfileId) === crewProfileId);
+      if (!found) return crewProfileId;
+      return found.name || found.fullName || found.email || crewProfileId;
+    };
+
+    const permsSummary = (user) => {
+      const modules = (user.permissions && user.permissions.modules) || {};
+      const editable = Object.entries(modules).filter(([, rights]) => rights && rights.edit).map(([name]) => name);
+      const viewOnly = Object.entries(modules).filter(([, rights]) => rights && rights.view && !rights.edit).map(([name]) => name);
+      const parts = [];
+      if (editable.length) parts.push(`Edit: ${editable.join(', ')}`);
+      if (viewOnly.length) parts.push(`View: ${viewOnly.join(', ')}`);
+      return parts.length ? parts.join(' · ') : 'No module access';
+    };
+
+    function renderPermMatrix(tbody, preset) {
+      if (!tbody) return;
+      const modules = (preset && preset.modules) || {};
+      tbody.innerHTML = permissionModules()
+        .map((mod) => {
+          const rights = modules[mod.key] || {};
+          return `<tr>
+            <td>${escapeHtml(mod.label)}</td>
+            <td><input type="checkbox" data-perm-module="${escapeHtml(mod.key)}" data-perm-right="view" ${rights.view ? 'checked' : ''} aria-label="${escapeHtml(mod.label)} view" /></td>
+            <td><input type="checkbox" data-perm-module="${escapeHtml(mod.key)}" data-perm-right="edit" ${rights.edit ? 'checked' : ''} aria-label="${escapeHtml(mod.label)} edit" /></td>
+          </tr>`;
+        })
+        .join('');
+    }
+
+    function collectPermMatrix(tbody) {
+      const modules = {};
+      tbody?.querySelectorAll('input[data-perm-module]').forEach((input) => {
+        const key = input.dataset.permModule;
+        if (!modules[key]) modules[key] = { view: false, edit: false };
+        modules[key][input.dataset.permRight === 'edit' ? 'edit' : 'view'] = input.checked;
+      });
+      return { modules };
+    }
+
+    function renderPilotOptions(select, selectedId) {
+      if (!select) return;
+      const previous = selectedId !== undefined ? selectedId : select.value;
+      select.innerHTML = '<option value="">— No link —</option>' + crewCache
+        .map((member) => {
+          const id = member.uid || member.crewProfileId;
+          const label = `${member.name || member.fullName || member.email || id}`;
+          return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+        })
+        .join('');
+      if (previous) select.value = previous;
+    }
+
+    function filteredUsers() {
+      const term = `${searchInput?.value || ''}`.trim().toLowerCase();
+      if (!term) return usersCache;
+      return usersCache.filter((user) => [user.displayName, user.companyUserId, user.role]
+        .filter(Boolean).join(' ').toLowerCase().includes(term));
+    }
+
+    function detailRowHtml(user) {
+      const isActive = `${user.status || 'ACTIVE'}`.toUpperCase() === 'ACTIVE';
+      const perms = user.permissions || { modules: {} };
+      return `<tr class="st-user-detail-row"><td colspan="4">
+        <div class="st-user-detail">
+          <dl class="st-dl">
+            <div class="st-dl-row"><dt>Company User ID</dt><dd>${escapeHtml(user.companyUserId)}</dd></div>
+            <div class="st-dl-row"><dt>Linked pilot</dt><dd>${escapeHtml(pilotName(user.linkedCrewProfileId))}</dd></div>
+            <div class="st-dl-row"><dt>Permissions</dt><dd>${escapeHtml(permsSummary(user))}</dd></div>
+          </dl>
+          <form class="st-user-edit-form" data-edit-form="${escapeHtml(user.companyUserId)}">
+            <div class="st-form-row">
+              <label class="st-field"><span>Display name</span><input type="text" data-field="displayName" value="${escapeHtml(user.displayName || '')}" required /></label>
+              <label class="st-field"><span>Role</span><select data-field="role">
+                ${['OPERATIONS', 'ADMIN', 'PILOT', 'AME', 'MEMBER'].map((role) => `<option value="${role}" ${`${user.role || ''}`.toUpperCase() === role ? 'selected' : ''}>${escapeHtml(roleLabel(role))}</option>`).join('')}
+              </select></label>
+              <label class="st-field"><span>Link existing pilot</span><select data-field="linkedCrewProfileId"></select></label>
+            </div>
+            <div class="st-table-scroll"><table class="st-perm-matrix">
+              <thead><tr><th>Module</th><th>View</th><th>Edit</th></tr></thead>
+              <tbody data-perms-body></tbody>
+            </table></div>
+            <div class="st-form-actions">
+              <button type="submit" class="vs-button vs-button--primary vs-button--sm">Save changes</button>
+              <button type="button" class="vs-button vs-button--secondary vs-button--sm" data-action="reset" data-id="${escapeHtml(user.companyUserId)}">Reset passcode</button>
+              <button type="button" class="vs-button vs-button--secondary vs-button--sm" data-action="toggle-status" data-id="${escapeHtml(user.companyUserId)}">${isActive ? 'Suspend' : 'Reactivate'}</button>
+            </div>
+          </form>
+          <div class="st-invite-result hidden" data-once-panel hidden>
+            <p><strong>New passcode issued.</strong> Share it once — it is never shown again.</p>
+            <div class="st-code-box"><span>Passcode<br /><strong data-once-pass>—</strong></span>
+            <button type="button" class="vs-button vs-button--secondary vs-button--sm" data-action="copy-once">Copy</button></div>
+            <div class="st-form-actions"><button type="button" class="vs-button vs-button--secondary vs-button--sm" data-action="dismiss-once">Done</button></div>
+          </div>
+        </div>
+      </td></tr>`;
+    }
+
+    function renderUsers() {
+      if (!body) return;
+      const rows = filteredUsers();
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="4" class="st-empty">${usersCache.length ? 'No users match the search.' : 'No Company Users yet. Create the first one above.'}</td></tr>`;
+        return;
+      }
+      body.innerHTML = rows
+        .map((user) => {
+          const isActive = `${user.status || 'ACTIVE'}`.toUpperCase() === 'ACTIVE';
+          const expanded = expandedId === user.companyUserId;
+          return `<tr>
+            <td><strong>${escapeHtml(user.displayName || '—')}</strong><br /><span class="st-muted">${escapeHtml(user.companyUserId)}</span></td>
+            <td>${escapeHtml(roleLabel(user.role))}</td>
+            <td><span class="st-badge st-badge-${isActive ? 'green' : 'red'}">${escapeHtml(user.status || 'ACTIVE')}</span></td>
+            <td><div class="st-row-actions">
+              <button type="button" class="vs-button vs-button--secondary vs-button--sm" data-action="toggle" data-id="${escapeHtml(user.companyUserId)}">${expanded ? 'Hide' : 'View'}</button>
+            </div></td>
+          </tr>${expanded ? detailRowHtml(user) : ''}`;
+        })
+        .join('');
+
+      if (expandedId) {
+        const detailForm = body.querySelector(`[data-edit-form="${expandedId}"]`);
+        if (detailForm) {
+          renderPilotOptions(detailForm.querySelector('[data-field="linkedCrewProfileId"]'), usersCache.find((item) => item.companyUserId === expandedId)?.linkedCrewProfileId || '');
+          renderPermMatrix(detailForm.querySelector('[data-perms-body]'), usersCache.find((item) => item.companyUserId === expandedId)?.permissions);
+        }
+      }
+    }
+
+    async function reloadUsers() {
+      usersCache = await listCompanyUsersViaCallable();
+      renderUsers();
+    }
+
+    async function refreshCrewOptions() {
+      try {
+        crewCache = await getCrew(companyId);
+      } catch (error) {
+        console.warn('Company user pilot options unavailable:', error);
+        crewCache = [];
+      }
+      renderPilotOptions(query('#st-user-pilot'));
+    }
+
+    query('#st-user-create-toggle')?.addEventListener('click', () => {
+      form?.classList.toggle('hidden');
+      if (form && !form.classList.contains('hidden')) {
+        renderPilotOptions(query('#st-user-pilot'));
+        query('#st-user-name')?.focus();
+      }
+    });
+
+    query('#st-user-form-cancel')?.addEventListener('click', () => {
+      form?.classList.add('hidden');
+      form?.reset();
+      renderPermMatrix(permsBody);
+    });
+
+    searchInput?.addEventListener('input', renderUsers);
+
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const displayName = query('#st-user-name')?.value?.trim();
+      const role = query('#st-user-role')?.value || 'OPERATIONS';
+      const linkedCrewProfileId = query('#st-user-pilot')?.value || null;
+      if (!displayName) {
+        setUsersStatus('Display name is required.', 'error');
+        return;
+      }
+      const submit = query('#st-user-submit');
+      setButtonState(submit, true);
+      setUsersStatus('Creating Company User on the server...');
+      try {
+        // Server generates the ID + passcode. Plaintext is returned ONCE here
+        // and held in memory only until Done — never persisted or logged.
+        pendingCreds = await issueCompanyUserViaCallable({
+          displayName,
+          role,
+          permissions: collectPermMatrix(permsBody),
+          linkedCrewProfileId,
+          status: 'ACTIVE'
+        });
+        query('#st-user-result-id').textContent = pendingCreds.companyUserId;
+        query('#st-user-result-pass').textContent = pendingCreds.passcode;
+        resultEl?.classList.remove('hidden');
+        form.reset();
+        form.classList.add('hidden');
+        renderPermMatrix(permsBody);
+        setUsersStatus(`Company User ${pendingCreds.companyUserId} created.`, 'success');
+        await reloadUsers();
+      } catch (error) {
+        pendingCreds = null;
+        setUsersStatus(error.message || 'Unable to create the user.', 'error');
+      } finally {
+        setButtonState(submit, false);
+      }
+    });
+
+    const clearOnceCreds = () => {
+      pendingCreds = null;
+      query('#st-user-result-id').textContent = '—';
+      query('#st-user-result-pass').textContent = '—';
+      resultEl?.classList.add('hidden');
+    };
+
+    query('#st-user-copy-id')?.addEventListener('click', async () => {
+      if (!pendingCreds) return;
+      try {
+        await navigator.clipboard.writeText(pendingCreds.companyUserId);
+        setUsersStatus('User ID copied.', 'success');
+      } catch {
+        setUsersStatus('Copy failed. Select and copy manually.', 'error');
+      }
+    });
+
+    query('#st-user-copy-pass')?.addEventListener('click', async () => {
+      if (!pendingCreds) return;
+      try {
+        await navigator.clipboard.writeText(pendingCreds.passcode);
+        setUsersStatus('Passcode copied. Share it now — it will not be shown again.', 'success');
+      } catch {
+        setUsersStatus('Copy failed. Select and copy manually.', 'error');
+      }
+    });
+
+    query('#st-user-result-done')?.addEventListener('click', clearOnceCreds);
+
+    body?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+      const { action, id } = button.dataset;
+
+      if (action === 'toggle') {
+        expandedId = expandedId === id ? null : id;
+        renderUsers();
+        return;
+      }
+
+      if (action === 'dismiss-once') {
+        const panel = button.closest('[data-once-panel]');
+        panel?.setAttribute('hidden', '');
+        const passEl = panel?.querySelector('[data-once-pass]');
+        if (passEl) passEl.textContent = '—';
+        return;
+      }
+
+      if (action === 'copy-once') {
+        const passEl = button.closest('[data-once-panel]')?.querySelector('[data-once-pass]');
+        const value = passEl?.textContent || '';
+        if (!value || value === '—') return;
+        try {
+          await navigator.clipboard.writeText(value);
+          setUsersStatus('Passcode copied.', 'success');
+        } catch {
+          setUsersStatus('Copy failed. Select and copy manually.', 'error');
+        }
+        return;
+      }
+
+      if (action === 'reset') {
+        const user = usersCache.find((item) => item.companyUserId === id);
+        if (!user) return;
+        if (!window.confirm(`Reset the passcode for ${user.displayName || id}? The previous passcode stops working immediately.`)) return;
+        button.disabled = true;
+        try {
+          const reset = await resetCompanyUserPasscodeViaCallable(id);
+          const panel = button.closest('.st-user-detail')?.querySelector('[data-once-panel]');
+          const passEl = panel?.querySelector('[data-once-pass]');
+          if (panel && passEl) {
+            passEl.textContent = reset.passcode;
+            panel.classList.remove('hidden');
+            panel.removeAttribute('hidden');
+          }
+          setUsersStatus(`New passcode issued for ${user.displayName || id}.`, 'success');
+        } catch (error) {
+          setUsersStatus(error.message || 'Unable to reset the passcode.', 'error');
+        } finally {
+          button.disabled = false;
+        }
+        return;
+      }
+
+      if (action === 'toggle-status') {
+        const user = usersCache.find((item) => item.companyUserId === id);
+        if (!user) return;
+        const next = `${user.status || 'ACTIVE'}`.toUpperCase() === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+        const verb = next === 'ACTIVE' ? 'reactivate' : 'suspend';
+        if (!window.confirm(`${verb === 'reactivate' ? 'Reactivate' : 'Suspend'} ${user.displayName || id}?${next === 'SUSPENDED' ? ' Logins will fail until reactivated.' : ''}`)) return;
+        button.disabled = true;
+        try {
+          await updateCompanyUserViaCallable(id, { status: next });
+          setUsersStatus(`${user.displayName || id} ${next === 'ACTIVE' ? 'reactivated' : 'suspended'}.`, 'success');
+          await reloadUsers();
+        } catch (error) {
+          setUsersStatus(error.message || 'Unable to update status.', 'error');
+        } finally {
+          button.disabled = false;
+        }
+      }
+    });
+
+    body?.addEventListener('submit', async (event) => {
+      const editForm = event.target.closest('[data-edit-form]');
+      if (!editForm) return;
+      event.preventDefault();
+      const id = editForm.dataset.editForm;
+      const read = (field) => editForm.querySelector(`[data-field="${field}"]`)?.value;
+      const linkValue = read('linkedCrewProfileId');
+      const patch = {
+        displayName: read('displayName')?.trim(),
+        role: read('role'),
+        permissions: collectPermMatrix(editForm.querySelector('[data-perms-body]')),
+        linkedCrewProfileId: linkValue === '' ? null : linkValue
+      };
+      if (!patch.displayName) {
+        setUsersStatus('Display name is required.', 'error');
+        return;
+      }
+      try {
+        await updateCompanyUserViaCallable(id, patch);
+        setUsersStatus('Company User updated.', 'success');
+        await reloadUsers();
+      } catch (error) {
+        setUsersStatus(error.message || 'Unable to save changes.', 'error');
+      }
+    });
+
+    renderPermMatrix(permsBody);
+    refreshCrewOptions();
+    reloadUsers().catch((error) => {
+      console.error('Company users load failed:', error);
+      setUsersStatus(error.message || 'Unable to load Company Users.', 'error');
+    });
   }
 
   return {

@@ -185,3 +185,52 @@
   background: rgba(37, 99, 235, 0.12);
   color: #1d4ed8;
 }
+
+.st-users-toolbar {
+  flex-wrap: wrap;
+}
+
+.st-users-search {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+.st-muted {
+  color: var(--muted-color, #64748b);
+  font-size: 0.78rem;
+}
+
+.st-row-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.st-perm-block {
+  margin: 0 0 1rem;
+}
+
+.st-perm-title {
+  font-size: 0.85rem;
+  color: var(--muted-color, #64748b);
+}
+
+.st-perm-matrix td:first-child {
+  font-weight: 600;
+}
+
+.st-perm-matrix input[type='checkbox'] {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--primary-color, #2563eb);
+}
+
+.st-user-detail {
+  padding: 0.5rem 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.st-user-detail-row > td {
+  background: rgba(15, 23, 42, 0.025);
+}

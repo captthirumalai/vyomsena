@@ -27,6 +27,7 @@ Treat Firestore schema as an API contract.
 - `companies` (web-only, operator owned)
 - `company_accounts` (web-only, operator managed)
 - `company_invites` (web-only, short-lived 6-digit invite codes)
+- `company_users` (Admin-issued Company User registry for Company Home; opaque `CMU-…` IDs, scrypt passcode hashes, per-module permissions, optional pilot link)
 - `company_members` (Android-only, anonymous company-session link record created on invite redemption)
 
 ## users
@@ -311,6 +312,26 @@ Written by the invite generator and valid for 5 minutes. Redemption marks `usedB
 - `expiresAt` (`now + 5 min`)
 - `usedBy` (nullable)
 - `usedAt` (nullable)
+
+## company_users (Admin-issued, Company Home auth)
+
+Document key: opaque generated `companyUserId` (`CMU-…`, never an email or Firebase UID)
+
+Separate identity from Aviation accounts (`users/{uid}`) and Pilot records (`crew_profiles/{id}`). Passcode shown once at issuance/reset and stored only as a scrypt hash. Verification is server-side via callables (`verifyCompanyUser` → Firebase custom token); direct client access is deny-by-default.
+
+- `companyUserId`
+- `companyId`
+- `displayName`
+- `role`
+- `permissions` (`{ modules: { name: { view, edit } } }`)
+- `linkedCrewProfileId` (nullable reference to an EXISTING `crew_profiles/{id}`)
+- `status` (`ACTIVE` / `SUSPENDED`)
+- `passcodeHash` (scrypt; plaintext never persisted)
+- `failedAttempts`, `lockedUntil` (nullable; login throttling)
+- `createdBy` (nullable issuing admin uid)
+- `createdAt`
+- `lastModified`
+- `lastLoginAt` (nullable)
 
 ## Company module data (web-only)
 

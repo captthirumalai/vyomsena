@@ -151,10 +151,65 @@ exports.verifyCompanyUser = onCall(async (request) => {
     passcode: data.passcode
   });
   if (!result.ok) {
+    // Safe generic failure for unknown/wrong/suspended; lockout gets its own
+    // retry-later signal so legitimate users know to wait, not re-try blindly.
+    if (result.reason === 'LOCKED') {
+      throw new HttpsError('failed-precondition', 'Too many attempts. Try again later.');
+    }
     throw new HttpsError('unauthenticated', 'Invalid credentials or inactive account.');
   }
   const token = await admin.auth().createCustomToken(result.claims.companyUserId, result.claims);
   return { token, claims: result.claims };
+});
+
+// Phase C2: Admin-only Company User management. All reads/mutations go through
+// these callables (Admin SDK) so C2 needs NO Firestore console rule changes:
+// company_users stays deny-by-default for direct client access.
+exports.listCompanyUsers = onCall(async (request) => {
+  const caller = await assertOwnerOrAdmin(request.auth?.uid);
+  return companyUsers.listCompanyUsers(db, caller.companyId);
+});
+
+exports.updateCompanyUser = onCall(async (request) => {
+  const caller = await assertOwnerOrAdmin(request.auth?.uid);
+  const data = request.data || {};
+  try {
+    return companyUsers.sanitizeCompanyUser(
+      await companyUsers.updateCompanyUser(db, {
+        callerCompanyId: caller.companyId,
+        companyUserId: data.companyUserId,
+        patch: {
+          displayName: data.displayName,
+          role: data.role,
+          permissions: data.permissions,
+          status: data.status,
+          linkedCrewProfileId: data.linkedCrewProfileId
+        }
+      })
+    );
+  } catch (error) {
+    if (error.message && /not found|organisation|empty|permissions|status|pilot record|update/i.test(error.message)) {
+      throw new HttpsError('invalid-argument', error.message);
+    }
+    throw new HttpsError('internal', 'Unable to update the company user.');
+  }
+});
+
+exports.resetCompanyUserPasscode = onCall(async (request) => {
+  const caller = await assertOwnerOrAdmin(request.auth?.uid);
+  const data = request.data || {};
+  try {
+    // Returns the new passcode ONCE — never stored, never logged.
+    return await companyUsers.resetCompanyUserPasscode(db, {
+      callerCompanyId: caller.companyId,
+      companyUserId: data.companyUserId
+    });
+  } catch (error) {
+    if (error.message && /not found|organisation/i.test(error.message)) {
+      throw new HttpsError('invalid-argument', error.message);
+    }
+    throw new HttpsError('internal', 'Unable to reset the passcode.');
+  }
 });
 
 exports.sendTestReminder = onCall({ secrets: ALL_SECRETS }, async (request) => {
