@@ -8,7 +8,7 @@ import {
   sendTestReminder,
   sendPilotDocumentReport,
   sendDocumentReminder
-} from '../../services/reminderSettingsService.js';
+} from '../../services/reminderSettingsService.js?v=V0.3.48';
 import { getCompany } from '../../services/companyService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { listManagedDocuments } from '../../services/documentService.js';
