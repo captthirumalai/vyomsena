@@ -30,10 +30,8 @@
         <div class="nt-table-scroll nt-dashboard-table"><table><thead><tr><th>Expiry</th><th>Type</th><th>Document</th><th>Pilot</th><th>Reminder status</th><th></th></tr></thead><tbody id="nt-documents-body"><tr><td colspan="6" class="nt-empty">Loading documents…</td></tr></tbody></table></div>
         <div id="nt-mobile-documents" class="nt-mobile-documents"></div>
       </section>
-      <aside id="nt-detail-panel" class="nt-detail-card" aria-live="polite"><div class="nt-detail-placeholder"><span>✉</span><h3>Select a document</h3><p>Choose an expiry record to review its compliance and reminder details.</p></div></aside>
-    </div>
-  </section>
-  <details class="nt-admin" id="nt-admin-tools"><summary><span><strong>Reminder administration</strong><small>Two clear panels for pilot reminders and operations delivery</small></span><span class="nt-admin-chevron">⌄</span></summary>
+      <aside id="nt-admin-dock" class="nt-admin-dock" aria-label="Reminder administration">
+  <div class="nt-admin" id="nt-admin-tools"><div class="nt-admin-title"><strong>Reminder administration</strong><small>Manage schedules, recipients and delivery.</small></div>
   <div class="nt-admin-content">
     <form id="nt-settings-form" novalidate>
       <div class="nt-admin-grid">
@@ -83,5 +81,15 @@
 
     <dialog class="nt-history-dialog" id="nt-logs-dialog" aria-labelledby="nt-logs-title"><div class="nt-dialog-shell"><header class="nt-dialog-head"><div><span class="nt-admin-step">DELIVERY HISTORY</span><h3 id="nt-logs-title">Recent sends</h3><p>Individual reminder emails recorded by the server.</p></div><button type="button" class="nt-dialog-close" data-close-dialog aria-label="Close recent sends">×</button></header><div class="nt-table-scroll"><table><thead><tr><th>Sent at</th><th>Pilot email</th><th>Tier</th><th>Document</th></tr></thead><tbody id="nt-logs-body"></tbody></table></div></div></dialog>
   </div>
-  </details>
+  </div>
+      </aside>
+    </div>
+  </section>
+
+  <dialog class="nt-document-dialog" id="nt-document-dialog" aria-labelledby="nt-document-title">
+    <div class="nt-document-dialog-shell">
+      <header class="nt-document-dialog-head"><div><span class="nt-eyebrow">DOCUMENT REMINDER</span><h2 id="nt-document-title">Document details</h2></div><button type="button" class="nt-dialog-close" id="nt-document-close" aria-label="Close document details">×</button></header>
+      <div id="nt-document-dialog-content"></div>
+    </div>
+  </dialog>
 </section>

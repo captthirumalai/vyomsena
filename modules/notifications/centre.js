@@ -6,7 +6,8 @@ import {
   runRemindersNow,
   previewReminders,
   sendTestReminder,
-  sendPilotDocumentReport
+  sendPilotDocumentReport,
+  sendDocumentReminder
 } from '../../services/reminderSettingsService.js';
 import { getCompany } from '../../services/companyService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
@@ -143,20 +144,20 @@ function renderDashboard() {
     const state = expiryState(row.days);
     return `<button class="nt-mobile-doc${row.id === selectedDocumentId ? ' is-selected' : ''}" type="button" data-document-id="${escapeHtml(row.id)}"><span class="nt-mobile-doc-top"><span class="nt-category nt-category-${row.category}">${escapeHtml(row.categoryLabel)}</span><span class="nt-badge nt-badge-${state.tone}">${escapeHtml(state.label)}</span></span><strong>${escapeHtml(row.name)}</strong><span>${escapeHtml(row.pilotName)} · ${escapeHtml(safeDate(row.expiryDate))}</span><small>${escapeHtml(row.reminderStatus)}</small></button>`;
   }).join('') : '<p class="nt-empty">No documents match these filters.</p>';
-  if (selectedDocumentId && rows.some((row) => row.id === selectedDocumentId)) renderDocumentDetail(rows.find((row) => row.id === selectedDocumentId));
 }
 
-function renderDocumentDetail(row) {
+function renderDocumentDetail(row, onSend) {
   if (!row) return;
   const days = row.days;
   const leftText = days === null ? 'Expiry date not recorded' : days < 0 ? `${Math.abs(days)} day(s) overdue` : `${days} day(s) remaining`;
-  const panel = query('#nt-detail-panel');
-  panel.innerHTML = `<div class="nt-detail-head"><div><span class="nt-eyebrow">DOCUMENT REMINDER</span><h3>Notification Details</h3></div><button type="button" class="nt-detail-close" id="nt-detail-close" aria-label="Clear selection">×</button></div>
-    <div class="nt-detail-summary"><span class="nt-detail-alert nt-detail-${expiryState(days).tone}">${days !== null && days < 0 ? '!' : '◷'}</span><div><strong>${escapeHtml(row.name)} Expiry Reminder</strong><p>${escapeHtml(row.name)} ${days !== null && days < 0 ? 'expired' : 'expires'} ${escapeHtml(leftText)}</p><small>${escapeHtml(safeDate(row.expiryDate))}</small></div></div>
-    <dl class="nt-detail-list"><div><dt>Pilot</dt><dd>${escapeHtml(row.pilotName)}</dd></div><div><dt>Email</dt><dd>${escapeHtml(row.email || 'No email on file')}</dd></div><div><dt>Document</dt><dd>${escapeHtml(row.name)}</dd></div><div><dt>Document number</dt><dd>${escapeHtml(row.number || 'Not recorded')}</dd></div><div><dt>Expiry date</dt><dd class="${days !== null && days <= 30 ? 'nt-risk-text' : ''}">${escapeHtml(safeDate(row.expiryDate))} · ${escapeHtml(leftText)}</dd></div><div><dt>Reminder status</dt><dd>${escapeHtml(row.reminderStatus)}</dd></div><div><dt>Reminder schedule</dt><dd>${escapeHtml(activeReminderTiers.length ? `${activeReminderTiers.join(' / ')} day tiers` : 'Urgent tier only')}; ${escapeHtml(urgentDailyReminderEnabled ? `daily from 7 days${includeExpiredPilotReminders ? ' through renewal' : ' until expiry'}` : 'one urgent/expired notice')}</dd></div><div><dt>Last email</dt><dd>${escapeHtml(row.lastSent ? formatShortDateTime(row.lastSent) : 'No recent send found')}</dd></div></dl>
-    <div class="nt-email-preview"><div class="nt-preview-brand">✈ <strong>VyomSena</strong><small>Pilot Operations Platform</small></div><h4>${escapeHtml(row.name)} Expiry Reminder</h4><p>Dear ${escapeHtml(row.pilotName)},</p><p>Your ${escapeHtml(row.name)} is expiring on <strong>${escapeHtml(safeDate(row.expiryDate))}</strong> (${escapeHtml(leftText)}). Please take the necessary action for renewal and upload the updated document in the VyomSena portal.</p><div class="nt-email-meta"><span>Document</span><strong>${escapeHtml(row.name)}</strong><span>Document No.</span><strong>${escapeHtml(row.number || 'Not recorded')}</strong><span>Expiry Date</span><strong>${escapeHtml(safeDate(row.expiryDate))}</strong></div><span class="nt-email-link">Login to VyomSena</span><small>Reminder preview generated from the selected document.</small></div>
-    `;
-  query('#nt-detail-close')?.addEventListener('click', () => { selectedDocumentId = null; renderDashboard(); panel.innerHTML = '<div class="nt-detail-placeholder"><span>✉</span><h3>Select a document</h3><p>Choose an expiry record to review its compliance and reminder details.</p></div>'; });
+  const dialog = query('#nt-document-dialog');
+  query('#nt-document-title').textContent = `${row.name} reminder`;
+  query('#nt-document-dialog-content').innerHTML = `<div class="nt-document-summary"><span class="nt-detail-alert nt-detail-${expiryState(days).tone}">${days !== null && days < 0 ? '!' : '◷'}</span><div><strong>${escapeHtml(row.pilotName)}</strong><span>${escapeHtml(row.email || 'No email on file')}</span></div><span class="nt-badge nt-badge-${expiryState(days).tone}">${escapeHtml(expiryState(days).label)}</span></div>
+    <dl class="nt-detail-list"><div><dt>Document</dt><dd>${escapeHtml(row.name)}</dd></div><div><dt>Document number</dt><dd>${escapeHtml(row.number || 'Not recorded')}</dd></div><div><dt>Expiry date</dt><dd>${escapeHtml(safeDate(row.expiryDate))} · ${escapeHtml(leftText)}</dd></div><div><dt>Reminder status</dt><dd>${escapeHtml(row.reminderStatus)}</dd></div><div><dt>Last email</dt><dd>${escapeHtml(row.lastSent ? formatShortDateTime(row.lastSent) : 'No recent send found')}</dd></div></dl>
+    <div class="nt-email-preview"><div class="nt-preview-brand">✈ <strong>VyomSena</strong><small>Pilot Operations Platform</small></div><h4>${escapeHtml(row.name)} Expiry Reminder</h4><p>Dear ${escapeHtml(row.pilotName)},</p><p>Your ${escapeHtml(row.name)} ${days !== null && days < 0 ? 'expired' : 'expires'} ${escapeHtml(leftText)}. Please take the necessary action for renewal and upload the updated document in the VyomSena portal.</p><div class="nt-email-meta"><span>Document</span><strong>${escapeHtml(row.name)}</strong><span>Document No.</span><strong>${escapeHtml(row.number || 'Not recorded')}</strong><span>Expiry Date</span><strong>${escapeHtml(safeDate(row.expiryDate))}</strong></div><span class="nt-email-link">Login to VyomSena</span><small>This email will go only to the document holder.</small></div>
+    <div class="nt-document-send"><button type="button" class="vs-button vs-button--primary vs-button--md" id="nt-send-document" ${row.email ? '' : 'disabled'}><span class="nt-btn-spinner hidden" aria-hidden="true"></span><span>${row.email ? 'Send email to holder' : 'Pilot email unavailable'}</span></button><span class="nt-status" id="nt-document-send-status" aria-live="polite"></span></div>`;
+  query('#nt-send-document')?.addEventListener('click', (event) => onSend?.(row, event.currentTarget, query('#nt-document-send-status')));
+  if (dialog && !dialog.open) dialog.showModal();
 }
 
 let cachedOwnerEmail = null;
@@ -232,6 +233,7 @@ function renderStatus(settings) {
 
 function tierLabel(tier) {
   if (`${tier}` === 'force-report') return 'Full report';
+  if (`${tier}` === 'manual') return 'Manual';
   return `${tier}` === 'expired' ? 'Expired' : `${tier}-day`;
 }
 
@@ -549,6 +551,25 @@ export async function init(view, context) {
     }
   }
 
+  async function handleDocumentSend(row, button, status) {
+    if (!row?.email || !window.confirm(`Send a reminder for “${row.name}” to ${row.email}?`)) return;
+    setButtonState(button, true);
+    setStatus(status, `Sending to ${row.email}…`);
+    try {
+      const result = await sendDocumentReminder(row.id);
+      row.lastSent = new Date();
+      row.reminderStatus = 'Sent manually';
+      renderDashboard();
+      setStatus(status, `Email sent to ${result?.pilotEmail || row.email}.`, 'success');
+      await refreshHistory();
+    } catch (error) {
+      console.error('Single-document reminder failed:', error);
+      setStatus(status, error.message || 'Unable to send this document email.', 'error');
+    } finally {
+      setButtonState(button, false);
+    }
+  }
+
   form?.addEventListener('submit', handleSave);
   form?.addEventListener('input', renderRecipients);
   query('#nt-add-recipient')?.addEventListener('click', () => {
@@ -585,6 +606,14 @@ export async function init(view, context) {
   testButton?.addEventListener('click', handleTestSend);
   previewButton?.addEventListener('click', handlePreview);
   query('#nt-force-send')?.addEventListener('click', handleForceReportSend);
+  query('#nt-document-close')?.addEventListener('click', () => query('#nt-document-dialog')?.close());
+  query('#nt-document-dialog')?.addEventListener('close', () => {
+    selectedDocumentId = null;
+    renderDashboard();
+  });
+  query('#nt-document-dialog')?.addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  });
   document.querySelectorAll('[data-open-dialog]').forEach((button) => {
     button.addEventListener('click', () => {
       const dialog = query(`#${button.dataset.openDialog}`);
@@ -621,7 +650,8 @@ export async function init(view, context) {
     if (row) {
       selectedDocumentId = row.dataset.documentId;
       renderDashboard();
-      if (window.matchMedia('(max-width: 900px)').matches) query('#nt-detail-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const selected = dashboardRows.find((item) => item.id === selectedDocumentId);
+      if (selected) renderDocumentDetail(selected, handleDocumentSend);
     }
   });
   dashboard?.addEventListener('keydown', (event) => {
@@ -629,6 +659,8 @@ export async function init(view, context) {
       event.preventDefault();
       selectedDocumentId = event.target.dataset.documentId;
       renderDashboard();
+      const selected = dashboardRows.find((item) => item.id === selectedDocumentId);
+      if (selected) renderDocumentDetail(selected, handleDocumentSend);
     }
   });
   ['#nt-global-search', '#nt-table-search', '#nt-filter-type', '#nt-filter-status', '#nt-filter-date'].forEach((selector) => {

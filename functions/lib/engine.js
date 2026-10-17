@@ -372,6 +372,87 @@ async function sendFullPilotDocumentReport({ db, transport, from, companyId, act
   return summary;
 }
 
+async function sendSingleDocumentReminder({ db, transport, from, companyId, documentId, actorUid, now = new Date() }) {
+  if (!documentId || typeof documentId !== 'string') {
+    const error = new Error('Choose a document to email.');
+    error.code = 'invalid-argument';
+    throw error;
+  }
+  const documentSnap = await db.doc(`user_documents/${documentId}`).get();
+  if (!documentSnap.exists) {
+    const error = new Error('This document no longer exists.');
+    error.code = 'not-found';
+    throw error;
+  }
+  const data = documentSnap.data() || {};
+  if (data.operatorId !== companyId) {
+    const error = new Error('You cannot email a document outside your organization.');
+    error.code = 'permission-denied';
+    throw error;
+  }
+  if (!data.userId || data.userId === 'unknown') {
+    const error = new Error('This document is not assigned to a pilot.');
+    error.code = 'failed-precondition';
+    throw error;
+  }
+  const contact = await resolvePilotContact(db, data.userId);
+  if (!contact.email) {
+    const error = new Error('This pilot does not have an email address on file.');
+    error.code = 'failed-precondition';
+    throw error;
+  }
+  const companySnap = await db.doc(`companies/${companyId}`).get();
+  const companyName = (companySnap.exists && companySnap.data()?.name) || 'Your operator';
+  const expiryDate = toExpiryDate(data.expiryDate);
+  const days = expiryDate ? daysUntil(expiryDate, now) : null;
+  const item = {
+    docId: documentSnap.id,
+    documentName: data.documentName || 'Document',
+    documentCategory: data.documentCategory || null,
+    licenseOrCertificateNumber: data.licenseOrCertificateNumber || null,
+    expiryDate,
+    expiryMs: expiryDate ? expiryDate.getTime() : null,
+    days,
+    tier: days !== null && days < 0 ? 'expired' : 'manual',
+    userId: data.userId
+  };
+  await sendPilotReminder(transport, {
+    from,
+    to: contact.email,
+    companyName,
+    pilotName: contact.name,
+    items: [item]
+  });
+  const runId = `manual-document-${now.toISOString().replace(/[:.]/g, '-')}`;
+  const summary = {
+    runId,
+    at: now.toISOString(),
+    triggeredBy: `${actorUid || 'admin'}+document-email`,
+    sent: 1,
+    resent: 0,
+    skippedNoEmail: 0,
+    skippedAlreadySent: 0,
+    skippedQuota: 0,
+    failed: 0,
+    details: [`${item.documentName} emailed to ${contact.email}`]
+  };
+  const logId = reminderKey(item.docId, item.expiryMs || 0, `manual-${now.getTime()}`);
+  await Promise.all([
+    db.doc(`companies/${companyId}/reminder_logs/${logId}`).set({
+      docId: item.docId,
+      userId: item.userId,
+      pilotEmail: contact.email,
+      tier: 'manual',
+      expiryMs: item.expiryMs,
+      status: 'sent',
+      sentAt: now,
+      triggeredBy: summary.triggeredBy
+    }),
+    db.doc(`companies/${companyId}/reminder_runs/${runId}`).set(summary)
+  ]);
+  return { ...summary, pilotName: contact.name, pilotEmail: contact.email };
+}
+
 /**
  * Scan and send. scopeCompanyId restricts to one company (manual trigger);
  * without it, every company is processed so enabled digests can run daily,
@@ -544,6 +625,7 @@ module.exports = {
   runExpiryReminders,
   previewCompanyReminders,
   sendFullPilotDocumentReport,
+  sendSingleDocumentReminder,
   loadSettings,
   DEFAULT_SETTINGS
 };

@@ -175,6 +175,13 @@ export async function sendPilotDocumentReport() {
   return result?.data || null;
 }
 
+export async function sendDocumentReminder(documentId) {
+  const { getFunctions, httpsCallable } = await functionsModule();
+  const call = httpsCallable(getFunctions(), 'sendDocumentReminder');
+  const result = await call({ documentId });
+  return result?.data || null;
+}
+
 /**
  * Send a test mail to one address to verify the SMTP pipeline.
  */

@@ -18,7 +18,8 @@ const { buildTransport, sendTestMail } = require('./lib/email');
 const {
   runExpiryReminders,
   previewCompanyReminders,
-  sendFullPilotDocumentReport
+  sendFullPilotDocumentReport,
+  sendSingleDocumentReminder
 } = require('./lib/engine');
 const companyUsers = require('./lib/companyUsers');
 
@@ -119,6 +120,30 @@ exports.sendPilotDocumentReport = onCall({ secrets: ALL_SECRETS }, async (reques
     actorUid: request.auth.uid,
     now: new Date()
   });
+});
+
+exports.sendDocumentReminder = onCall({ secrets: ALL_SECRETS }, async (request) => {
+  const caller = await assertCallerAllowed(request.auth?.uid);
+  const smtp = readSmtpConfig();
+  if (!smtp.host || !smtp.from) {
+    throw new HttpsError('failed-precondition', 'Email is not configured on the server (SMTP secrets missing).');
+  }
+  try {
+    return await sendSingleDocumentReminder({
+      db,
+      transport: buildTransport(smtp),
+      from: smtp.from,
+      companyId: caller.companyId,
+      documentId: request.data?.documentId,
+      actorUid: request.auth.uid,
+      now: new Date()
+    });
+  } catch (error) {
+    const code = ['invalid-argument', 'not-found', 'permission-denied', 'failed-precondition'].includes(error.code)
+      ? error.code
+      : 'internal';
+    throw new HttpsError(code, error.message || 'Unable to send the document reminder.');
+  }
 });
 
 async function assertOwnerOrAdmin(uid) {
