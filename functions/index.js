@@ -15,7 +15,12 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { buildTransport, sendTestMail } = require('./lib/email');
-const { runExpiryReminders, previewCompanyReminders } = require('./lib/engine');
+const {
+  runExpiryReminders,
+  previewCompanyReminders,
+  previewFullPilotDocumentReport,
+  sendFullPilotDocumentReport
+} = require('./lib/engine');
 const companyUsers = require('./lib/companyUsers');
 
 admin.initializeApp();
@@ -99,6 +104,27 @@ exports.sendExpiryRemindersNow = onCall({ secrets: ALL_SECRETS }, async (request
 exports.previewReminders = onCall(async (request) => {
   const caller = await assertCallerAllowed(request.auth?.uid);
   return previewCompanyReminders({ db, companyId: caller.companyId, now: new Date() });
+});
+
+exports.previewPilotDocumentReport = onCall(async (request) => {
+  const caller = await assertCallerAllowed(request.auth?.uid);
+  return previewFullPilotDocumentReport({ db, companyId: caller.companyId, now: new Date() });
+});
+
+exports.sendPilotDocumentReport = onCall({ secrets: ALL_SECRETS }, async (request) => {
+  const caller = await assertCallerAllowed(request.auth?.uid);
+  const smtp = readSmtpConfig();
+  if (!smtp.host || !smtp.from) {
+    throw new HttpsError('failed-precondition', 'Email is not configured on the server (SMTP secrets missing).');
+  }
+  return sendFullPilotDocumentReport({
+    db,
+    transport: buildTransport(smtp),
+    from: smtp.from,
+    companyId: caller.companyId,
+    actorUid: request.auth.uid,
+    now: new Date()
+  });
 });
 
 async function assertOwnerOrAdmin(uid) {

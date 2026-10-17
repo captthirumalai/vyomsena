@@ -55,20 +55,19 @@ const URGENT_DAYS = 7;
 const RESEND_INTERVAL_DAYS = 7;
 
 /**
- * How often the same (document, tier) may re-notify, in days.
- * Expired documents repeat weekly; anything within the urgent window
- * re-notifies daily; all other in-window tiers repeat weekly.
+ * How often the same (document, tier) may re-notify. Selected nonurgent
+ * tiers send once; urgent and expired items can repeat daily until renewal.
  */
 function resendIntervalDays(item) {
   if (!item) return RESEND_INTERVAL_DAYS;
-  if (`${item.tier}` === 'expired') return RESEND_INTERVAL_DAYS;
-  if (Number(item.days) <= URGENT_DAYS) return 1;
-  return RESEND_INTERVAL_DAYS;
+  if (item.urgentDailyEnabled === false) return Number.POSITIVE_INFINITY;
+  if (`${item.tier}` === 'expired' || Number(item.days) <= URGENT_DAYS) return 1;
+  return Number.POSITIVE_INFINITY;
 }
 
 /**
- * True when a reminder is due: never sent, or the last send is older than
- * the item's resend interval. Pure and unit-testable.
+ * Selected reminder tiers send once. The urgent/expired tier repeats daily
+ * when enabled, until the document expiry is updated.
  */
 function isDue(lastSentMs, item, nowMs = Date.now()) {
   if (!lastSentMs) return true;

@@ -6,7 +6,9 @@ import {
   listRecentReminderLogs,
   runRemindersNow,
   previewReminders,
-  sendTestReminder
+  sendTestReminder,
+  previewPilotDocumentReport,
+  sendPilotDocumentReport
 } from '../../services/reminderSettingsService.js';
 import { getCompany } from '../../services/companyService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
@@ -63,6 +65,11 @@ let dashboardPilotCount = 0;
 let dashboardTab = 'all';
 let dashboardMetric = 'all';
 let selectedDocumentId = null;
+let digestRecipients = [];
+let forceReportPreview = null;
+let activeReminderTiers = [60, 30, 15];
+let includeExpiredPilotReminders = true;
+let urgentDailyReminderEnabled = true;
 
 function docCategory(document) {
   const text = `${document.documentCategory || ''} ${document.documentName || ''}`.toLowerCase();
@@ -90,6 +97,13 @@ function expiryState(days) {
   return { key: 'valid', label: 'Valid', tone: 'green' };
 }
 
+function isInPilotReminderWindow(row) {
+  if (row.days === null) return false;
+  if (row.days < 0) return row.includeExpired;
+  if (row.days <= 7) return true;
+  return activeReminderTiers.some((tier) => row.days <= tier);
+}
+
 function safeDate(value, options = { day: '2-digit', month: 'short', year: 'numeric' }) {
   const date = toDateValue(value);
   return date ? date.toLocaleDateString(undefined, options) : 'Not recorded';
@@ -102,7 +116,7 @@ function renderDashboard() {
   query('#nt-metric-urgent').textContent = rows.filter((row) => row.days !== null && row.days <= 30).length;
   query('#nt-metric-upcoming').textContent = expiring90;
   query('#nt-metric-valid').textContent = valid;
-  query('#nt-metric-scheduled').textContent = rows.filter((row) => row.days !== null && row.days >= 0 && row.days <= row.leadDays).length;
+  query('#nt-metric-scheduled').textContent = rows.filter(isInPilotReminderWindow).length;
   query('#nt-metric-pilots').textContent = dashboardPilotCount;
   query('#nt-count-all').textContent = rows.length;
   query('#nt-count-license').textContent = rows.filter((row) => row.category === 'license').length;
@@ -122,7 +136,7 @@ function renderDashboard() {
       && (type === 'all' || row.category === type)
       && (status === 'all' || (status === 'urgent' ? row.days !== null && row.days >= 0 && row.days <= 30 : state.key === status))
       && (dateRange === 'all' || (row.days !== null && row.days >= 0 && row.days <= Number(dateRange)))
-      && (dashboardMetric !== 'scheduled' || (row.days !== null && row.days >= 0 && row.days <= row.leadDays))
+      && (dashboardMetric !== 'scheduled' || isInPilotReminderWindow(row))
       && (dashboardMetric !== 'urgent' || (row.days !== null && row.days <= 30))
       && (dashboardMetric !== 'upcoming' || (row.days !== null && row.days > 30 && row.days <= 90))
       && (dashboardMetric !== 'valid' || (row.days !== null && row.days > 90));
@@ -149,9 +163,9 @@ function renderDocumentDetail(row) {
   const panel = query('#nt-detail-panel');
   panel.innerHTML = `<div class="nt-detail-head"><div><span class="nt-eyebrow">DOCUMENT REMINDER</span><h3>Notification Details</h3></div><button type="button" class="nt-detail-close" id="nt-detail-close" aria-label="Clear selection">×</button></div>
     <div class="nt-detail-summary"><span class="nt-detail-alert nt-detail-${expiryState(days).tone}">${days !== null && days < 0 ? '!' : '◷'}</span><div><strong>${escapeHtml(row.name)} Expiry Reminder</strong><p>${escapeHtml(row.name)} ${days !== null && days < 0 ? 'expired' : 'expires'} ${escapeHtml(leftText)}</p><small>${escapeHtml(safeDate(row.expiryDate))}</small></div></div>
-    <dl class="nt-detail-list"><div><dt>Pilot</dt><dd>${escapeHtml(row.pilotName)}</dd></div><div><dt>Email</dt><dd>${escapeHtml(row.email || 'No email on file')}</dd></div><div><dt>Document</dt><dd>${escapeHtml(row.name)}</dd></div><div><dt>Document number</dt><dd>${escapeHtml(row.number || 'Not recorded')}</dd></div><div><dt>Expiry date</dt><dd class="${days !== null && days <= 30 ? 'nt-risk-text' : ''}">${escapeHtml(safeDate(row.expiryDate))} · ${escapeHtml(leftText)}</dd></div><div><dt>Reminder status</dt><dd>${escapeHtml(row.reminderStatus)}</dd></div><div><dt>Reminder window</dt><dd>${escapeHtml(String(row.leadDays))} days before expiry</dd></div><div><dt>Last email</dt><dd>${escapeHtml(row.lastSent ? formatShortDateTime(row.lastSent) : 'No email recorded')}</dd></div></dl>
+    <dl class="nt-detail-list"><div><dt>Pilot</dt><dd>${escapeHtml(row.pilotName)}</dd></div><div><dt>Email</dt><dd>${escapeHtml(row.email || 'No email on file')}</dd></div><div><dt>Document</dt><dd>${escapeHtml(row.name)}</dd></div><div><dt>Document number</dt><dd>${escapeHtml(row.number || 'Not recorded')}</dd></div><div><dt>Expiry date</dt><dd class="${days !== null && days <= 30 ? 'nt-risk-text' : ''}">${escapeHtml(safeDate(row.expiryDate))} · ${escapeHtml(leftText)}</dd></div><div><dt>Reminder status</dt><dd>${escapeHtml(row.reminderStatus)}</dd></div><div><dt>Reminder schedule</dt><dd>${escapeHtml(activeReminderTiers.length ? `${activeReminderTiers.join(' / ')} day tiers` : 'Urgent tier only')}; ${escapeHtml(urgentDailyReminderEnabled ? `daily from 7 days${includeExpiredPilotReminders ? ' through renewal' : ' until expiry'}` : 'one urgent/expired notice')}</dd></div><div><dt>Last email</dt><dd>${escapeHtml(row.lastSent ? formatShortDateTime(row.lastSent) : 'No recent send found')}</dd></div></dl>
     <div class="nt-email-preview"><div class="nt-preview-brand">✈ <strong>VyomSena</strong><small>Pilot Operations Platform</small></div><h4>${escapeHtml(row.name)} Expiry Reminder</h4><p>Dear ${escapeHtml(row.pilotName)},</p><p>Your ${escapeHtml(row.name)} is expiring on <strong>${escapeHtml(safeDate(row.expiryDate))}</strong> (${escapeHtml(leftText)}). Please take the necessary action for renewal and upload the updated document in the VyomSena portal.</p><div class="nt-email-meta"><span>Document</span><strong>${escapeHtml(row.name)}</strong><span>Document No.</span><strong>${escapeHtml(row.number || 'Not recorded')}</strong><span>Expiry Date</span><strong>${escapeHtml(safeDate(row.expiryDate))}</strong></div><span class="nt-email-link">Login to VyomSena</span><small>Reminder preview generated from the selected document.</small></div>
-    <div class="nt-detail-actions"><button type="button" class="vs-button vs-button--primary vs-button--md" id="nt-detail-run">Run reminder scan</button><p>Runs the existing company-wide expiry reminder job. Individual force-send and broadcast actions are not available in the current backend.</p></div>`;
+    <div class="nt-detail-actions"><button type="button" class="vs-button vs-button--primary vs-button--md" id="nt-detail-run">Run reminder scan</button><p>Runs the existing company-wide reminder schedule. Full document reports can be previewed and force-sent from Reminder Administration.</p></div>`;
   query('#nt-detail-close')?.addEventListener('click', () => { selectedDocumentId = null; renderDashboard(); panel.innerHTML = '<div class="nt-detail-placeholder"><span>✉</span><h3>Select a document</h3><p>Choose an expiry record to review its compliance and reminder details.</p></div>'; });
   query('#nt-detail-run')?.addEventListener('click', () => query('#nt-run-now')?.click());
 }
@@ -170,9 +184,19 @@ function renderRecipients() {
     return;
   }
   const parts = [];
-  if (to) parts.push(`${to} (digest + alerts)`);
-  uniqueCcs.forEach((email) => parts.push(`${email} (CC)`));
+  if (to) parts.push(`${to} (primary)`);
+  uniqueCcs.forEach((email) => parts.push(`${email} (alert copy)`));
   list.textContent = parts.join(' · ');
+}
+
+function renderDigestRecipients() {
+  const list = query('#nt-digest-recipient-list');
+  if (!list) return;
+  if (!digestRecipients.length) {
+    list.innerHTML = '<span class="nt-recipient-empty">No digest recipients added.</span>';
+    return;
+  }
+  list.innerHTML = digestRecipients.map((email, index) => `<span class="nt-recipient-chip">${escapeHtml(email)}<button type="button" data-remove-recipient="${index}" aria-label="Remove ${escapeHtml(email)}">×</button></span>`).join('');
 }
 
 function renderSettings(settings) {
@@ -187,18 +211,33 @@ function renderSettings(settings) {
   };
   setChecked('#nt-enabled', settings.enabled);
   setChecked('#nt-digest', settings.digestToOps);
-  setChecked('#nt-expired', settings.includeExpired);
+  setChecked('#nt-urgent-daily', settings.urgentDailyEnabled);
+  setChecked('#nt-expired-digest', settings.includeExpiredInDigest);
+  activeReminderTiers = [...settings.pilotReminderTiers];
+  includeExpiredPilotReminders = settings.includeExpired !== false;
+  urgentDailyReminderEnabled = settings.urgentDailyEnabled !== false;
+  [60, 30, 15].forEach((tier) => {
+    const checkbox = query(`#nt-tier-${tier}`);
+    if (checkbox) checkbox.checked = settings.pilotReminderTiers.includes(tier);
+  });
   set('#nt-lead', settings.defaultLeadDays);
   set('#nt-notify', settings.defaultNotifyEmail || '');
   set('#nt-cc', (settings.ccEmails || []).join(', '));
   set('#nt-maxsends', settings.maxSendsPerDay);
+  digestRecipients = settings.digestRecipientsConfigured
+    ? [...settings.digestRecipients]
+    : [...new Set([settings.defaultNotifyEmail || cachedOwnerEmail, ...(settings.ccEmails || [])].filter(Boolean))];
+  renderDigestRecipients();
+  setStatus(query('#nt-recipient-status'), settings.digestToOps && !digestRecipients.length ? 'Add at least one recipient to enable the daily digest.' : '');
   renderRecipients();
 }
 
 function renderStatus(settings, run) {
   const status = query('#nt-status');
   if (status) {
-    status.textContent = settings && settings.enabled !== false ? 'ON — mails every day 06:00 IST' : 'OFF — daily mails paused';
+    const pilotState = settings && settings.enabled !== false ? 'Pilot reminders ON' : 'Pilot reminders OFF';
+    const digestState = settings && settings.digestToOps !== false ? 'Digest ON' : 'Digest OFF';
+    status.textContent = `${pilotState} · ${digestState} · daily at 06:00 IST`;
   }
   const when = query('#nt-last-run');
   if (when) when.textContent = run ? formatShortDateTime(run.at || run.lastModified) : 'Never';
@@ -207,6 +246,7 @@ function renderStatus(settings, run) {
 }
 
 function tierLabel(tier) {
+  if (`${tier}` === 'force-report') return 'Full report';
   return `${tier}` === 'expired' ? 'Expired' : `${tier}-day`;
 }
 
@@ -245,6 +285,32 @@ function renderPreview(preview) {
       </tr>`;
     })
     .join('');
+}
+
+function renderDigestPreview(preview) {
+  const panel = query('#nt-digest-preview-panel');
+  const body = query('#nt-digest-preview-body');
+  if (!panel || !body) return;
+  const digest = preview?.digest;
+  panel.hidden = false;
+  const recipients = digest?.recipients || [];
+  const items = (digest?.groups || []).flatMap((group) => (group.items || []).map((item) => ({ group, item })));
+  const edited = JSON.stringify([...digestRecipients].sort()) !== JSON.stringify([...recipients].sort());
+  query('#nt-digest-preview-summary').textContent = `Configured recipients: ${recipients.join(', ') || 'none configured'} · ${items.length} document(s) in the 60-day window${digest?.enabled ? '' : ' · digest is off'}${edited ? ' · Save settings to apply your current recipient edits.' : ''}`;
+  body.innerHTML = items.length ? items.map(({ group, item }) => `<tr><td>${escapeHtml(group.pilotName)}</td><td>${escapeHtml(group.pilotEmail || 'No pilot email')}</td><td>${escapeHtml(item.documentName)}</td><td>${escapeHtml(item.expiryDate || 'Not recorded')} ${item.days < 0 ? '(expired)' : `(in ${item.days}d)`}</td></tr>`).join('') : '<tr><td colspan="4" class="nt-empty">No matching documents. The daily digest will show an empty watchlist.</td></tr>';
+}
+
+function renderFullReportPreview(preview) {
+  forceReportPreview = preview;
+  const panel = query('#nt-force-preview-panel');
+  const body = query('#nt-force-preview-body');
+  if (!panel || !body) return;
+  panel.hidden = false;
+  const groups = preview?.groups || [];
+  query('#nt-force-preview-summary').textContent = `${preview?.totalDocs || 0} document(s) across ${preview?.totalPilots || 0} pilot(s). Reports are sent privately to each pilot email address.`;
+  body.innerHTML = groups.length ? groups.map((group) => `<tr><td>${escapeHtml(group.pilotName)}</td><td>${escapeHtml(group.pilotEmail || 'No email on file')}</td><td>${(group.items || []).map((item) => `${escapeHtml(item.documentName)} (${escapeHtml(item.expiryDate || 'no expiry date')})`).join('<br />')}</td></tr>`).join('') : '<tr><td colspan="3" class="nt-empty">No pilot documents found to send.</td></tr>';
+  const send = query('#nt-force-send');
+  if (send) send.disabled = !groups.some((group) => group.pilotEmail && group.items?.length);
 }
 
 function renderRuns(runs) {
@@ -355,7 +421,7 @@ export async function init(view, context) {
           number: document.licenseOrCertificateNumber || '',
           expiryDate: document.expiryDate,
           days: daysUntilExpiry(document),
-          leadDays: Number(document.reminderLeadTimeDays || settings?.defaultLeadDays || 30),
+          includeExpired: settings?.includeExpired !== false,
           category,
           categoryLabel: ({ license: 'Licence', medical: 'Medical', training: 'Training', other: 'Other' })[category],
           lastSent: sent?.sentAt || null,
@@ -381,6 +447,10 @@ export async function init(view, context) {
   async function handleSave(event) {
     event.preventDefault();
     if (!(form instanceof HTMLFormElement)) return;
+    if (query('#nt-digest')?.checked && !digestRecipients.length) {
+      setStatus(query('#nt-recipient-status'), 'Add at least one address or turn off the daily digest.', 'error');
+      return;
+    }
     setButtonState(saveButton, true);
     setStatus(saveStatus, 'Saving notification settings...');
     try {
@@ -392,7 +462,11 @@ export async function init(view, context) {
           defaultNotifyEmail: form.defaultNotifyEmail?.value,
           ccEmails: form.ccEmails?.value,
           digestToOps: form.digestToOps?.checked !== false,
-          includeExpired: form.includeExpired?.checked !== false,
+          pilotReminderTiers: [60, 30, 15].filter((tier) => query(`#nt-tier-${tier}`)?.checked),
+          urgentDailyEnabled: form.urgentDailyEnabled?.checked !== false,
+          digestRecipients,
+          includeExpiredInDigest: form.includeExpiredInDigest?.checked === true,
+          includeExpired: true,
           maxSendsPerDay: form.maxSendsPerDay?.value
         },
         currentUser?.email || currentUser?.uid || null
@@ -414,18 +488,14 @@ export async function init(view, context) {
 
   async function handleRunNow() {
     const forceResend = query('#nt-force')?.checked === true;
+    if (forceResend && !window.confirm('Force resend all documents currently inside their configured reminder windows? This bypasses reminder deduplication and sends one reminder email per eligible pilot. The configured operations digest will also be sent.')) return;
     setButtonState(runButton, true);
-    setStatus(
-      runStatus,
-      forceResend
-        ? 'Resending to every in-window pilot with the latest details...'
-        : 'Running expiry reminders for this company...'
-    );
+    setStatus(runStatus, forceResend ? 'Force resending configured pilot reminder tiers…' : 'Running pilot reminders and the operations digest for this company...');
     try {
       const result = await runRemindersNow({ forceResend });
       setStatus(
         runStatus,
-        `Run finished: ${result?.sent || 0} pilot mail(s) sent${result?.forced ? ' (forced resend).' : '.'}`,
+        `Run finished: ${result?.sent || 0} pilot mail(s) sent${result?.forced ? ' (forced reminder resend)' : ''}${result?.failed ? ` · ${result.failed} failed` : '.'}`,
         'success'
       );
       const latest = await refreshHistory();
@@ -470,6 +540,7 @@ export async function init(view, context) {
     try {
       const preview = await previewReminders();
       renderPreview(preview);
+      renderDigestPreview(preview);
       const count = preview?.totalPilots || 0;
       setStatus(
         previewStatus,
@@ -486,11 +557,98 @@ export async function init(view, context) {
     }
   }
 
+  async function handleDigestPreview() {
+    const button = query('#nt-digest-preview');
+    const status = query('#nt-digest-preview-status');
+    setButtonState(button, true);
+    setStatus(status, 'Preparing the next-60-day digest preview…');
+    try {
+      const preview = await previewReminders();
+      renderDigestPreview(preview);
+      setStatus(status, 'Digest preview ready. Nothing was sent.', 'success');
+    } catch (error) {
+      console.error('Digest preview failed:', error);
+      setStatus(status, error.message || 'Unable to preview the digest.', 'error');
+    } finally {
+      setButtonState(button, false);
+    }
+  }
+
+  async function handleForceReportPreview() {
+    const button = query('#nt-force-preview');
+    const status = query('#nt-force-status');
+    setButtonState(button, true);
+    setStatus(status, 'Loading each pilot’s complete document list…');
+    try {
+      const preview = await previewPilotDocumentReport();
+      renderFullReportPreview(preview);
+      setStatus(status, 'Review the recipients and documents before sending.', 'success');
+    } catch (error) {
+      console.error('Full report preview failed:', error);
+      setStatus(status, error.message || 'Unable to preview full reports.', 'error');
+    } finally {
+      setButtonState(button, false);
+    }
+  }
+
+  async function handleForceReportSend() {
+    const preview = forceReportPreview;
+    const eligible = (preview?.groups || []).filter((group) => group.pilotEmail && group.items?.length).length;
+    if (!eligible || !window.confirm(`Force send the complete document report to ${eligible} pilot(s)? Each pilot will receive only their own document list. The reminder daily send limit still applies.`)) return;
+    const button = query('#nt-force-send');
+    const status = query('#nt-force-status');
+    setButtonState(button, true);
+    setStatus(status, `Sending private reports to ${eligible} pilot(s)…`);
+    try {
+      const result = await sendPilotDocumentReport();
+      const details = `${result?.sent || 0} sent · ${result?.skippedNoEmail || 0} no email · ${result?.skippedQuota || 0} deferred by daily limit · ${result?.failed || 0} failed`;
+      setStatus(status, `Force report finished: ${details}`, result?.failed ? 'error' : 'success');
+      forceReportPreview = null;
+      if (button) button.disabled = true;
+      const latest = await refreshHistory();
+      const settings = await getReminderSettings(companyId).catch(() => null);
+      renderStatus(settings, latest);
+    } catch (error) {
+      console.error('Force report send failed:', error);
+      setStatus(status, error.message || 'Unable to send the full report.', 'error');
+    } finally {
+      setButtonState(button, false);
+      if (button && !forceReportPreview) button.disabled = true;
+    }
+  }
+
   form?.addEventListener('submit', handleSave);
   form?.addEventListener('input', renderRecipients);
+  query('#nt-add-recipient')?.addEventListener('click', () => {
+    const input = query('#nt-digest-recipient-input');
+    const email = `${input?.value || ''}`.trim().toLowerCase();
+    const status = query('#nt-recipient-status');
+    if (!/.+@.+\..+/.test(email)) {
+      setStatus(status, 'Enter a valid email address.', 'error');
+      return;
+    }
+    if (digestRecipients.includes(email)) {
+      setStatus(status, 'That address is already on the list.', 'error');
+      return;
+    }
+    digestRecipients.push(email);
+    input.value = '';
+    renderDigestRecipients();
+    setStatus(status, 'Address added. Save settings to apply it.', 'success');
+  });
+  query('#nt-digest-recipient-list')?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-remove-recipient]');
+    if (!button) return;
+    digestRecipients.splice(Number(button.dataset.removeRecipient), 1);
+    renderDigestRecipients();
+    setStatus(query('#nt-recipient-status'), 'Address removed. Save settings to apply the change.', 'success');
+  });
   runButton?.addEventListener('click', handleRunNow);
   testButton?.addEventListener('click', handleTestSend);
   previewButton?.addEventListener('click', handlePreview);
+  query('#nt-digest-preview')?.addEventListener('click', handleDigestPreview);
+  query('#nt-force-preview')?.addEventListener('click', handleForceReportPreview);
+  query('#nt-force-send')?.addEventListener('click', handleForceReportSend);
 
   const dashboard = query('.nt-dashboard');
   dashboard?.addEventListener('click', (event) => {

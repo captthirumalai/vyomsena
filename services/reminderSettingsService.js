@@ -27,6 +27,7 @@ const RUNS_MODULE = 'reminder_runs';
 const LOGS_MODULE = 'reminder_logs';
 const DEFAULT_LEAD_DAYS = 30;
 const DEFAULT_MAX_SENDS = 450;
+const DEFAULT_PILOT_REMINDER_TIERS = [60, 30, 15];
 
 function toEmailList(value) {
   const list = Array.isArray(value) ? value : `${value || ''}`.split(/[,\s;]+/);
@@ -50,9 +51,15 @@ export function normalizeReminderSettings(raw) {
   return {
     enabled: raw?.enabled !== false,
     defaultLeadDays: leadDays,
+    pilotReminderTiers: [...new Set((Array.isArray(raw?.pilotReminderTiers) ? raw.pilotReminderTiers : DEFAULT_PILOT_REMINDER_TIERS)
+      .map((value) => Number(value)).filter((value) => [60, 30, 15].includes(value)))].sort((a, b) => b - a),
+    urgentDailyEnabled: raw?.urgentDailyEnabled !== false,
     defaultNotifyEmail: toSingleEmail(raw?.defaultNotifyEmail),
     ccEmails: toEmailList(raw?.ccEmails),
     digestToOps: raw?.digestToOps !== false,
+    digestRecipients: toEmailList(raw?.digestRecipients),
+    digestRecipientsConfigured: Array.isArray(raw?.digestRecipients),
+    includeExpiredInDigest: raw?.includeExpiredInDigest === true,
     includeExpired: raw?.includeExpired !== false,
     maxSendsPerDay: maxSends,
     lastModified: raw?.lastModified || null
@@ -73,9 +80,13 @@ export async function saveReminderSettings(companyId, payload, updatedBy = null)
   await setCompanyModuleDoc(companyId, REMINDER_MODULE, REMINDER_DOC_ID, {
     enabled: normalized.enabled,
     defaultLeadDays: normalized.defaultLeadDays,
+    pilotReminderTiers: normalized.pilotReminderTiers,
+    urgentDailyEnabled: normalized.urgentDailyEnabled,
     defaultNotifyEmail: normalized.defaultNotifyEmail,
     ccEmails: normalized.ccEmails,
     digestToOps: normalized.digestToOps,
+    digestRecipients: normalized.digestRecipients,
+    includeExpiredInDigest: normalized.includeExpiredInDigest,
     includeExpired: normalized.includeExpired,
     maxSendsPerDay: normalized.maxSendsPerDay,
     updatedBy: updatedBy || null
@@ -163,6 +174,20 @@ export async function runRemindersNow({ forceResend = false } = {}) {
 export async function previewReminders() {
   const { getFunctions, httpsCallable } = await functionsModule();
   const call = httpsCallable(getFunctions(), 'previewReminders');
+  const result = await call({});
+  return result?.data || null;
+}
+
+export async function previewPilotDocumentReport() {
+  const { getFunctions, httpsCallable } = await functionsModule();
+  const call = httpsCallable(getFunctions(), 'previewPilotDocumentReport');
+  const result = await call({});
+  return result?.data || null;
+}
+
+export async function sendPilotDocumentReport() {
+  const { getFunctions, httpsCallable } = await functionsModule();
+  const call = httpsCallable(getFunctions(), 'sendPilotDocumentReport');
   const result = await call({});
   return result?.data || null;
 }

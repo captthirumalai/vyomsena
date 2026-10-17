@@ -12,7 +12,6 @@ const {
   DEFAULT_LEAD_DAYS,
   MAX_LEAD_DAYS,
   daysUntil,
-  tiersForLead,
   tierToSend,
   reminderKey,
   isDue
@@ -22,9 +21,13 @@ const { sendPilotReminder, sendOpsDigest, sendFailureAlert } = require('./email'
 const DEFAULT_SETTINGS = {
   enabled: true,
   defaultLeadDays: DEFAULT_LEAD_DAYS,
+  pilotReminderTiers: [60, 30, 15],
+  urgentDailyEnabled: true,
   defaultNotifyEmail: null,
   ccEmails: [],
   digestToOps: true,
+  digestRecipients: null,
+  includeExpiredInDigest: false,
   includeExpired: true,
   maxSendsPerDay: 450
 };
@@ -54,9 +57,15 @@ async function loadSettings(db, companyId) {
   return {
     enabled: raw.enabled !== false,
     defaultLeadDays: clampLead(raw.defaultLeadDays, DEFAULT_LEAD_DAYS),
+    pilotReminderTiers: Array.isArray(raw.pilotReminderTiers)
+      ? [...new Set(raw.pilotReminderTiers.map(Number).filter((value) => [60, 30, 15].includes(value)))].sort((a, b) => b - a)
+      : DEFAULT_SETTINGS.pilotReminderTiers,
+    urgentDailyEnabled: raw.urgentDailyEnabled !== false,
     defaultNotifyEmail: toSingleEmail(raw.defaultNotifyEmail),
     ccEmails: toEmailList(raw.ccEmails),
     digestToOps: raw.digestToOps !== false,
+    digestRecipients: Array.isArray(raw.digestRecipients) ? toEmailList(raw.digestRecipients) : null,
+    includeExpiredInDigest: raw.includeExpiredInDigest === true,
     includeExpired: raw.includeExpired !== false,
     maxSendsPerDay: Math.min(Math.max(Math.round(Number(raw.maxSendsPerDay) || DEFAULT_SETTINGS.maxSendsPerDay), 1), 2000)
   };
@@ -92,16 +101,13 @@ function toExpiryDate(value) {
 }
 
 /**
- * Shared scan: in-window documents grouped per company, tiers assigned,
- * pilots grouped — but nothing resolved, sent, or logged. Used by both
- * the live run and the dry-run preview.
+ * Shared scan: pilot reminder items and digest watchlists are grouped per
+ * company. Pilot tiers and the 60-day digest are calculated independently.
  */
 async function collectCompanyBatches(db, now, scopeCompanyId = null) {
-  const pastBound = new Date(now.getTime() - 60 * MS_PER_DAY);
   const futureBound = new Date(now.getTime() + MAX_LEAD_DAYS * MS_PER_DAY);
 
   const docsSnap = await db.collection('user_documents')
-    .where('expiryDate', '>=', pastBound)
     .where('expiryDate', '<=', futureBound)
     .get();
 
@@ -115,22 +121,56 @@ async function collectCompanyBatches(db, now, scopeCompanyId = null) {
     byCompany.get(operatorId).push({ id: docSnap.id, data });
   }
 
+  const companyIds = new Set(byCompany.keys());
+  if (scopeCompanyId) companyIds.add(scopeCompanyId);
+  else {
+    const companiesSnap = await db.collection('companies').get();
+    companiesSnap.docs.forEach((item) => companyIds.add(item.id));
+  }
+
   const batches = [];
-  for (const [companyId, docs] of byCompany.entries()) {
+  for (const companyId of companyIds) {
+    const docs = byCompany.get(companyId) || [];
     const settings = await loadSettings(db, companyId);
     const companySnap = await db.doc(`companies/${companyId}`).get();
     const companyData = companySnap.exists ? companySnap.data() || {} : {};
     const companyName = companyData.name || 'Your operator';
-    const opsRecipients = toEmailList([settings.defaultNotifyEmail || companyData.ownerEmail, ...settings.ccEmails]);
+    const alertRecipients = toEmailList([settings.defaultNotifyEmail || companyData.ownerEmail, ...settings.ccEmails]);
+    const opsRecipients = settings.digestRecipients === null
+      ? alertRecipients
+      : settings.digestRecipients;
 
     const pilotItems = new Map();
+    const digestItems = new Map();
+    for (const { id, data } of docs) {
+      const days = daysUntil(data.expiryDate, now);
+      if (days === null) continue;
+      const expiry = toExpiryDate(data.expiryDate);
+      if (!expiry) continue;
+      const userId = data.userId || 'unknown';
+      if ((days >= 0 && days <= 60) || (days < 0 && settings.includeExpiredInDigest)) {
+        const item = {
+          docId: id,
+          documentName: data.documentName || 'Document',
+          documentCategory: data.documentCategory || null,
+          licenseOrCertificateNumber: data.licenseOrCertificateNumber || null,
+          expiryDate: expiry,
+          expiryMs: expiry.getTime(),
+          days,
+          tier: days < 0 ? 'expired' : 'digest',
+          userId
+        };
+        if (!digestItems.has(userId)) digestItems.set(userId, []);
+        digestItems.get(userId).push(item);
+      }
+    }
     if (settings.enabled) {
       for (const { id, data } of docs) {
         const days = daysUntil(data.expiryDate, now);
         if (days === null) continue;
         if (days < 0 && !settings.includeExpired) continue;
-        const lead = clampLead(data.reminderLeadTimeDays, settings.defaultLeadDays);
-        const tier = tierToSend(days, tiersForLead(lead));
+        const tierSet = [...new Set([...settings.pilotReminderTiers, 7, 1])].sort((a, b) => b - a);
+        const tier = tierToSend(days, tierSet);
         if (tier === null) continue;
         const expiry = toExpiryDate(data.expiryDate);
         if (!expiry) continue;
@@ -143,6 +183,7 @@ async function collectCompanyBatches(db, now, scopeCompanyId = null) {
           expiryMs: expiry.getTime(),
           days,
           tier,
+          urgentDailyEnabled: settings.urgentDailyEnabled,
           userId: data.userId || null
         };
         const key = item.userId || 'unknown';
@@ -150,7 +191,7 @@ async function collectCompanyBatches(db, now, scopeCompanyId = null) {
         pilotItems.get(key).push(item);
       }
     }
-    batches.push({ companyId, companyName, opsRecipients, settings, pilotItems });
+    batches.push({ companyId, companyName, opsRecipients, alertRecipients, settings, pilotItems, digestItems });
   }
   return batches;
 }
@@ -174,7 +215,7 @@ async function previewCompanyReminders({ db, companyId, now = new Date() }) {
   const batches = await collectCompanyBatches(db, now, companyId);
   const batch = batches.find((entry) => entry.companyId === companyId);
   if (!batch) {
-    return { companyId, companyName: null, enabled: true, groups: [], totalDocs: 0, totalPilots: 0 };
+    return { companyId, companyName: null, enabled: true, groups: [], totalDocs: 0, totalPilots: 0, digest: { enabled: false, recipients: [], groups: [], totalDocs: 0 } };
   }
   const groups = await resolvePilotGroups(db, batch.pilotItems);
   // Due-state per item so the preview shows what today will actually do:
@@ -194,7 +235,13 @@ async function previewCompanyReminders({ db, companyId, now = new Date() }) {
       })
     })),
     totalDocs: groups.reduce((sum, group) => sum + group.items.length, 0),
-    totalPilots: groups.length
+    totalPilots: groups.length,
+    digest: {
+      enabled: batch.settings.digestToOps,
+      recipients: batch.opsRecipients,
+      groups: await resolvePilotGroups(db, batch.digestItems),
+      totalDocs: Array.from(batch.digestItems.values()).reduce((sum, items) => sum + items.length, 0)
+    }
   };
 }
 
@@ -202,9 +249,10 @@ function previewItem(item) {
   return {
     documentName: item.documentName,
     documentCategory: item.documentCategory,
+    licenseOrCertificateNumber: item.licenseOrCertificateNumber || null,
     days: item.days,
     tier: `${item.tier}`,
-    expiryDate: item.expiryDate.toISOString().slice(0, 10)
+    expiryDate: item.expiryDate ? item.expiryDate.toISOString().slice(0, 10) : null
   };
 }
 
@@ -226,9 +274,121 @@ async function loadSentAtByKey(db, companyId, pilotItems) {
   return sentAtByKey;
 }
 
+async function collectFullPilotDocumentGroups(db, companyId, now = new Date()) {
+  const snapshot = await db.collection('user_documents').where('operatorId', '==', companyId).get();
+  const grouped = new Map();
+  snapshot.docs.forEach((docSnap) => {
+    const data = docSnap.data() || {};
+    const expiryDate = toExpiryDate(data.expiryDate);
+    const days = expiryDate ? daysUntil(expiryDate, now) : null;
+    const userId = data.userId || 'unknown';
+    const item = {
+      docId: docSnap.id,
+      documentName: data.documentName || 'Document',
+      documentCategory: data.documentCategory || null,
+      licenseOrCertificateNumber: data.licenseOrCertificateNumber || null,
+      expiryDate,
+      expiryMs: expiryDate ? expiryDate.getTime() : null,
+      days,
+      tier: days !== null && days < 0 ? 'expired' : 'force-report',
+      userId
+    };
+    if (!grouped.has(userId)) grouped.set(userId, []);
+    grouped.get(userId).push(item);
+  });
+  return resolvePilotGroups(db, grouped);
+}
+
+async function previewFullPilotDocumentReport({ db, companyId, now = new Date() }) {
+  const groups = await collectFullPilotDocumentGroups(db, companyId, now);
+  return {
+    totalPilots: groups.length,
+    totalDocs: groups.reduce((sum, group) => sum + group.items.length, 0),
+    groups: groups.map((group) => ({
+      pilotName: group.pilotName,
+      pilotEmail: group.pilotEmail,
+      items: group.items.map(previewItem)
+    }))
+  };
+}
+
+async function sendFullPilotDocumentReport({ db, transport, from, companyId, actorUid, now = new Date() }) {
+  const groups = await collectFullPilotDocumentGroups(db, companyId, now);
+  const settings = await loadSettings(db, companyId);
+  const companySnap = await db.doc(`companies/${companyId}`).get();
+  const companyName = (companySnap.exists && companySnap.data()?.name) || 'Your operator';
+  const reportId = `force-report-${now.toISOString().replace(/[:.]/g, '-')}`;
+  const summary = {
+    runId: reportId,
+    at: now.toISOString(),
+    triggeredBy: `${actorUid || 'admin'}+force-report`,
+    sent: 0,
+    resent: 0,
+    skippedNoEmail: 0,
+    skippedAlreadySent: 0,
+    skippedQuota: 0,
+    failed: 0,
+    details: []
+  };
+  let batch = db.batch();
+  let logCount = 0;
+  for (const group of groups) {
+    if (!group.pilotEmail) {
+      summary.skippedNoEmail += 1;
+      summary.details.push(`no email for ${group.pilotName}`);
+      continue;
+    }
+    if (summary.sent >= settings.maxSendsPerDay) {
+      summary.skippedQuota += 1;
+      summary.details.push(`daily send quota reached; ${group.pilotEmail} not sent`);
+      continue;
+    }
+    try {
+      await sendPilotReminder(transport, {
+        from,
+        to: group.pilotEmail,
+        companyName,
+        pilotName: group.pilotName,
+        items: group.items,
+        isFullReport: true
+      });
+      summary.sent += 1;
+      for (const item of group.items) {
+        if (logCount === 450) {
+          await batch.commit();
+          batch = db.batch();
+          logCount = 0;
+        }
+        const key = reminderKey(item.docId, item.expiryMs || 0, 'force-report');
+        batch.set(db.doc(`companies/${companyId}/reminder_logs/${key}`), {
+          docId: item.docId,
+          userId: group.userId,
+          pilotEmail: group.pilotEmail,
+          tier: 'force-report',
+          expiryMs: item.expiryMs,
+          status: 'sent',
+          sentAt: now,
+          triggeredBy: summary.triggeredBy
+        }, { merge: true });
+        logCount += 1;
+      }
+    } catch (error) {
+      summary.failed += 1;
+      summary.details.push(`send failed for ${group.pilotEmail}: ${error.message || error}`);
+    }
+  }
+  if (logCount) await batch.commit();
+  summary.totalPilots = groups.length;
+  summary.totalDocs = groups.reduce((sum, group) => sum + group.items.length, 0);
+  summary.details.push(`full document report: ${summary.sent} pilot email(s) sent; ${summary.skippedNoEmail} without email; ${summary.skippedQuota} deferred by daily limit`);
+  await db.doc(`companies/${companyId}/reminder_runs/${reportId}`).set(summary);
+  return summary;
+}
+
 /**
  * Scan and send. scopeCompanyId restricts to one company (manual trigger);
- * without it, every company with in-window documents is processed.
+ * without it, every company is processed so enabled digests can run daily,
+ * including on days with an empty watchlist.
  * forceResend bypasses the already-sent dedupe (manual "mail everyone with
  * the latest details"); the daily schedule always runs with it off.
  * Returns a machine-readable summary (also persisted per company).
@@ -240,7 +400,7 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
   const batches = await collectCompanyBatches(db, now, scopeCompanyId);
 
   for (const batch of batches) {
-    const { companyId, companyName, opsRecipients, settings, pilotItems } = batch;
+    const { companyId, companyName, opsRecipients, alertRecipients, settings, pilotItems, digestItems } = batch;
     const companySummary = {
       sent: 0,
       resent: 0,
@@ -260,25 +420,19 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
     };
 
     try {
-      if (!settings.enabled) {
-        companySummary.details.push('reminders disabled in settings');
+      if (!settings.enabled) companySummary.details.push('pilot reminders disabled in settings');
+      const shouldRunDigest = settings.digestToOps && opsRecipients.length > 0;
+      if (!settings.enabled && !shouldRunDigest) {
         await persistRun();
         continue;
       }
 
-      if (!pilotItems.size) {
-        await persistRun();
-        continue;
-      }
-
-      // Resend intervals: same (document, tier, expiry) re-notifies daily when
-      // urgent (7 days or less, expired weekly-otherwise-weekly). The log
-      // entry is refreshed on every send, so the interval counts from the
-      // latest mail, not the first.
-      const sentAtByKey = await loadSentAtByKey(db, companyId, pilotItems);
+      // Selected tiers send once. Urgent and expired reminders repeat daily
+      // until the document's expiry date is updated.
+      const sentAtByKey = pilotItems.size ? await loadSentAtByKey(db, companyId, pilotItems) : new Map();
 
       const pilotGroups = [];
-      for (const [userId, items] of pilotItems.entries()) {
+      for (const [userId, items] of (settings.enabled ? pilotItems : new Map()).entries()) {
         // Forced resends mail every in-window tier again with the latest
         // details (log entries are refreshed on success).
         const unsent = forceResend
@@ -305,10 +459,11 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
       // Unsent groups simply retry on the next run (no log written).
       let sendsUsed = 0;
       const quota = settings.maxSendsPerDay;
-      const batch = db.batch();
-      const sentItems = [];
+      const pilotQuota = shouldRunDigest ? Math.max(0, quota - 1) : quota;
+      let batch = db.batch();
+      let reminderLogWrites = 0;
       for (const group of pilotGroups) {
-        if (sendsUsed >= quota) {
+        if (sendsUsed >= pilotQuota) {
           companySummary.quotaReached = true;
           companySummary.skippedQuota += group.items.length;
           companySummary.details.push(`daily send quota reached (${quota}); ${group.pilotEmail} deferred to next run`);
@@ -325,6 +480,11 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
           sendsUsed += 1;
           companySummary.sent += 1;
           for (const item of group.items) {
+            if (reminderLogWrites === 450) {
+              await batch.commit();
+              batch = db.batch();
+              reminderLogWrites = 0;
+            }
             if (!forceResend && sentAtByKey.has(reminderKey(item.docId, item.expiryMs, `${item.tier}`))) {
               companySummary.resent += 1;
             }
@@ -338,39 +498,36 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
               sentAt: now,
               triggeredBy
             }, { merge: true });
+            reminderLogWrites += 1;
           }
-          sentItems.push(group);
         } catch (error) {
           companySummary.failed += 1;
           companySummary.details.push(`send failed for ${group.pilotEmail}: ${error.message || error}`);
         }
       }
 
-      // Ops digest carries the FULL daily watchlist (every in-window document,
-      // mailed today or not), so operations always sees the complete picture —
-      // never only the newly-mailed subset, never silent on quiet days.
-      if (settings.digestToOps && opsRecipients.length && sendsUsed < quota) {
+      // The operations digest is independent of pilot reminder tiers and
+      // contains the next 60 days, plus expired documents when configured.
+      if (shouldRunDigest && sendsUsed < quota) {
         try {
-          const mailedIds = new Set(sentItems.map((group) => group.userId));
-          const watchGroups = (await resolvePilotGroups(db, pilotItems)).map((group) => ({
-            ...group,
-            mailedToday: mailedIds.has(group.userId)
-          }));
-          await sendOpsDigest(transport, { from, to: opsRecipients, companyName, groups: watchGroups });
+          const digestGroups = await resolvePilotGroups(db, digestItems);
+          await sendOpsDigest(transport, { from, to: opsRecipients, companyName, groups: digestGroups });
           sendsUsed += 1;
-          companySummary.details.push(`ops digest (full watchlist) sent to ${opsRecipients.join(', ')}`);
+          companySummary.details.push(`60-day ops digest sent to ${opsRecipients.join(', ')} (${digestGroups.reduce((sum, group) => sum + group.items.length, 0)} document(s))`);
         } catch (error) {
           companySummary.details.push(`ops digest failed: ${error.message || error}`);
         }
+      } else if (settings.digestToOps && !opsRecipients.length) {
+        companySummary.details.push('daily digest enabled but no recipients are configured');
       }
 
-      await batch.commit();
+      if (reminderLogWrites) await batch.commit();
       await persistRun();
 
       // Failure alert: a broken SMTP is otherwise silent. Mail ops directly.
-      if ((companySummary.failed > 0 || companySummary.quotaReached) && opsRecipients.length) {
+      if ((companySummary.failed > 0 || companySummary.quotaReached) && alertRecipients.length) {
         try {
-          await sendFailureAlert(transport, { from, to: opsRecipients, companyName, companySummary });
+          await sendFailureAlert(transport, { from, to: alertRecipients, companyName, companySummary });
           companySummary.details.push('failure alert sent to ops');
           await persistRun();
         } catch (error) {
@@ -382,9 +539,9 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
       companySummary.failed += 1;
       companySummary.details.push(`run error: ${error.message || error}`);
       await persistRun();
-      if (opsRecipients.length) {
+      if (alertRecipients.length) {
         try {
-          await sendFailureAlert(transport, { from, to: opsRecipients, companyName, companySummary });
+          await sendFailureAlert(transport, { from, to: alertRecipients, companyName, companySummary });
         } catch (alertError) {
           companySummary.details.push(`failure alert failed: ${alertError.message || alertError}`);
           await persistRun();
@@ -399,6 +556,8 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
 module.exports = {
   runExpiryReminders,
   previewCompanyReminders,
+  previewFullPilotDocumentReport,
+  sendFullPilotDocumentReport,
   loadSettings,
   DEFAULT_SETTINGS
 };

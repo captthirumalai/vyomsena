@@ -38,7 +38,7 @@
   <div class="nt-grid">
     <section class="vs-card">
       <h3 class="vs-card__title">Everyday Reminder Mail</h3>
-      <p class="vs-card__body">Automatic email runs daily at 06:00 IST. Every pilot with a document inside its reminder window gets one mail; operations gets a digest.</p>
+      <p class="vs-card__body">Pilot reminders and the operations digest run independently every day at 06:00 IST.</p>
       <dl class="nt-dl">
         <div class="nt-dl-row"><dt>Status</dt><dd id="nt-status">—</dd></div>
         <div class="nt-dl-row"><dt>Schedule</dt><dd>Daily 06:00 IST</dd></div>
@@ -50,62 +50,45 @@
           <span class="nt-btn-spinner hidden" aria-hidden="true"></span>
           <span>Run now</span>
         </button>
-        <label class="nt-field nt-inline-check">
-          <span><input type="checkbox" id="nt-force" /> Resend to all (ignore already-sent)</span>
-        </label>
+        <label class="nt-field nt-inline-check"><span><input type="checkbox" id="nt-force" /> Force resend scheduled reminder tiers</span></label>
         <span class="nt-status" id="nt-run-status" aria-live="polite"></span>
       </div>
+      <div class="nt-force-report">
+        <div><strong>Force send full document report</strong><small>Preview each pilot’s complete document list, then send one private report per pilot.</small></div>
+        <div class="nt-form-actions"><button type="button" class="vs-button vs-button--secondary vs-button--md" id="nt-force-preview">Preview full report</button><button type="button" class="vs-button vs-button--primary vs-button--md" id="nt-force-send" disabled>Force send report</button><span class="nt-status" id="nt-force-status" aria-live="polite"></span></div>
+      </div>
+      <div id="nt-force-preview-panel" class="nt-report-preview" hidden><strong id="nt-force-preview-summary"></strong><div class="nt-table-scroll"><table><thead><tr><th>Pilot</th><th>Email</th><th>Documents</th></tr></thead><tbody id="nt-force-preview-body"></tbody></table></div></div>
     </section>
 
     <section class="vs-card">
       <h3 class="vs-card__title">Mail Settings</h3>
-      <p class="vs-card__body">Who gets reminded, when, and where the mail goes. No manual needed — each option explains itself.</p>
-      <div class="nt-explainer" aria-label="How reminding works">
-        <strong>How reminding works:</strong> every morning operations gets the <em>full watchlist</em> of documents nearing expiry.
-        Pilots are mailed when a document enters a reminder tier, then <em>daily while urgent (7 days or less)</em>,
-        <em>weekly</em> otherwise — expired documents repeat weekly until renewed.
-      </div>
+      <p class="vs-card__body">Configure pilot expiry tiers, the daily operations digest and automation email limits.</p>
+      <div class="nt-explainer" aria-label="How reminding works"><strong>How reminding works:</strong> selected pilot tiers send once as a document enters that reminder band. Documents at 7 days or less, and expired documents, repeat daily until renewed when urgent reminders are enabled.</div>
       <form id="nt-settings-form" novalidate>
+        <input type="hidden" id="nt-lead" name="defaultLeadDays" value="30" />
         <div class="nt-form-row">
           <label class="nt-field">
             <span><input type="checkbox" id="nt-enabled" name="enabled" checked /> Send reminder mail every day (06:00 IST)</span>
-            <small>Off pauses everything below. Nothing is sent while off.</small>
+            <small>Controls pilot reminder emails. The operations digest has its own switch below.</small>
           </label>
           <label class="nt-field">
-            <span><input type="checkbox" id="nt-digest" name="digestToOps" checked /> Send operations the full daily watchlist</span>
-            <small>One digest every morning with every document nearing expiry — even on quiet days.</small>
-          </label>
-          <label class="nt-field">
-            <span><input type="checkbox" id="nt-expired" name="includeExpired" checked /> Include already-expired documents</span>
-            <small>Expired licences repeat weekly until renewed.</small>
+            <span><input type="checkbox" id="nt-urgent-daily" name="urgentDailyEnabled" checked /> Email daily from 7 days before expiry until renewed</span>
+            <small>Includes daily reminders while expired. Disable to send the urgent notice only once.</small>
           </label>
         </div>
-        <div class="nt-form-row">
-          <label class="nt-field">
-            <span>Start reminding this many days before expiry</span>
-            <input type="number" id="nt-lead" name="defaultLeadDays" min="1" max="365" value="30" />
-            <small>Individual documents can set their own window; this is the default.</small>
-          </label>
-          <label class="nt-field">
-            <span>Operations mailbox (receives digest + alerts)</span>
-            <input type="email" id="nt-notify" name="defaultNotifyEmail" placeholder="ops@operator.com" />
-            <small>Empty = company owner's email is used.</small>
-          </label>
-        </div>
-        <div class="nt-form-row">
-          <label class="nt-field">
-            <span>Extra mailboxes, also on every ops mail (comma-separated)</span>
-            <input type="text" id="nt-cc" name="ccEmails" placeholder="ops2@operator.com, safety@operator.com" />
-            <small>Everyone listed here gets the same digest and alerts.</small>
-          </label>
-          <label class="nt-field">
-            <span>Max mails per day (Gmail safety cap)</span>
-            <input type="number" id="nt-maxsends" name="maxSendsPerDay" min="1" max="2000" value="450" />
-            <small>Unsent pilots automatically retry tomorrow. Never raise this above your Gmail limit.</small>
-          </label>
+        <fieldset class="nt-tier-settings"><legend>Pilot reminder schedule</legend><label><input type="checkbox" name="pilotReminderTier" value="60" id="nt-tier-60" checked /> 60 days before expiry</label><label><input type="checkbox" name="pilotReminderTier" value="30" id="nt-tier-30" checked /> 30 days before expiry</label><label><input type="checkbox" name="pilotReminderTier" value="15" id="nt-tier-15" checked /> 15 days before expiry</label><p>Reminder tiers are sent once per document and expiry date. The daily 7-day window is controlled above.</p></fieldset>
+        <section class="nt-digest-settings"><div class="nt-settings-heading"><div><h4>Daily operations digest</h4><p>Separate email to the addresses below with documents expiring in the next 60 days.</p></div><label class="nt-switch"><input type="checkbox" id="nt-digest" name="digestToOps" checked /> Send daily digest</label></div>
+          <label class="nt-field nt-expired-digest"><span><input type="checkbox" id="nt-expired-digest" name="includeExpiredInDigest" /> Include already-expired documents</span></label>
+          <div class="nt-digest-recipient-editor"><strong>Digest recipients</strong><small>Each address receives the complete operations table every day.</small><div id="nt-digest-recipient-list" class="nt-digest-recipient-list"></div><div class="nt-add-recipient"><input type="email" id="nt-digest-recipient-input" placeholder="ops@example.com" aria-label="Add digest email address" /><button type="button" class="vs-button vs-button--secondary vs-button--sm" id="nt-add-recipient">Add email</button></div><span class="nt-status" id="nt-recipient-status" aria-live="polite"></span></div>
+          <div class="nt-digest-preview"><button type="button" class="vs-button vs-button--secondary vs-button--sm" id="nt-digest-preview">Preview daily digest</button><span class="nt-status" id="nt-digest-preview-status" aria-live="polite"></span><div id="nt-digest-preview-panel" class="nt-report-preview" hidden><strong id="nt-digest-preview-summary"></strong><div class="nt-table-scroll"><table><thead><tr><th>Pilot</th><th>Email</th><th>Document</th><th>Expiry</th></tr></thead><tbody id="nt-digest-preview-body"></tbody></table></div></div></div>
+        </section>
+        <div class="nt-form-row nt-alert-mail-settings">
+          <label class="nt-field"><span>Failure alert mailbox</span><input type="email" id="nt-notify" name="defaultNotifyEmail" placeholder="ops@operator.com" /><small>Used for automation failure alerts. Empty uses the company owner address.</small></label>
+          <label class="nt-field"><span>Additional failure alert addresses</span><input type="text" id="nt-cc" name="ccEmails" placeholder="safety@example.com" /><small>Separate from daily digest recipients.</small></label>
+          <label class="nt-field"><span>Maximum pilot emails per day</span><input type="number" id="nt-maxsends" name="maxSendsPerDay" min="1" max="2000" value="450" /><small>Daily digest delivery reserves one send from this limit when enabled.</small></label>
         </div>
         <div class="nt-recipients" aria-live="polite">
-          <strong>Mails will go to:</strong> <span id="nt-recipients-list">—</span>
+          <strong>Failure alerts go to:</strong> <span id="nt-recipients-list">—</span>
         </div>
         <div class="nt-form-actions">
           <button type="submit" class="vs-button vs-button--primary vs-button--md" id="nt-save">

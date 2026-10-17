@@ -24,6 +24,7 @@ function buildTransport(smtp) {
 }
 
 function formatExpiryDate(value) {
+  if (!value) return 'Not recorded';
   const raw = typeof value?.toDate === 'function' ? value.toDate() : value;
   const parsed = raw instanceof Date ? raw : new Date(raw);
   if (!parsed || Number.isNaN(parsed.getTime())) return '—';
@@ -31,6 +32,7 @@ function formatExpiryDate(value) {
 }
 
 function docLine(item) {
+  if (item.days === null || item.days === undefined) return `${item.documentName} has no expiry date recorded`;
   if (item.tier === 'expired') {
     return `${item.documentName} expired on ${formatExpiryDate(item.expiryDate)}`;
   }
@@ -38,37 +40,41 @@ function docLine(item) {
   return `${item.documentName} expires ${days} (${formatExpiryDate(item.expiryDate)})`;
 }
 
-function pilotText({ pilotName, companyName, items }) {
+function pilotText({ pilotName, companyName, items, isFullReport = false }) {
   const lines = items.map((item) => `• ${docLine(item)}`).join('\n');
   return [
     `Dear ${pilotName},`,
     '',
-    `This is an automatic licence/document expiry reminder from ${companyName} (VyomSena).`,
+    isFullReport
+      ? `This is your complete document report from ${companyName} (VyomSena).`
+      : `This is an automatic licence/document expiry reminder from ${companyName} (VyomSena).`,
     '',
     lines,
     '',
-    'Please renew the above before expiry and share the updated document with your operations team.',
+    isFullReport ? 'Please review your records and share updated documents with your operations team.' : 'Please renew the above before expiry and share the updated document with your operations team.',
     '',
     '— Operations, ' + companyName
   ].join('\n');
 }
 
-function pilotHtml({ pilotName, companyName, items }) {
+function pilotHtml({ pilotName, companyName, items, isFullReport = false }) {
   const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   const expiredCount = items.filter((item) => item.tier === 'expired').length;
-  const expiringCount = items.length - expiredCount;
+  const expiringCount = items.filter((item) => item.days !== null && item.days >= 0).length;
 
-  const sorted = items.slice().sort((left, right) => left.expiryMs - right.expiryMs);
+  const sorted = items.slice().sort((left, right) => (left.expiryMs ?? Number.MAX_SAFE_INTEGER) - (right.expiryMs ?? Number.MAX_SAFE_INTEGER));
   const rows = sorted
     .map((item) => {
       const expired = item.tier === 'expired';
-      const tierNote = expired ? 'expired notice' : `${item.tier}-day tier`;
+      const noExpiry = item.days === null || item.days === undefined;
+      const valid = isFullReport && item.days > 60;
+      const tierNote = isFullReport ? 'full document report' : expired ? 'expired notice' : `${item.tier}-day tier`;
       return `<tr>`
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;">${escapeHtml(item.documentName)}<br />`
         + `<span style="font-size:12px;color:#64748b;">${escapeHtml(tierNote)}${item.licenseOrCertificateNumber ? ` · ${escapeHtml(item.licenseOrCertificateNumber)}` : ''}</span></td>`
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;white-space:nowrap;">${escapeHtml(formatExpiryDate(item.expiryDate))}<br />`
         + `<span style="font-size:12px;color:#64748b;">${escapeHtml(digestRelLabel(item))}</span></td>`
-        + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(expired ? 'Expired' : 'Expiring', expired ? 'critical' : 'watch')}</td>`
+        + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(expired ? 'Expired' : noExpiry ? 'No expiry date' : valid ? 'Valid' : 'Expiring', expired ? 'critical' : noExpiry ? 'neutral' : valid ? 'good' : 'watch')}</td>`
         + `</tr>`;
     })
     .join('');
@@ -80,13 +86,13 @@ function pilotHtml({ pilotName, companyName, items }) {
   return `<div style="font-family:Arial,Helvetica,sans-serif;background:#eef4fb;padding:24px;color:#1f2937;">`
     + `<div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">`
     + `<div style="background:#1d4ed8;color:#ffffff;padding:18px 24px;">`
-    + `<div style="font-size:18px;font-weight:700;">VyomSena — Document Expiry Reminder</div>`
+    + `<div style="font-size:18px;font-weight:700;">VyomSena — ${isFullReport ? 'Complete Document Report' : 'Document Expiry Reminder'}</div>`
     + `<div style="font-size:13px;opacity:0.85;">${escapeHtml(companyName)} · ${escapeHtml(today)}</div>`
     + `</div>`
     + `<div style="padding:20px 24px;">`
-    + `<p style="margin:0 0 16px;">Dear ${escapeHtml(pilotName)}, this is an automatic reminder that the following need your attention.</p>`
+    + `<p style="margin:0 0 16px;">Dear ${escapeHtml(pilotName)}, ${isFullReport ? 'here is your complete document report.' : 'this is an automatic reminder that the following need your attention.'}</p>`
     + `<table role="presentation" cellpadding="0" cellspacing="8" width="100%" style="border-collapse:separate;margin:0 0 20px;"><tr>`
-    + kpiCell(String(expiringCount), 'Docs expiring')
+    + kpiCell(String(expiringCount), isFullReport ? 'Valid / in date' : 'Docs expiring')
     + kpiCell(String(expiredCount), 'Docs expired')
     + `</tr></table>`
     + `<h3 style="margin:0 0 8px;font-size:15px;">Your document watchlist</h3>`
@@ -98,7 +104,7 @@ function pilotHtml({ pilotName, companyName, items }) {
     + `</tr>`
     + rows
     + `</table>`
-    + `<p style="margin:0 0 8px;">Please renew the above before expiry and share the updated document with your operations team.</p>`
+    + `<p style="margin:0 0 8px;">${isFullReport ? 'Please review your records and share updated documents with your operations team.' : 'Please renew the above before expiry and share the updated document with your operations team.'}</p>`
     + `<p style="font-size:12px;color:#64748b;margin:0;">— Operations, ${escapeHtml(companyName)}</p>`
     + `</div>`
     + `</div>`
@@ -110,23 +116,25 @@ function opsText({ companyName, groups }) {
     .map((group) => `${group.pilotName} <${group.pilotEmail || 'no email'}>:\n${group.items.map((item) => `  • ${docLine(item)}`).join('\n')}`)
     .join('\n\n');
   return [
-    `VyomSena daily expiry digest for ${companyName}.`,
+    `VyomSena daily 60-day expiry digest for ${companyName}.`,
     '',
-    lines || 'No documents in a reminder window today.',
+    lines || 'No documents expire in the next 60 days.',
     '',
-    'Reminder rules: pilots are mailed per tier — daily when urgent (7 days or less), weekly otherwise; expired documents repeat weekly.'
+    'This digest lists documents expiring in the next 60 days. Expired documents are included only when the administrator enables them.'
   ].join('\n');
 }
 
-async function sendPilotReminder(transport, { from, to, companyName, pilotName, items }) {
-  const subject = `Action needed: ${items.length} document(s) expiring — ${pilotName} (${companyName})`;
-  const text = pilotText({ pilotName, companyName, items });
-  const html = pilotHtml({ pilotName, companyName, items });
+async function sendPilotReminder(transport, { from, to, companyName, pilotName, items, isFullReport = false }) {
+  const subject = isFullReport
+    ? `Your complete document report — ${pilotName} (${companyName})`
+    : `Action needed: ${items.length} document(s) expiring — ${pilotName} (${companyName})`;
+  const text = pilotText({ pilotName, companyName, items, isFullReport });
+  const html = pilotHtml({ pilotName, companyName, items, isFullReport });
   return transport.sendMail({ from, to, subject, text, html });
 }
 
 async function sendOpsDigest(transport, { from, to, companyName, groups }) {
-  const subject = `VyomSena expiry digest: ${groups.length} pilot(s) with documents in window — ${companyName}`;
+  const subject = `VyomSena 60-day expiry digest: ${groups.length} pilot(s) — ${companyName}`;
   const text = opsText({ companyName, groups });
   const html = opsDigestHtml({ companyName, groups });
   return transport.sendMail({ from, to, subject, text, html });
@@ -148,6 +156,7 @@ function pillHtml(content, tone) {
 }
 
 function digestRelLabel(item) {
+  if (item.days === null || item.days === undefined) return 'no expiry date recorded';
   if (item.tier === 'expired') return `${Math.abs(item.days)}d ago`;
   if (item.days === 0) return 'today';
   return `in ${item.days}d`;
@@ -173,21 +182,19 @@ function opsDigestHtml({ companyName, groups }) {
   const totalExpiring = riskRows.reduce((sum, row) => sum + row.expiring, 0);
   const totalExpired = riskRows.reduce((sum, row) => sum + row.expired, 0);
 
-  const riskBody = riskRows
+  const riskBody = riskRows.length ? riskRows
     .map((row) => {
       const tone = row.expired > 0 ? 'critical' : 'watch';
       const earliestDate = new Date(row.earliest).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-      const mailed = row.group.mailedToday === true;
       return `<tr>`
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;">${escapeHtml(row.group.pilotName)}<br />`
         + `<span style="font-size:12px;color:#64748b;">${escapeHtml(row.group.pilotEmail || '')}</span></td>`
-        + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(mailed ? 'Mailed' : '—', mailed ? 'good' : 'neutral')}</td>`
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(String(row.expired), row.expired > 0 ? 'critical' : 'good')}</td>`
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(String(row.expiring), row.expiring > 0 ? 'watch' : 'good')}</td>`
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(escapeHtml(earliestDate), tone)}</td>`
         + `</tr>`;
     })
-    .join('');
+    .join('') : '<tr><td colspan="4" style="padding:14px;color:#64748b;">No documents are in the 60-day expiry window.</td></tr>';
 
   // Document watchlist rows, earliest expiry first (same as the dashboard).
   const watchRows = groups
@@ -204,7 +211,7 @@ function opsDigestHtml({ companyName, groups }) {
         + `<td style="padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:center;">${pillHtml(expired ? 'Expired' : 'Expiring', expired ? 'critical' : 'watch')}</td>`
         + `</tr>`;
     })
-    .join('');
+    .join('') || '<tr><td colspan="4" style="padding:14px;color:#64748b;">No documents are in the 60-day expiry window.</td></tr>';
 
   const tableHead = (cells) => `<tr>${cells
     .map((cell) => `<th style="text-align:${cell.align || 'left'};padding:8px 10px;font-size:11px;`
@@ -223,7 +230,7 @@ function opsDigestHtml({ companyName, groups }) {
     + `<div style="font-size:13px;opacity:0.85;">${escapeHtml(companyName)} · ${escapeHtml(today)}</div>`
     + `</div>`
     + `<div style="padding:20px 24px;">`
-    + `<p style="margin:0 0 16px;">Full daily watchlist of documents nearing expiry across your crew. Pilots marked mailed were also mailed individually today.</p>`
+    + `<p style="margin:0 0 16px;">Daily watchlist of documents expiring in the next 60 days across your crew.</p>`
     + `<table role="presentation" cellpadding="0" cellspacing="8" width="100%" style="border-collapse:separate;margin:0 0 20px;"><tr>`
     + kpiCell(String(groups.length), 'Pilots in window')
     + kpiCell(String(totalExpiring), 'Docs expiring')
@@ -231,7 +238,7 @@ function opsDigestHtml({ companyName, groups }) {
     + `</tr></table>`
     + `<h3 style="margin:0 0 8px;font-size:15px;">Crew risk matrix</h3>`
     + `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;margin:0 0 20px;">`
-    + tableHead([{ label: 'Pilot' }, { label: 'Mailed', align: 'center' }, { label: 'Expired', align: 'center' }, { label: 'Expiring', align: 'center' }, { label: 'Earliest', align: 'center' }])
+    + tableHead([{ label: 'Pilot' }, { label: 'Expired', align: 'center' }, { label: 'Expiring', align: 'center' }, { label: 'Earliest', align: 'center' }])
     + riskBody
     + `</table>`
     + `<h3 style="margin:0 0 8px;font-size:15px;">Document watchlist</h3>`
@@ -239,7 +246,7 @@ function opsDigestHtml({ companyName, groups }) {
     + tableHead([{ label: 'Pilot' }, { label: 'Document' }, { label: 'Expiry' }, { label: 'Status', align: 'center' }])
     + watchRows
     + `</table>`
-    + `<p style="font-size:12px;color:#64748b;margin:0;">Reminder rules: pilots are mailed per tier — daily when urgent (7 days or less), weekly otherwise; expired documents repeat weekly. Manage this in the web app → Notification Centre.</p>`
+    + `<p style="font-size:12px;color:#64748b;margin:0;">Pilot reminders follow the administrator’s selected tiers. Urgent and expired documents repeat daily when enabled. Manage this in the web app → Notification Centre.</p>`
     + `</div>`
     + `</div>`
     + `</div>`;
@@ -275,7 +282,7 @@ function testText({ companyName }) {
     '• Sample row: Pilot Licence (Aeroplane) expired on 01 Oct 2026 [expired notice]',
     '',
     'If you received this, the mail pipeline (Cloud Function → SMTP → inbox) works.',
-    'Real reminders bundle one pilot\'s pending tiers into a single mail — daily when urgent, weekly otherwise.',
+    'Pilot reminders use the administrator-selected tiers; urgent and expired reminders can repeat daily until renewal.',
     '',
     '— VyomSena'
   ].join('\n');
