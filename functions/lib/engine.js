@@ -299,19 +299,6 @@ async function collectFullPilotDocumentGroups(db, companyId, now = new Date()) {
   return resolvePilotGroups(db, grouped);
 }
 
-async function previewFullPilotDocumentReport({ db, companyId, now = new Date() }) {
-  const groups = await collectFullPilotDocumentGroups(db, companyId, now);
-  return {
-    totalPilots: groups.length,
-    totalDocs: groups.reduce((sum, group) => sum + group.items.length, 0),
-    groups: groups.map((group) => ({
-      pilotName: group.pilotName,
-      pilotEmail: group.pilotEmail,
-      items: group.items.map(previewItem)
-    }))
-  };
-}
-
 async function sendFullPilotDocumentReport({ db, transport, from, companyId, actorUid, now = new Date() }) {
   const groups = await collectFullPilotDocumentGroups(db, companyId, now);
   const settings = await loadSettings(db, companyId);
@@ -556,7 +543,6 @@ async function runExpiryReminders({ db, transport, from, now = new Date(), scope
 module.exports = {
   runExpiryReminders,
   previewCompanyReminders,
-  previewFullPilotDocumentReport,
   sendFullPilotDocumentReport,
   loadSettings,
   DEFAULT_SETTINGS

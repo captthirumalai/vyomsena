@@ -18,7 +18,6 @@ const { buildTransport, sendTestMail } = require('./lib/email');
 const {
   runExpiryReminders,
   previewCompanyReminders,
-  previewFullPilotDocumentReport,
   sendFullPilotDocumentReport
 } = require('./lib/engine');
 const companyUsers = require('./lib/companyUsers');
@@ -104,11 +103,6 @@ exports.sendExpiryRemindersNow = onCall({ secrets: ALL_SECRETS }, async (request
 exports.previewReminders = onCall(async (request) => {
   const caller = await assertCallerAllowed(request.auth?.uid);
   return previewCompanyReminders({ db, companyId: caller.companyId, now: new Date() });
-});
-
-exports.previewPilotDocumentReport = onCall(async (request) => {
-  const caller = await assertCallerAllowed(request.auth?.uid);
-  return previewFullPilotDocumentReport({ db, companyId: caller.companyId, now: new Date() });
 });
 
 exports.sendPilotDocumentReport = onCall({ secrets: ALL_SECRETS }, async (request) => {

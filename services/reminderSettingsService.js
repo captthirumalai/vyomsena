@@ -94,16 +94,6 @@ export async function saveReminderSettings(companyId, payload, updatedBy = null)
   return normalized;
 }
 
-export async function getLatestReminderRun(companyId) {
-  if (!companyId) return null;
-  const snapshot = await getDocs(
-    query(companyModuleCollection(companyId, RUNS_MODULE), orderBy('at', 'desc'), limit(1))
-  );
-  if (snapshot.empty) return null;
-  const latest = snapshot.docs[0];
-  return { id: latest.id, ...latest.data() };
-}
-
 export async function listReminderRuns(companyId, count = 10) {
   if (!companyId) return [];
   const snapshot = await getDocs(
@@ -174,13 +164,6 @@ export async function runRemindersNow({ forceResend = false } = {}) {
 export async function previewReminders() {
   const { getFunctions, httpsCallable } = await functionsModule();
   const call = httpsCallable(getFunctions(), 'previewReminders');
-  const result = await call({});
-  return result?.data || null;
-}
-
-export async function previewPilotDocumentReport() {
-  const { getFunctions, httpsCallable } = await functionsModule();
-  const call = httpsCallable(getFunctions(), 'previewPilotDocumentReport');
   const result = await call({});
   return result?.data || null;
 }
