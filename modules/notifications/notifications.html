@@ -1,4 +1,40 @@
 <section class="nt-shell">
+  <section class="nt-dashboard" aria-label="Compliance notification dashboard">
+    <header class="nt-dashboard-head">
+      <div><span class="nt-eyebrow">OPERATIONS / COMPLIANCE</span><h2>Notification Centre</h2><p>Manage licence expiry reminders, flight operations updates and important information.</p></div>
+      <label class="nt-global-search"><span aria-hidden="true">⌕</span><input id="nt-global-search" type="search" placeholder="Search notifications…" aria-label="Search notifications" /></label>
+    </header>
+    <div class="nt-metrics" aria-label="Document and pilot summary">
+      <button class="nt-metric nt-metric-red" type="button" data-metric-filter="urgent"><span class="nt-metric-icon">!</span><span><strong id="nt-metric-urgent">—</strong><small>Expiring ≤ 30 days</small></span><span class="nt-metric-arrow">›</span></button>
+      <button class="nt-metric nt-metric-amber" type="button" data-metric-filter="upcoming"><span class="nt-metric-icon">◷</span><span><strong id="nt-metric-upcoming">—</strong><small>Expiring 31–90 days</small></span><span class="nt-metric-arrow">›</span></button>
+      <button class="nt-metric nt-metric-green" type="button" data-metric-filter="valid"><span class="nt-metric-icon">✓</span><span><strong id="nt-metric-valid">—</strong><small>Valid documents</small></span><span class="nt-metric-arrow">›</span></button>
+      <button class="nt-metric nt-metric-blue" type="button" data-metric-filter="scheduled"><span class="nt-metric-icon">✉</span><span><strong id="nt-metric-scheduled">—</strong><small>In reminder window</small></span><span class="nt-metric-arrow">›</span></button>
+      <button class="nt-metric nt-metric-purple" type="button" data-metric-filter="pilots"><span class="nt-metric-icon">♙</span><span><strong id="nt-metric-pilots">—</strong><small>Active pilots</small></span><span class="nt-metric-arrow">›</span></button>
+    </div>
+    <div class="nt-workspace">
+      <section class="nt-feed-card">
+        <nav class="nt-tabs" aria-label="Notification categories">
+          <button class="active" type="button" data-nt-tab="all">All Documents <span id="nt-count-all">0</span></button>
+          <button type="button" data-nt-tab="license">Licences <span id="nt-count-license">0</span></button>
+          <button type="button" data-nt-tab="medical">Medical <span id="nt-count-medical">0</span></button>
+          <button type="button" data-nt-tab="training">Training <span id="nt-count-training">0</span></button>
+          <button type="button" data-nt-tab="other">Other <span id="nt-count-other">0</span></button>
+        </nav>
+        <div class="nt-filters">
+          <label><span class="nt-sr-only">Search pilot or document</span><input id="nt-table-search" type="search" placeholder="Search pilot, document, number…" /></label>
+          <select id="nt-filter-type" aria-label="Document type"><option value="all">All document types</option><option value="license">Licences & ratings</option><option value="medical">Medical</option><option value="training">Training</option><option value="other">Other</option></select>
+          <select id="nt-filter-status" aria-label="Expiry status"><option value="all">All expiry statuses</option><option value="expired">Expired</option><option value="urgent">≤ 30 days</option><option value="upcoming">31–90 days</option><option value="valid">Valid</option></select>
+          <select id="nt-filter-date" aria-label="Expiry date range"><option value="all">Any expiry date</option><option value="30">Next 30 days</option><option value="90">Next 90 days</option></select>
+        </div>
+        <div class="nt-notice" id="nt-data-status" role="status">Loading operator documents…</div>
+        <div class="nt-table-scroll nt-dashboard-table"><table><thead><tr><th>Expiry</th><th>Type</th><th>Document</th><th>Pilot</th><th>Reminder status</th><th></th></tr></thead><tbody id="nt-documents-body"><tr><td colspan="6" class="nt-empty">Loading documents…</td></tr></tbody></table></div>
+        <div id="nt-mobile-documents" class="nt-mobile-documents"></div>
+      </section>
+      <aside id="nt-detail-panel" class="nt-detail-card" aria-live="polite"><div class="nt-detail-placeholder"><span>✉</span><h3>Select a document</h3><p>Choose an expiry record to review its compliance and reminder details.</p></div></aside>
+    </div>
+  </section>
+  <details class="nt-admin" id="nt-admin-tools"><summary><span><strong>Reminder administration</strong><small>Automated schedule, mail settings, preview and delivery history</small></span><span class="nt-admin-chevron">⌄</span></summary>
+  <div class="nt-admin-content">
   <div class="nt-grid">
     <section class="vs-card">
       <h3 class="vs-card__title">Everyday Reminder Mail</h3>
@@ -168,4 +204,6 @@
       </table>
     </div>
   </section>
+  </div>
+  </details>
 </section>
