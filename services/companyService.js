@@ -18,8 +18,6 @@ import { resolveAdminCompanyId } from './organizationService.js';
 const ADMIN_USERS = 'admin_users';
 const COMPANIES = 'companies';
 const COMPANY_ACCOUNTS = 'company_accounts';
-const COMPANY_INVITES = 'company_invites';
-const INVITE_TTL_MS = 5 * 60 * 1000;
 
 const ROLE_ADMIN = 'ADMIN';
 const ROLE_OWNER = 'OWNER';
@@ -68,32 +66,6 @@ function normalizeAccount(snapshotDoc) {
     lastModified: raw.lastModified || null,
     ...raw
   };
-}
-
-function normalizeInvite(snapshotDoc) {
-  const raw = snapshotDoc.data();
-  return {
-    code: snapshotDoc.id,
-    companyId: raw.companyId || null,
-    accountId: raw.accountId || null,
-    email: raw.email || null,
-    role: raw.role || 'MEMBER',
-    createdAt: raw.createdAt || null,
-    expiresAt: raw.expiresAt || null,
-    usedBy: raw.usedBy ?? null,
-    usedAt: raw.usedAt ?? null,
-    ...raw
-  };
-}
-
-function generateCode() {
-  return `${Math.floor(100000 + Math.random() * 900000)}`;
-}
-
-function toDateValue(value) {
-  const raw = value?.toDate ? value.toDate() : value;
-  const parsed = raw ? new Date(raw) : null;
-  return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
 }
 
 export async function ensureAdminUser({ uid, email = null, displayName = null, companyId = null, role = ROLE_ADMIN }) {
@@ -263,82 +235,6 @@ export async function updateCompanyAccount(accountId, updates) {
     ...updates,
     lastModified: serverTimestamp()
   });
-}
-
-export async function generateCompanyInvite({ companyId, accountId, email = null, role = 'MEMBER', ttlMs = INVITE_TTL_MS }) {
-  if (!companyId || !accountId) {
-    throw new Error('companyId and accountId are required to generate an invite.');
-  }
-
-  const account = await getCompanyAccount(accountId);
-  if (account && account.companyId !== companyId) {
-    throw new Error('The selected account does not belong to this company.');
-  }
-
-  const code = generateCode();
-  const expiresAt = new Date(Date.now() + Math.max(1, ttlMs));
-  const payload = {
-    code,
-    companyId,
-    accountId,
-    email: email ? `${email}`.trim().toLowerCase() : (account?.email || null),
-    role: `${role || 'MEMBER'}`.trim().toUpperCase(),
-    createdAt: serverTimestamp(),
-    expiresAt,
-    usedBy: null,
-    usedAt: null
-  };
-
-  validateContract('company_invites', payload, 'generateCompanyInvite', 'write');
-  await setDoc(doc(COMPANY_INVITES, code), payload);
-
-  return {
-    code,
-    ...payload
-  };
-}
-
-export async function getCompanyInviteByCode(code) {
-  const normalized = `${code || ''}`.trim();
-  if (!normalized) return null;
-  const snapshot = await getDoc(doc(COMPANY_INVITES, normalized));
-  return snapshot.exists() ? normalizeInvite(snapshot) : null;
-}
-
-export async function listCompanyInvites(companyId) {
-  if (!companyId) return [];
-  const invitesRef = collection(COMPANY_INVITES);
-  const invitesQuery = query(invitesRef, where('companyId', '==', companyId));
-  const snapshot = await getDocs(invitesQuery);
-  return snapshot.docs
-    .map((item) => normalizeInvite(item))
-    .sort((left, right) => {
-      const leftTs = toDateValue(left.createdAt)?.getTime() || 0;
-      const rightTs = toDateValue(right.createdAt)?.getTime() || 0;
-      return rightTs - leftTs;
-    });
-}
-
-export async function markCompanyInviteUsed({ code, uid }) {
-  const invite = await getCompanyInviteByCode(code);
-  if (!invite) {
-    throw new Error('Invite code was not found.');
-  }
-
-  const expiresAt = toDateValue(invite.expiresAt);
-  if (!expiresAt || expiresAt.getTime() <= Date.now()) {
-    throw new Error('Invite code has expired. Ask the operator for a new one.');
-  }
-
-  if (invite.usedBy) {
-    throw new Error('Invite code was already used.');
-  }
-
-  await updateDoc(doc(COMPANY_INVITES, code), {
-    usedBy: uid,
-    usedAt: serverTimestamp()
-  });
-  return { ...invite, usedBy: uid, usedAt: new Date() };
 }
 
 export function companyModuleCollection(companyId, module) {

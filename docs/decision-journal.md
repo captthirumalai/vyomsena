@@ -330,6 +330,8 @@ expiry. The app is a static SPA — no backend, no secrets, no scheduler.
  - **V0.3.41** — notification resilience + import X-ray: the gstatic functions SDK is lazy-loaded only when a callable runs, so settings/history survive even if that CDN file fails; module import failures now fetch the URL as text and display byte-size plus head/tail on the failure card, distinguishing delivery corruption from parse errors remotely.
  - **V0.3.42** — diagnostic rename: notifications module file becomes `centre.js` (manifest updated, zero behavior change). The failing URL served byte-perfect content to text probes yet failed `import()` in two browsers, pointing at a URL-keyed poisoned cache entry; a fresh path forces a fresh entry and settles it.
 
+- **V0.3.50 (2026-10-27)** — centralized Linking & Access: Company Home pilot, operations, and technical accounts are administered from one left-pane module; old Crew invite and Settings account surfaces are removed; Add Pilot provenance is enforced by server-side account issuance and login; Flight Ops and Maintenance provide role-prefilled shortcuts; custom-token module grants are enforced by Firestore rules; Firestore rules are now wired into Firebase CLI deployment. Device enrollment remains planned. Android implementation remains in its separate project and follows `docs/company-home-auth.md`.
+
 ---
 
 ## How to add a future entry

@@ -1,0 +1,70 @@
+<section class="ln-shell">
+  <section class="ln-intro vs-card">
+    <div>
+      <p class="ln-eyebrow">CENTRAL ACCESS CONTROL</p>
+      <h2>People and devices linked to this operator</h2>
+      <p class="muted">Issue a Company User ID and initial passcode here. Passcodes are shown once and stored only as a secure hash.</p>
+    </div>
+    <span class="ln-count" id="ln-user-count">Loading accounts…</span>
+  </section>
+
+  <section class="ln-grid">
+    <article class="vs-card ln-create-card">
+      <div class="ln-card-heading">
+        <div><h3>Create access</h3><p class="muted">Choose the person type, then grant only the modules they need.</p></div>
+      </div>
+      <form id="ln-user-form" novalidate>
+        <div class="ln-form-row">
+          <label class="ln-field"><span>Access type</span>
+            <select id="ln-role" required>
+              <option value="PILOT">Pilot from Crew Management</option>
+              <option value="OPERATIONS">Operations user</option>
+              <option value="AME">Technical user</option>
+            </select>
+          </label>
+          <label class="ln-field"><span>Name</span><input id="ln-name" type="text" autocomplete="name" required placeholder="Full name" /></label>
+          <label class="ln-field" id="ln-pilot-field"><span>Existing Add Pilot record</span><select id="ln-pilot" required><option value="">Select a Crew Management pilot…</option></select></label>
+        </div>
+        <p class="ln-note" id="ln-pilot-note">Pilot access can only be issued for a profile created with Crew Management → Add Pilot.</p>
+        <div class="ln-permissions">
+          <div class="ln-section-heading"><h4>Module permissions</h4><span>View and edit rights</span></div>
+          <div class="ln-table-wrap"><table><thead><tr><th>Module</th><th>View</th><th>Edit</th></tr></thead><tbody id="ln-permissions-body"></tbody></table></div>
+        </div>
+        <div class="ln-actions">
+          <button class="vs-button vs-button--primary vs-button--md" id="ln-create-submit" type="submit">Create access and generate credentials</button>
+          <span class="ln-status" id="ln-form-status" aria-live="polite"></span>
+        </div>
+      </form>
+      <div class="ln-credentials hidden" id="ln-credentials" aria-live="polite">
+        <div><p class="ln-eyebrow">SHARE THESE ONCE</p><h4>Credentials created</h4><p class="muted">The passcode cannot be recovered later. Use Reset Passcode to issue a new one.</p></div>
+        <div class="ln-credential-row"><span>User ID</span><strong id="ln-created-id">—</strong><button type="button" class="vs-button vs-button--secondary vs-button--sm" data-copy="id">Copy ID</button></div>
+        <div class="ln-credential-row"><span>Initial passcode</span><strong id="ln-created-passcode">—</strong><button type="button" class="vs-button vs-button--secondary vs-button--sm" data-copy="passcode">Copy passcode</button></div>
+        <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="ln-credentials-done">Done</button>
+      </div>
+    </article>
+
+    <article class="vs-card ln-devices-card">
+      <div class="ln-card-heading"><div><h3>Devices</h3><p class="muted">Future EFB tablets and managed company devices will be linked and governed here.</p></div><span class="ln-badge">PLANNED</span></div>
+      <div class="ln-device-empty"><span class="ln-device-icon">▣</span><strong>Device linking is not enabled yet</strong><p>Device identity, assignment, revocation, and device-specific module permissions need a separate secure device enrollment flow.</p></div>
+    </article>
+  </section>
+
+  <section class="vs-card ln-roster-card">
+    <div class="ln-roster-heading"><div><h3>Linked people</h3><p class="muted">Pilot credentials only appear for Add Pilot records. Suspend access or reset a passcode from here.</p></div><label class="ln-search"><span class="hidden">Search linked people</span><input id="ln-search" type="search" placeholder="Search name, ID, role…" /></label></div>
+    <p class="ln-status" id="ln-list-status" aria-live="polite"></p>
+    <div class="ln-table-wrap"><table class="ln-roster"><thead><tr><th>User</th><th>Type</th><th>Linked pilot</th><th>Modules</th><th>Status</th><th>Actions</th></tr></thead><tbody id="ln-users-body"><tr><td colspan="6" class="ln-empty">Loading…</td></tr></tbody></table></div>
+  </section>
+  <dialog class="ln-edit-dialog" id="ln-edit-dialog">
+    <form id="ln-edit-form">
+      <div class="ln-card-heading"><div><p class="ln-eyebrow">ACCESS CONTROL</p><h3>Edit account access</h3></div><button type="button" class="vs-button vs-button--secondary vs-button--sm" id="ln-edit-close">Close</button></div>
+      <input id="ln-edit-id" type="hidden" />
+      <div class="ln-form-row">
+        <label class="ln-field"><span>Name</span><input id="ln-edit-name" required /></label>
+        <label class="ln-field"><span>Access type</span><select id="ln-edit-role"><option value="PILOT">Pilot</option><option value="OPERATIONS">Operations user</option><option value="AME">Technical user</option></select></label>
+        <label class="ln-field" id="ln-edit-pilot-field"><span>Add Pilot record</span><select id="ln-edit-pilot"></select></label>
+      </div>
+      <div class="ln-table-wrap"><table><thead><tr><th>Module</th><th>View</th><th>Edit</th></tr></thead><tbody id="ln-edit-permissions"></tbody></table></div>
+      <div class="ln-actions"><button type="submit" class="vs-button vs-button--primary vs-button--md">Save access</button><span class="ln-status" id="ln-edit-status" aria-live="polite"></span></div>
+    </form>
+  </dialog>
+</section>

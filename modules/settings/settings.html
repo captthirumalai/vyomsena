@@ -1,191 +1,23 @@
-﻿<section class="st-shell">
+<section class="st-shell">
   <div class="st-grid">
     <section class="vs-card">
       <h3 class="vs-card__title">Company Workspace</h3>
-      <p class="vs-card__body">Company identity used by the web app and synced to Android.</p>
-      <dl class="st-dl" id="st-company-info">
+      <p class="vs-card__body">Company identity used by the operator workspace.</p>
+      <dl class="st-dl">
         <div class="st-dl-row"><dt>Name</dt><dd id="st-company-name">—</dd></div>
         <div class="st-dl-row"><dt>Base</dt><dd id="st-company-base">—</dd></div>
         <div class="st-dl-row"><dt>Company code</dt><dd id="st-company-code">—</dd></div>
         <div class="st-dl-row"><dt>Owner email</dt><dd id="st-company-owner">—</dd></div>
       </dl>
     </section>
-
-    <section class="vs-card">
-      <h3 class="vs-card__title">Invite User</h3>
-      <p class="vs-card__body">Add a company account and generate a 5-minute invite code to share on screen, SMS, or WhatsApp.</p>
-      <form id="st-invite-form" novalidate>
-        <div class="st-form-row">
-          <label class="st-field">
-            <span>Display name</span>
-            <input type="text" id="st-invite-name" name="displayName" placeholder="e.g. Capt. Rohan Mehta" required />
-          </label>
-          <label class="st-field">
-            <span>Email</span>
-            <input type="email" id="st-invite-email" name="email" placeholder="crew@operator.com" required />
-          </label>
-          <label class="st-field">
-            <span>Role</span>
-            <select id="st-invite-role" name="role">
-              <option value="PILOT">Pilot</option>
-              <option value="OPERATIONS">Operations</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </label>
-        </div>
-        <div class="st-form-actions">
-          <button type="submit" class="vs-button vs-button--primary vs-button--md" id="st-invite-submit">
-            <span class="st-btn-spinner hidden" aria-hidden="true"></span>
-            <span>Invite user</span>
-          </button>
-          <span class="st-status" id="st-invite-status" aria-live="polite"></span>
-        </div>
-      </form>
-
-      <div class="st-invite-result hidden" id="st-invite-result" aria-live="polite">
-        <p>Share this invite code. It expires in 5 minutes and can be used once.</p>
-        <div class="st-code-box">
-          <strong id="st-invite-code">—</strong>
-          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-invite-copy">Copy</button>
-        </div>
-        <div class="st-share-row">
-          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-share-whatsapp">WhatsApp</button>
-          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-share-sms">SMS</button>
-          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-share-email">Email</button>
-          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-share-close">Close</button>
-        </div>
-      </div>
-    </section>
-
     <section class="vs-card">
       <h3 class="vs-card__title">Licence Expiry Reminders</h3>
-      <p class="vs-card__body">Automatic daily email (06:00 IST) to pilots whose licences or documents are nearing expiry. Fully managed in the Notification Centre.</p>
+      <p class="vs-card__body">Automatic daily email reminders are managed in the Notification Centre.</p>
       <dl class="st-dl">
         <div class="st-dl-row"><dt>Last run</dt><dd id="st-reminder-last-run">—</dd></div>
         <div class="st-dl-row"><dt>Last run result</dt><dd id="st-reminder-last-result">—</dd></div>
       </dl>
-      <div class="st-form-actions">
-        <a href="#/notifications" class="vs-button vs-button--primary vs-button--md">Open Notification Centre</a>
-      </div>
+      <div class="st-form-actions"><a href="#/notifications" class="vs-button vs-button--primary vs-button--md">Open Notification Centre</a></div>
     </section>
   </div>
-
-  <section class="vs-card">
-    <h3 class="vs-card__title">Company Accounts</h3>
-    <p class="vs-card__body">Accounts that belong to this company workspace.</p>
-    <div class="st-table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Display name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="st-accounts-body"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="vs-card" id="st-users-card" hidden>
-    <h3 class="vs-card__title">Users &amp; Access — Company Users</h3>
-    <p class="vs-card__body">Company User accounts for Company Home (Android). IDs look like CMU-XXXXXX — never an email or Firebase UID. Creating a user never creates a Pilot record; optionally link an existing one.</p>
-    <div class="st-form-actions st-users-toolbar">
-      <button type="button" class="vs-button vs-button--primary vs-button--md" id="st-user-create-toggle">+ Create User</button>
-      <label class="st-field st-users-search">
-        <span class="hidden">Search company users</span>
-        <input type="search" id="st-user-search" placeholder="Search name, ID, role…" aria-label="Search company users" />
-      </label>
-      <span class="st-status" id="st-users-status" aria-live="polite"></span>
-    </div>
-
-    <form id="st-user-form" class="hidden" novalidate>
-      <div class="st-form-row">
-        <label class="st-field">
-          <span>Display name</span>
-          <input type="text" id="st-user-name" placeholder="e.g. John Smith" required />
-        </label>
-        <label class="st-field">
-          <span>Role</span>
-          <select id="st-user-role">
-            <option value="OPERATIONS">Operations</option>
-            <option value="ADMIN">Admin</option>
-            <option value="PILOT">Pilot</option>
-            <option value="AME">AME (Maintenance)</option>
-            <option value="MEMBER">Member</option>
-          </select>
-        </label>
-        <label class="st-field">
-          <span>Link existing Pilot (optional)</span>
-          <select id="st-user-pilot">
-            <option value="">— No link —</option>
-          </select>
-        </label>
-      </div>
-      <div class="st-perm-block">
-        <span class="st-perm-title">Permissions</span>
-        <div class="st-table-scroll">
-          <table class="st-perm-matrix">
-            <thead>
-              <tr><th>Module</th><th>View</th><th>Edit</th></tr>
-            </thead>
-            <tbody id="st-user-perms"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="st-form-actions">
-        <button type="submit" class="vs-button vs-button--primary vs-button--md" id="st-user-submit">Create User</button>
-        <button type="button" class="vs-button vs-button--secondary vs-button--md" id="st-user-form-cancel">Cancel</button>
-      </div>
-    </form>
-
-    <div class="st-invite-result hidden" id="st-user-result" aria-live="polite">
-      <p><strong>Company User created.</strong> Share these credentials once — the passcode is never shown again.</p>
-      <div class="st-code-box">
-        <span>User ID<br /><strong id="st-user-result-id">—</strong></span>
-        <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-user-copy-id">Copy ID</button>
-      </div>
-      <div class="st-code-box">
-        <span>Passcode<br /><strong id="st-user-result-pass">—</strong></span>
-        <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-user-copy-pass">Copy</button>
-      </div>
-      <div class="st-form-actions">
-        <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="st-user-result-done">Done</button>
-      </div>
-    </div>
-
-    <div class="st-table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>User</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="st-users-body"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="vs-card">
-    <h3 class="vs-card__title">Recent Invites</h3>
-    <p class="vs-card__body">Generated invite codes and their redemption state.</p>
-    <div class="st-table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Expires</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="st-invites-body"></tbody>
-      </table>
-    </div>
-  </section>
 </section>

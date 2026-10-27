@@ -19,24 +19,24 @@ This document is the blueprint that later modules (flight documents, company doc
 ## Data Ownership Map
 | Collection | Owner (creates/edits/deletes) | Android client behavior |
 | --- | --- | --- |
-| `crew_profiles` | Web (operator). Created manually, via direct assign, or via link-code flow. | Read/sync only. |
+| `crew_profiles` | Web (operator). Created in Crew Management using Add Pilot or migrated from legacy linked accounts. | Read/sync only. |
 | `users/{uid}` | Self-service registration (identity); operator writes `linkedOperator`/`crewProfileId` when assigning. | Reads own profile; preserves additive fields. |
 | `user_documents` | Web (operator) uploads and maintains crew documents; `operatorId`, `userId`, `readers[]` identify scope. | Read/sync only; downloads for offline access. |
 | `connection_requests` | Legacy request/accept flow. Web no longer creates new requests; kept for migration and history. | No new writes. |
-| `crew_link_codes` | Web (operator) generates codes. Android redeems. | Redeem only (write allowed for redemption). |
+| `crew_link_codes` | Legacy pilot-link path retained for migration only. | Not part of current Company Home access. |
 | `admin_users` | Web seeds `admin_users/{operatorUid}` once at workspace creation so the webapp can write. | Read none / ignored. |
 | `companies` | Web (operator) creates `companies/{companyId}` with `{ name, base, code, ownerEmail }`. | Read/sync for company context. |
 | `company_accounts` | Web (operator) creates `company_accounts/{accountId}` with `{ companyId, role, displayName, email }`. | Read own account. |
-| `company_invites` | Web (operator) generates 6-digit invite codes; Android redeems. | Redeem only. |
+| `company_invites` | Legacy six-digit Company Home invite path. | Not used by the current web Linking module. |
 | `companies/{companyId}/{module}` | Web (operator) writes module data (crew, aircraft, ...). | Read/sync live. |
 
 ## Core Rules
 1. The roster's single source of truth is `crew_profiles` scoped by `operatorId`.
 2. A pilot becomes rosterable when a `crew_profiles/{uid}` document exists for the operator.
 3. Direct assign: the operator enters a registered pilot email; the web app resolves the `users` account, materializes/updates the crew profile, and writes the operator link. No pilot acceptance step.
-4. Link-code assign: the operator generates a short-lived code; the pilot redeems it on Android, which materializes the crew profile. The code itself is issued by the web app.
-5. Android may redeem codes and sync, but must not create/edit/delete crew profiles, documents, or requests.
-6. Firestore/Storage rules are intentionally NOT tightened yet. This blueprint is the roadmap for when Android is read-only and rule enforcement lands.
+4. Company Home access is issued only in the Linking module. Pilot credentials bind to a real Crew Management Add Pilot profile; the Company User ID/passcode authenticates through the server callable.
+5. Android may read/sync the company modules it is granted, but must not create/edit/delete crew profiles or documents unless a future module explicitly grants an edit capability.
+6. Company Home users authenticate through the `verifyCompanyUser` callable. Module grants are included in custom-token claims. `docs/firestorerules.md` is configured in `firebase.json` and deployed to `vyomsena-888` on 2026-10-27.
 
 ## Roster Resolution (crew_profiles only)
 - `getCrew(operatorUid)` / `onCrewSnapshot(operatorUid, ...)` return **`crew_profiles` only**.
@@ -66,10 +66,12 @@ The company workspace replaces the legacy bootstrap fields on `users` with dedic
 1. **`admin_users/{uid}`** — seeded once with the operator's UID so the web app is granted write access.
 2. **`companies/{companyId}`** — `{ name, base, code, ownerEmail }`, created at workspace registration.
 3. **`company_accounts/{accountId}`** — `{ companyId, role, displayName, email }`, one per workspace member.
-4. **`company_invites/{CODE}`** — invite generator: picking an account writes `{ companyId, accountId, email, role, createdAt, expiresAt = now + 5 min, usedBy: null, usedAt: null }` and the web UI shows the code for screen/SMS/WhatsApp.
+4. **`company_users/{companyUserId}`** — the Linking module issues `CMU-…` IDs, one-time passcodes, and per-module access grants for pilots and other company staff.
 5. **`companies/{companyId}/crew`, `/aircraft`, ...** — module data written under the company so Android syncs it live.
 
-Registration (`registerWorkspace`) and operator sign-in (`bootstrapCompanyWorkspace`) create the workspace once and are idempotent. The invite generator lives in Settings > Invite User and in `services/companyService.js`.
+Company Home people and device access are centrally managed in the `/linking` module. It issues Company User IDs and passcodes, binds pilot accounts only to eligible Crew Management Add Pilot records, and stores module grants. See `docs/linking-module.md`.
+
+Registration (`registerWorkspace`) and operator sign-in (`bootstrapCompanyWorkspace`) create the workspace once and are idempotent. Company Home user issuance and module permissions live in `/linking` and `services/companyUserService.js`.
 
 ## Rules Roadmap (when Android is read-only ready)
 | Phase | Rule |

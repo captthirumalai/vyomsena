@@ -22,13 +22,15 @@ Treat Firestore schema as an API contract.
 - `training_bookings`
 - `operator_training_records` (web-only, operator managed)
 - `crew_profiles` (web-only, operator managed)
-- `crew_link_codes` (web-only, short-lived link tokens)
+- `crew_link_codes` (legacy pilot-link tokens; not used for Company Home)
 - `admin_users` (web-only, operator write grant)
 - `companies` (web-only, operator owned)
 - `company_accounts` (web-only, operator managed)
-- `company_invites` (web-only, short-lived 6-digit invite codes)
+- `company_invites` (legacy six-digit invite records; no longer issued by the web app)
 - `company_users` (Admin-issued Company User registry for Company Home; opaque `CMU-…` IDs, scrypt passcode hashes, per-module permissions, optional pilot link)
-- `company_members` (Android-only, anonymous company-session link record created on invite redemption)
+- `company_members` (legacy anonymous Company Home sessions)
+
+> `company_invites` and `company_members` are legacy paths for the earlier six-digit Company Home invite design. The current web Linking module issues `company_users` credentials and verifies them through a Firebase custom-token callable; see [linking-module.md](linking-module.md).
 
 ## users
 
@@ -235,6 +237,7 @@ This collection is additive and is the operator-owned roster source for web work
 - `email`
 - `role`
 - `status`
+- `provisioningSource` (optional; `CREW_ADD_PILOT` marks profiles created through the Crew Management Add Pilot action)
 - `designation`
 - `organizationBase`
 - `mobile`
@@ -297,11 +300,13 @@ Document key: generated `accountId` (owner uses `{uid}`)
 - `createdAt`
 - `lastModified`
 
-## company_invites (web-only)
+## company_invites (legacy)
+
+Legacy collection. The current web app does not create or redeem these records; use `company_users` and the `verifyCompanyUser` callable for Company Home.
 
 Document key: the 6-digit `code` itself
 
-Written by the invite generator and valid for 5 minutes. Redemption marks `usedBy`/`usedAt`.
+Older six-digit invite records may remain in Firestore. The web app no longer issues or redeems them.
 
 - `code`
 - `companyId`
@@ -317,7 +322,7 @@ Written by the invite generator and valid for 5 minutes. Redemption marks `usedB
 
 Document key: opaque generated `companyUserId` (`CMU-…`, never an email or Firebase UID)
 
-Separate identity from Aviation accounts (`users/{uid}`) and Pilot records (`crew_profiles/{id}`). Passcode shown once at issuance/reset and stored only as a scrypt hash. Verification is server-side via callables (`verifyCompanyUser` → Firebase custom token); direct client access is deny-by-default.
+Separate identity from Aviation accounts (`users/{uid}`) and Pilot records (`crew_profiles/{id}`). Passcode shown once at issuance/reset and stored only as a scrypt hash. Verification is server-side via callables (`verifyCompanyUser` → Firebase custom token); token claims include compact module view/edit permissions. Direct client access is deny-by-default.
 
 - `companyUserId`
 - `companyId`
@@ -439,7 +444,7 @@ Use services:
 - `services/connectionService.js`
 - `services/trainingService.js`
 - `services/firestoreService.js`
-- `services/companyService.js` (admin_users, companies, company_accounts, company_invites, company module subcollections)
+- `services/companyService.js` (admin_users, companies, company_accounts, company module subcollections)
 - `services/aircraftService.js` (top-level `aircraft` and `companies/{companyId}/aircraft`)
 - `services/reminderSettingsService.js` (`reminder_settings`, `reminder_runs` reads, manual-trigger callable)
 

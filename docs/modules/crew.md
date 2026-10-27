@@ -200,7 +200,7 @@ Status: Planned.
 - Deeper integration with maintenance and dispatch modules
 
 ## Next Implementation Slice (Recommended)
-1. Add pilot-side Android link verification flow for `crew_link_codes`.
+1. Legacy `crew_link_codes` pilot connection flow is not used for current Company Home access. Pilot Company User credentials are issued in Linking & Access after Add Pilot.
 2. Add workflow-driven qualification mapping and approval states.
 3. Add dashboard-level currency overview and role-based threshold policy controls.
 4. Add optional backend verification endpoint for one-time code redemption.

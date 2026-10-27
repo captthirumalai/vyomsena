@@ -197,7 +197,14 @@ function handleFleetClick(event) {
 export async function init(view, context) {
   activeView = view;
 
-  mountModuleActions('<span id="mx-status" class="vs-page-chip">Loading fleet...</span>');
+  const role = `${context?.currentUser?.role || ''}`.toUpperCase();
+  const addTechAction = ['OWNER', 'ADMIN'].includes(role)
+    ? '<a href="#/linking" id="mx-add-tech-user" class="vs-button vs-button--secondary vs-button--sm">+ Add Technical User</a>'
+    : '';
+  mountModuleActions(`<span id="mx-status" class="vs-page-chip">Loading fleet...</span>${addTechAction}`);
+  const addTechUserButton = getModuleAction('mx-add-tech-user');
+  const setRequestedRole = () => sessionStorage.setItem('vs-linking-prefill-role', 'AME');
+  addTechUserButton?.addEventListener('click', setRequestedRole);
 
   const heading = view.querySelector('h2');
   if (heading) {
@@ -245,6 +252,7 @@ export async function init(view, context) {
   return {
     destroy() {
       fleetUnsubscribe?.();
+      addTechUserButton?.removeEventListener('click', setRequestedRole);
       fleetUnsubscribe = null;
       latestFleet = [];
       activeView = null;

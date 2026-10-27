@@ -1,7 +1,10 @@
 # Crew V2 — Single-Screen UX (Design Spec)
 
-Status: **Implemented in `modules/crew/*` (web).**
-Applies to: `modules/crew/*` (web). The Firestore / service / offline-queue architecture is **unchanged**.
+Status: **Design spec, with later changes recorded below.**
+Applies to: `modules/crew/*` (web). Treat the current source as authoritative where this historical UX spec differs.
+
+Company Home credentials are issued from the left-pane **Linking & Access** module. Pilot cards manage the roster and profile only; they do not generate access codes or passcodes.
+Legacy connection-request banners, notifications, and pilot link-code issuance described in this document have been removed from the current Crew interface.
 
 ---
 
@@ -13,7 +16,7 @@ V2 philosophy:
 
 > **One screen → see my pilots → immediately know who needs attention → click a pilot → manage everything about that pilot.**
 
-Compliance is not a destination; it is a **property of every pilot**. Documents are not a destination; they live **on the pilot**. Linking is not a concept the operator thinks about; it is **"Add Pilot"**. Bulk actions are not a tab; they appear **only when something is selected**.
+Compliance is not a destination; it is a **property of every pilot**. Documents are not a destination; they live **on the pilot**. Pilot roster records are created with **Add Pilot**; Company Home credentials are handled separately in Linking & Access. Bulk actions appear **only when something is selected**.
 
 Everything the V1 module can do still exists. It is just reached differently.
 
@@ -28,7 +31,7 @@ Everything the V1 module can do still exists. It is just reached differently.
 | KPI row (5 cards) | Compact **Attention strip** (3 stats, clickable filters) |
 | Compliance tab | **Needs Attention** section + per-pilot compliance reason |
 | Documents tab | Documents inside the **Pilot drawer** + document detail modal |
-| Pilot Linking tab | **Add Pilot modal** (invite existing / create record) + Invite Code action in drawer |
+| Pilot Linking tab | **Add Pilot modal** (invite existing / create record); Company Home credentials are centralized in Linking & Access |
 | Pending Requests (linking tab) | **Pending requests banner** near the top |
 | Crew Profile tab (create/edit form) | **Add Pilot modal** (create) + **Edit** action in drawer |
 | Bulk Actions tab | **Contextual bulk toolbar** (appears only when ≥1 selected) |
@@ -108,7 +111,6 @@ Rules that make this "one screen":
 - Title: **Crew** (drop "Management"). Subtitle: *Manage your pilots and keep their documents current.*
 - Breadcrumb: `VAMS Portal / Crew`.
 - Since V0.3.8 the module title, breadcrumb, and subtitle render in the **global topbar** (`core/layout.js`), not inside the module. Crew-specific actions mount into the topbar `#app-module-actions` slot via `mountModuleActions()` (called from `mountCrewHeader()` in `crew.js`):
-  - notifications bell `cm-btn-notifications` (unchanged behaviour — toggles the pending banner) with `cm-notif-dot`.
   - the sync strip (4.2).
 - The primary **`+ Add Pilot`** button (`cm-btn-add-crew`) lives in the crew **toolbar** (`cm-toolbar`, beside search/filter), fixed since V0.3.9; it opens the Add Pilot modal (4.12). Hidden for pilot-role users by `applyRoleLayout`.
 - The user chip is **removed** from the crew header. A global **user info button** (`#btn-user-info` in the topbar, present on every module) now opens the user + company profile editor modal (`shared/userProfileEditor.js`).
@@ -198,7 +200,7 @@ Evolves the existing `openDrawer` (directory.js:208). Structure:
             🟢 COMPLIANT  —  "All documents valid"
 </header>
 <div class="cm-drawer-actions">
-  [Edit] [Invite Code] [Set Inactive] [Delink] [Delete]   ← existing handlers
+  [Edit] [Set Inactive] [Delink] [Delete]   ← existing handlers
 </div>
 <nav class="cm-drawer-nav">  [Overview] [Documents] [More ▾]  </nav>
 
@@ -223,7 +225,7 @@ Evolves the existing `openDrawer` (directory.js:208). Structure:
 ```
 - Default open tab: `documents` when arriving from an attention row or a doc-related action; otherwise `overview`. Persist `crewState.drawerView` per session.
 - Actions row is gated by the same permissions as today (`canPerformCrewAction`, permissionService).
-- `[Invite Code]` → `issueCompanyInvite(pilotUid)` (linking.js:300); the code + countdown render inline in the drawer (small box), reusing `setActiveLinkCode`/`renderLinkCode` timer logic (linking.js:35-90).
+- Company Home credentials are issued centrally from Linking & Access after selecting an Add Pilot record.
 - `[Edit]` → opens the profile form **in the modal** (not a tab) pre-filled via the existing field-mapping in `openProfileForm` (profile.js:23), saved via `saveProfileForm` (profile.js:65).
 
 ### 4.11 Document detail modal (Level 3) — via `cm-modal`
@@ -257,13 +259,13 @@ ADD PILOT
 - **Invite existing pilot**: email field → `assignPilotByEmail` (linking.js:245 flow). On success `refreshCrew()` + toast.
 - **Create crew record**: renders the existing profile form fields (name, email, phone, employee id, role, licence #, medical expiry, licence expiry, status — crew.html:218-294) → `createPilot` (profile.js:155). On success `refreshCrew()` + toast.
 - Both paths keep the operator field auto-filled (`crewState.activeOperatorUid`).
-- Also surfaces a collapsed **Requests** accordion reusing `renderOutgoingRequests`/`renderIncomingRequests` so nothing from the old Linking tab is lost.
+- Company Home credentials are issued from the centralized Linking & Access module; legacy connection-request UI has been removed from the current Crew experience.
 
 ### 4.13 Pilot-role variant
 `applyRoleLayout` (crew.js:591) extended:
 - Hide `+ Add Pilot`, bulk toolbar, and the card checkboxes.
 - List shows a single card for the current user (`crewState.activeCurrentUser`).
-- Pending requests banner shows **incoming** requests only (accept/decline), as today.
+- Company Home credentials and staff/device access are managed from Linking & Access.
 - Drawer = the pilot's own profile (Overview/Documents/More), same component.
 
 ---
@@ -386,8 +388,8 @@ crewListState.filterOpen = false;                   // popover visibility
 | `submitDocumentUpload` (documents.js:237) | drawer upload |
 | `editDocumentWithForm` (documents.js:398) | Level 3 Edit |
 | `deleteDocument` (documents.js:500), `previewDocument` (documents.js:210) | Level 3 |
-| `renderOutgoingRequests`/`renderIncomingRequests` (linking.js:117/203) | pending banner + Add Pilot accordion |
-| `issueCompanyInvite` (linking.js:300), `setActiveLinkCode` (linking.js:35) | drawer Invite Code + timer |
+| Legacy connection request renderers | Removed from the current Crew interface; Company Home credentials are managed in Linking & Access |
+| Company User issuance | Linking & Access module; not a pilot-card action |
 | `sendPilotLinkRequest` flow (linking.js:245) | Add Pilot → invite |
 | `applyBulkAction`/`getSelectedPilots`/`exportCrewCsv` (bulk.js:36/32/174) | bulk toolbar |
 | `openProfileForm`/`saveProfileForm` (profile.js:23/65) | Add Pilot create + drawer Edit (rendered in modal) |
@@ -395,11 +397,11 @@ crewListState.filterOpen = false;                   // popover visibility
 
 ### Replace
 - `setActiveTab` / `renderTabContent` / `positionTabUnderline` (directory.js:80-125) → `renderCrewScreen()` (new).
-- `updateKPIs` (directory.js:48) → attention strip renderer + `updateNotifDot` kept.
+- `updateKPIs` (directory.js:48) → attention strip renderer.
 - `openDrawer` (directory.js:208) → rebuilt drawer with sub-nav.
 - `renderComplianceTab` (compliance.js:14) → attention engine (Section 5).
 - `renderBulkTab` (bulk.js:26) → bulk toolbar.
-- `renderLinkingTab` (linking.js:102) → Add Pilot modal + pending banner.
+- `renderLinkingTab` legacy flow has been removed; Company Home access is managed in Linking & Access.
 
 ### Delete from `crew.html`
 `cm-tabs`, all six `cm-panel-*` sections, the header `cm-global-search`. Their JS entry points are removed; the underlying helpers survive (Section 8 reuse).

@@ -4,14 +4,6 @@ import {
   getPilotDocuments,
   getPilotDocumentsForProfile,
   getCrewDocumentsByPilots,
-  getIncomingLinkRequests,
-  getOutgoingLinkRequests,
-  onIncomingLinkRequests,
-  onOutgoingLinkRequests,
-  assignPilotByEmail,
-  withdrawConnectionRequest,
-  acceptIncomingLinkRequest,
-  declineConnectionRequest,
   watchPilotDocumentsForProfile
 } from '../../services/crewService.js';
 import { watchDocumentsByUser } from '../../services/documentService.js';
@@ -36,20 +28,17 @@ import {
   renderCrewScreen,
   renderPilotList,
   renderFilterSummary,
-  renderPendingBanner,
   renderBulkBar,
   renderDrawerView,
   openDrawer,
   closeDrawer,
   togglePilotStatus,
   softRemovePilot,
-  handleDelink,
   restorePilot,
   permanentlyDeletePilot
 } from './directory.js';
 import { openProfileForm, saveProfileForm } from './profile.js';
 import { openDocumentDetail, openDocumentUploadModal } from './documents.js';
-import { issueCompanyInvite, stopLinkCodeTimer } from './linking.js';
 import { applyBulkAction } from './bulk.js';
 import { runQueueSync, renderQueueSyncState } from './queue.js';
 import { loadCrewPolicy, openCompanyPolicyModal } from './policy.js';
@@ -102,10 +91,9 @@ export async function refreshCrew() {
     const pilotUid = crewState.activeCurrentUser?.uid;
     if (!pilotUid) return;
 
-    const [pilotDocs, incomingRequests] = await Promise.all([getPilotDocuments(pilotUid), getIncomingLinkRequests(pilotUid)]);
+    const pilotDocs = await getPilotDocuments(pilotUid);
     crewState.pilotsCache = [{ ...crewState.activeCurrentUser, uid: pilotUid }];
     crewState.docsByPilotCache = new Map([[pilotUid, pilotDocs]]);
-    crewState.incomingRequestsCache = incomingRequests;
     crewState.selectedPilotUid = pilotUid;
 
     renderCrewScreen();
@@ -114,10 +102,8 @@ export async function refreshCrew() {
   }
 
   if (!crewState.activeOperatorUid) return;
-  const outgoingRequests = await getOutgoingLinkRequests(crewState.activeOperatorUid);
-  const pilots = await getCrew(crewState.activeOperatorUid, outgoingRequests);
+  const pilots = await getCrew(crewState.activeOperatorUid);
   crewState.pilotsCache = pilots;
-  crewState.outgoingRequestsCache = outgoingRequests;
   crewState.docsByPilotCache = await getCrewDocumentsByPilots(pilots);
   setStatus(`Loaded ${pilots.length} pilot profile(s) from Firestore.`);
 
@@ -193,27 +179,6 @@ function bindScreenControls() {
   query('#cm-btn-add-crew')?.addEventListener('click', () => openProfileForm(null));
 
   query('#cm-btn-policy')?.addEventListener('click', openCompanyPolicyModal);
-
-  query('#cm-btn-notifications')?.addEventListener('click', () => {
-    const banner = query('#cm-pending-banner');
-    const list = query('#cm-pending-list');
-    const head = query('#cm-pending-toggle');
-    if (!banner || banner.classList.contains('hidden')) {
-      showToast('No pending requests.', 'info');
-      return;
-    }
-    const open = !!list && !list.classList.contains('hidden');
-    if (list) list.classList.toggle('hidden', open);
-    if (head) head.setAttribute('aria-expanded', `${!open}`);
-  });
-
-  query('#cm-pending-toggle')?.addEventListener('click', (event) => {
-    const list = query('#cm-pending-list');
-    if (!list) return;
-    const open = list.classList.contains('hidden');
-    list.classList.toggle('hidden', !open);
-    event.currentTarget.setAttribute('aria-expanded', `${open}`);
-  });
 
   query('#cm-search')?.addEventListener('input', (event) => {
     const value = event.target?.value || '';
@@ -385,43 +350,10 @@ async function handleDrawerAction(action) {
   const pilotUid = crewState.selectedPilotUid;
   if (action === 'edit') {
     openProfileForm(pilotUid);
-  } else if (action === 'link-code') {
-    issueCompanyInvite(pilotUid);
   } else if (action === 'toggle-status') {
     await togglePilotStatus(pilotUid);
-  } else if (action === 'delink') {
-    await handleDelink(pilotUid);
   } else if (action === 'soft-delete') {
     await softRemovePilot(pilotUid);
-  }
-}
-
-async function handleLinkAction(action, requestId) {
-  if (action === 'resend') {
-    const request = crewState.outgoingRequestsCache.find((item) => item.requestId === requestId);
-    const pilotEmail = request?.recipientEmail;
-    if (!pilotEmail || !crewState.activeOperatorUid) return;
-    try {
-      await assignPilotByEmail({ operatorUid: crewState.activeOperatorUid, pilotEmail });
-      showToast('Pilot assigned and linked.', 'success');
-      await refreshCrew();
-    } catch (error) {
-      showToast(error.message || 'Unable to assign pilot.', 'error');
-    }
-    return;
-  }
-  if (action === 'cancel') {
-    confirmModal({
-      title: 'Cancel request',
-      message: 'Cancel this connection request?',
-      confirmLabel: 'Cancel Request',
-      danger: true,
-      onConfirm: async () => {
-        await withdrawConnectionRequest(requestId);
-        showToast('Request cancelled.', 'success');
-        await refreshCrew();
-      }
-    });
   }
 }
 
@@ -454,65 +386,6 @@ function bindDrawerControls() {
       return;
     }
 
-    const linkButton = target.closest('button[data-link-action]');
-    if (linkButton) {
-      handleLinkAction(linkButton.getAttribute('data-link-action'), linkButton.getAttribute('data-request-id'));
-    }
-  });
-}
-
-function bindPendingActions() {
-  query('#cm-pending-list')?.addEventListener('click', async (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const button = target.closest('button[data-pending-action]');
-    if (!button) return;
-    const action = button.getAttribute('data-pending-action');
-    const requestId = button.getAttribute('data-request-id');
-
-    if (action === 'accept') {
-      if (!canPerformCrewAction(crewState.activeCurrentUser, 'respondIncomingRequest')) return;
-      const operatorUid = button.getAttribute('data-operator-uid');
-      const pilotUid = crewState.activeCurrentUser?.uid;
-      if (!pilotUid || !operatorUid) return;
-      confirmModal({
-        title: 'Accept request',
-        message: 'Accept this request and link your profile to the operator?',
-        confirmLabel: 'Accept & Link',
-        onConfirm: async () => {
-          await acceptIncomingLinkRequest({ requestId, pilotUid, operatorUid });
-          crewState.activeCurrentUser = { ...crewState.activeCurrentUser, linkedOperator: operatorUid };
-          showToast('Request accepted. You are now linked.', 'success');
-          await refreshCrew();
-        }
-      });
-      return;
-    }
-
-    if (action === 'decline') {
-      if (!canPerformCrewAction(crewState.activeCurrentUser, 'respondIncomingRequest')) return;
-      confirmModal({
-        title: 'Decline request',
-        message: 'Decline this connection request?',
-        confirmLabel: 'Decline',
-        danger: true,
-        onConfirm: async () => {
-          await declineConnectionRequest(requestId);
-          showToast('Connection request declined.', 'success');
-          await refreshCrew();
-        }
-      });
-      return;
-    }
-
-    if (action === 'resend') {
-      await handleLinkAction('resend', requestId);
-      return;
-    }
-
-    if (action === 'cancel') {
-      await handleLinkAction('cancel', requestId);
-    }
   });
 }
 
@@ -563,10 +436,6 @@ bindKeyboard.handler = function handleKeyboard(event) {
 
 function mountCrewHeader() {
   mountModuleActions(`
-    <button type="button" class="cm-icon-btn" id="cm-btn-notifications" aria-label="Notifications" title="Notifications">
-      <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-      <span class="cm-notif-dot" id="cm-notif-dot" hidden></span>
-    </button>
     <div class="cm-sync-strip" aria-live="polite">
       <span class="cm-sync-pill" id="cm-sync-count">Pending Sync: 0</span>
       <span class="cm-sync-pill cm-sync-pill-blue" id="cm-last-sync">Last sync: —</span>
@@ -618,7 +487,6 @@ export async function init(view, context) {
 
   bindScreenControls();
   bindDrawerControls();
-  bindPendingActions();
   bindProfileForm();
   bindGlobalOverlays();
 
@@ -649,14 +517,6 @@ export async function init(view, context) {
       (error) => console.error('Pilot document snapshot error:', error)
     );
 
-    crewState.incomingRequestUnsubscribe = onIncomingLinkRequests(
-      pilotUid,
-      (snapshot) => {
-        crewState.incomingRequestsCache = snapshot.docs.map((item) => ({ requestId: item.id, ...item.data() }));
-        renderPendingBanner();
-      },
-      (error) => console.error('Incoming link requests snapshot error:', error)
-    );
   } else {
     crewState.crewUnsubscribe = onCrewSnapshot(
       crewState.activeOperatorUid,
@@ -669,26 +529,14 @@ export async function init(view, context) {
       (error) => console.error('Crew snapshot error:', error)
     );
 
-    crewState.outgoingRequestUnsubscribe = onOutgoingLinkRequests(
-      operatorUid,
-      (snapshot) => {
-        crewState.outgoingRequestsCache = snapshot.docs.map((item) => ({ requestId: item.id, ...item.data() }));
-        renderPendingBanner();
-      },
-      (error) => console.error('Outgoing link requests snapshot error:', error)
-    );
   }
 
   return {
     destroy() {
       crewState.crewUnsubscribe?.();
       crewState.pilotDocUnsubscribe?.();
-      crewState.outgoingRequestUnsubscribe?.();
-      crewState.incomingRequestUnsubscribe?.();
       crewState.crewUnsubscribe = null;
       crewState.pilotDocUnsubscribe = null;
-      crewState.outgoingRequestUnsubscribe = null;
-      crewState.incomingRequestUnsubscribe = null;
       crewState.activeView = null;
       crewState.activeOperatorUid = null;
       crewState.activeCurrentUser = null;
@@ -711,20 +559,13 @@ export async function init(view, context) {
       crewState.selectedRows = new Set();
       crewState.currentPage = 1;
       crewState.drawerView = 'overview';
-      crewState.drawerInviteOpen = false;
       crewState.activeDocument = null;
-      crewState.outgoingRequestsCache = [];
-      crewState.incomingRequestsCache = [];
       crewState.profileEditUid = null;
-      crewState.activeLinkCode = null;
-      crewState.activeLinkCodeExpiresAt = null;
-      crewState.activeLinkCodePilotUid = null;
       crewState.requiredDocumentPolicy = null;
       if (crewState.queueMonitorTimer) {
         clearInterval(crewState.queueMonitorTimer);
         crewState.queueMonitorTimer = null;
       }
-      stopLinkCodeTimer();
       crewState.queueSyncBusy = false;
       crewState.queueSyncLastAttemptAt = null;
       crewState.queueSyncLastError = null;

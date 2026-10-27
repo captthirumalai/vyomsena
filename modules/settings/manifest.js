@@ -6,7 +6,7 @@
   order: 110,
   showInMenu: true,
   permissions: ['admin', 'operations'],
-  subtitle: 'Company identity, user invites, licence expiry reminders, and account management for your operator workspace.',
+  subtitle: 'Company identity and notification status for your operator workspace.',
   breadcrumbs: ['Home', 'Settings'],
   html: 'modules/settings/settings.html',
   js: 'modules/settings/settings.js',

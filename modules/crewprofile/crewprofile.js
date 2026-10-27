@@ -1,12 +1,9 @@
 import {
   getPilotDocuments,
   getPilotTrainingRecords,
-  getIncomingLinkRequests,
-  getOutgoingLinkRequests,
   summarizeCrewDocumentCompliance
 } from '../../services/crewService.js';
 import { getUserByUid } from '../../services/userService.js';
-import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { mountModuleActions, getModuleAction, setModuleTitle, setModuleSubtitle } from '../../shared/moduleHeader.js';
 
 const PROFILE_KEY = 'vs-selected-crew-profile';
@@ -16,10 +13,6 @@ let profileUid = null;
 let profileUser = null;
 let profileDocuments = [];
 let profileTrainingRecords = [];
-let connectionContext = {
-  incoming: [],
-  outgoing: []
-};
 
 const TRAINING_KEYWORDS = [
   'ppc',
@@ -603,38 +596,6 @@ function renderNotesTab() {
   `;
 }
 
-async function renderConnectionsTab(currentUser) {
-  if (!activeView) return;
-  const target = activeView.querySelector('#crew-profile-connections');
-  if (!target || !profileUser) return;
-
-  const orgContext = getCurrentOrganizationContext(currentUser);
-  const operatorUid = orgContext.organizationId;
-
-  connectionContext = {
-    incoming: [],
-    outgoing: []
-  };
-
-  const cards = [];
-  cards.push(`<article class="crew-profile-connection-card"><strong>Linked Operator:</strong> ${escapeHtml(profileUser.linkedOperator || 'None')}</article>`);
-
-  if (operatorUid) {
-    const outgoing = await getOutgoingLinkRequests(operatorUid);
-    connectionContext.outgoing = outgoing;
-    const related = outgoing.filter((item) => item.recipientId === profileUser.uid || item.recipientEmail === profileUser.email);
-    cards.push(`<article class="crew-profile-connection-card"><strong>Outgoing Requests:</strong> ${related.length}</article>`);
-  }
-
-  if (currentUser?.uid === profileUser.uid) {
-    const incoming = await getIncomingLinkRequests(profileUser.uid);
-    connectionContext.incoming = incoming;
-    cards.push(`<article class="crew-profile-connection-card"><strong>Incoming Requests:</strong> ${incoming.length}</article>`);
-  }
-
-  target.innerHTML = cards.join('');
-}
-
 function renderHistoryTab() {
   if (!activeView) return;
   const body = activeView.querySelector('#crew-profile-history-body');
@@ -652,23 +613,6 @@ function renderHistoryTab() {
     getEmbeddedEditLogs(document).map((log, index) => toHistoryEventFromEditLog(document, log, index))
   );
 
-  const outgoingEvents = (connectionContext.outgoing || [])
-    .filter((item) => item.recipientId === profileUser?.uid || item.recipientEmail === profileUser?.email)
-    .map((item) => ({
-      when: item.createdAt,
-      event: `Connection request sent (${(item.status || 'PENDING').toUpperCase()})`,
-      source: 'connection_requests',
-      editedBy: item.requesterEmail || item.requesterId || 'N/A'
-    }));
-
-  const incomingEvents = (connectionContext.incoming || [])
-    .map((item) => ({
-      when: item.createdAt,
-      event: `Connection request received (${(item.status || 'PENDING').toUpperCase()})`,
-      source: 'connection_requests',
-      editedBy: item.requesterEmail || item.requesterId || 'N/A'
-    }));
-
   const profileEvent = {
     when: profileUser?.createdAt || null,
     event: 'Crew profile created',
@@ -683,7 +627,7 @@ function renderHistoryTab() {
     editedBy: record.updatedBy || record.instructor || profileUser?.email || 'N/A'
   }));
 
-  const events = [profileEvent, ...trainingEvents, ...editLogEvents, ...documentEvents, ...outgoingEvents, ...incomingEvents]
+  const events = [profileEvent, ...trainingEvents, ...editLogEvents, ...documentEvents]
     .filter((event) => !!event.when)
     .sort((left, right) => {
       const leftTime = toDateValue(left.when)?.getTime() || 0;
@@ -768,7 +712,6 @@ export async function init(view, context) {
   renderTrainingTab();
   renderFlightExperienceTab();
   renderNotesTab();
-  await renderConnectionsTab(context?.currentUser);
   renderHistoryTab();
   bindEvents();
   setTab('personal');
@@ -780,7 +723,6 @@ export async function init(view, context) {
       profileUser = null;
       profileDocuments = [];
       profileTrainingRecords = [];
-      connectionContext = { incoming: [], outgoing: [] };
     }
   };
 }

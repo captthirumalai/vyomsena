@@ -1,4 +1,6 @@
-# VAMS V2 — FIRESTORE READ AUDIT
+# VAMS V2 — FIRESTORE READ AUDIT (HISTORICAL SNAPSHOT)
+
+This audit predates the centralized Linking & Access module. Rows for `company_invites` and `crew_link_codes` describe removed legacy web flows; they are not active in the current app. Current Company Home identities use `company_users` through Cloud Functions, with Firestore rules in `docs/firestorerules.md`.
 
 This document started as an analysis-only pass (findings in §1–§14). A subsequent implementation pass applied the approved P0/P1 optimizations from §13; see **§15 Implementation Status** for what changed and this doc's other sections are annotated with `[implemented]` / `[not implemented]`.
 

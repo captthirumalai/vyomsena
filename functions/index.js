@@ -179,7 +179,7 @@ exports.issueCompanyUser = onCall(async (request) => {
       createdBy: request.auth.uid
     });
   } catch (error) {
-    if (error.message && /pilot record .* was not found|required|permissions|status/i.test(error.message)) {
+    if (error.message && /pilot record .* was not found|required|permissions|status|role must|pilot access|only pilot access/i.test(error.message)) {
       throw new HttpsError('invalid-argument', error.message);
     }
     throw new HttpsError('internal', 'Unable to issue the company user.');
@@ -233,7 +233,7 @@ exports.updateCompanyUser = onCall(async (request) => {
       })
     );
   } catch (error) {
-    if (error.message && /not found|organisation|empty|permissions|status|pilot record|update/i.test(error.message)) {
+    if (error.message && /not found|organisation|empty|permissions|status|pilot record|pilot access|only pilot access|role must|update/i.test(error.message)) {
       throw new HttpsError('invalid-argument', error.message);
     }
     throw new HttpsError('internal', 'Unable to update the company user.');

@@ -41,7 +41,6 @@ import {
   deleteCrewProfile,
   ensureCrewProfileForUser
 } from './crewProfileService.js';
-import { createCrewLinkCode } from './crewLinkCodeService.js';
 import { deleteUserDocumentFile } from './storageService.js';
 
 function getProfileCoverage(profiles) {
@@ -243,7 +242,8 @@ export async function createPilot({ name, email, operatorUid }) {
     operatorId: operatorUid,
     role: 'PILOT',
     status: 'Active',
-    linkState: 'UNLINKED'
+    linkState: 'UNLINKED',
+    provisioningSource: 'CREW_ADD_PILOT'
   });
 
   return {
@@ -302,14 +302,6 @@ export async function assignPilotByEmail({ operatorUid, pilotEmail }) {
   }
 
   return profile;
-}
-
-export async function generateCrewProfileLinkCode({ crewProfileId, operatorId }) {
-  return await createCrewLinkCode({
-    crewProfileId,
-    operatorId,
-    validityMs: 5 * 60 * 1000
-  });
 }
 
 export async function deletePilot(pilotUid) {

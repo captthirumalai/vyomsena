@@ -30,18 +30,11 @@ import { canPerformCrewAction } from '../../services/permissionService.js';
 import { updatePilotProfile, delinkPilot, deletePilot } from '../../services/crewService.js';
 import { refreshCrew } from './crew.js';
 import { openProfileForm } from './profile.js';
-import { issueCompanyInvite, renderOutgoingRequests } from './linking.js';
 import { renderPilotDocuments, openDocumentUploadModal, openDocumentDetail } from './documents.js';
 
 export function setText(selector, text) {
   const element = query(selector);
   if (element) element.textContent = text;
-}
-
-export function updateNotifDot(pendingCount) {
-  const dot = query('#cm-notif-dot');
-  if (!dot) return;
-  dot.hidden = pendingCount === 0;
 }
 
 function renderAvatarHtml(pilot, extraClass = '') {
@@ -54,18 +47,11 @@ function renderAvatarHtml(pilot, extraClass = '') {
   return `<span class="cm-avatar ${extraClass}">${initials}</span>`;
 }
 
-export function normalizeRequestStatus(status) {
-  const normalized = `${status || ''}`.trim().toUpperCase();
-  if (normalized === 'REJECTED') return 'DECLINED';
-  return normalized || 'PENDING';
-}
-
 /* ================= MASTER RENDER ================= */
 
 export function renderCrewScreen() {
   if (!crewState.activeView) return;
   updateAttentionStrip();
-  renderPendingBanner();
   renderFilterOptions();
   renderFilterSummary();
   renderPilotList();
@@ -158,7 +144,6 @@ export async function permanentlyDeletePilot(pilotUid) {
     }
   });
 }
-
 /* ================= ATTENTION STRIP ================= */
 
 export function updateAttentionStrip() {
@@ -172,61 +157,6 @@ export function updateAttentionStrip() {
   setText('#cm-stat-total', `${activePilots.length}`);
   setText('#cm-stat-attention', `${totals.ACTION + totals.NONCOMPLIANT}`);
   setText('#cm-stat-noncompliant', `${totals.NONCOMPLIANT}`);
-}
-
-/* ================= PENDING BANNER ================= */
-
-export function renderPendingBanner() {
-  const banner = query('#cm-pending-banner');
-  const countEl = query('#cm-pending-count');
-  const list = query('#cm-pending-list');
-  if (!banner || !countEl || !list) return;
-
-  const pilotMode = isPilotRole();
-  const pending = (pilotMode ? crewState.incomingRequestsCache : crewState.outgoingRequestsCache).filter(
-    (req) => normalizeRequestStatus(req.status) === 'PENDING'
-  );
-
-  if (!pending.length) {
-    banner.classList.add('hidden');
-    list.innerHTML = '';
-    updateNotifDot(0);
-    return;
-  }
-
-  banner.classList.remove('hidden');
-  countEl.textContent = `${pending.length}`;
-
-  const toTs = (value) => {
-    const date = value?.toDate ? value.toDate() : value;
-    const parsed = date ? new Date(date) : null;
-    return parsed && !Number.isNaN(parsed.getTime()) ? parsed.getTime() : 0;
-  };
-
-  list.innerHTML = pending
-    .slice()
-    .sort((a, b) => toTs(b.createdAt) - toTs(a.createdAt))
-    .slice(0, 5)
-    .map((req) => {
-      const label = pilotMode
-        ? req.requesterName || req.requesterId || 'Unknown operator'
-        : req.recipientEmail || req.recipientId || 'Unknown pilot';
-      const email = pilotMode ? req.requesterEmail || '' : req.recipientEmail || '';
-      const actions = pilotMode
-        ? `<button type="button" class="cm-pending-btn is-accept" data-pending-action="accept" data-request-id="${escapeHtml(req.requestId)}" data-operator-uid="${escapeHtml(req.requesterId || '')}">Accept</button>
-           <button type="button" class="cm-pending-btn is-decline" data-pending-action="decline" data-request-id="${escapeHtml(req.requestId)}">Decline</button>`
-        : `<button type="button" class="cm-pending-btn" data-pending-action="resend" data-request-id="${escapeHtml(req.requestId)}" data-recipient-email="${escapeHtml(req.recipientEmail || '')}">Resend</button>
-           <button type="button" class="cm-pending-btn is-decline" data-pending-action="cancel" data-request-id="${escapeHtml(req.requestId)}">Cancel</button>`;
-      return `
-        <div class="cm-pending-row">
-          <strong>${escapeHtml(label)}</strong>
-          <span class="cm-pending-email">${escapeHtml(email)}</span>
-          ${actions}
-        </div>`;
-    })
-    .join('');
-
-  updateNotifDot(pending.length);
 }
 
 /* ================= FILTERS ================= */
@@ -447,7 +377,6 @@ export function openDrawer(pilotUid, view = 'overview') {
   if (!pilot) return;
   crewState.selectedPilotUid = pilotUid;
   crewState.drawerView = view;
-  crewState.drawerInviteOpen = false;
   crewState.activeDocument = null;
 
   const body = query('#cm-drawer-body');
@@ -519,7 +448,6 @@ export function renderDrawerView(pilot) {
     renderPilotDocuments();
   } else if (crewState.drawerView === 'more') {
     container.innerHTML = renderMoreView(target);
-    renderOutgoingRequests();
   } else {
     container.innerHTML = renderOverviewView(target);
   }
@@ -538,9 +466,7 @@ function renderOverviewView(pilot) {
 
   const actionButtons = [
     ...(canEdit ? [`<button type="button" class="cm-btn cm-btn-primary cm-btn-sm" data-drawer-action="edit">Edit Profile</button>`] : []),
-    ...(!isPilotRole() ? [`<button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-drawer-action="link-code">Invite Code</button>`] : []),
     ...(canEdit ? [`<button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-drawer-action="toggle-status">${pilotStatus === 'Active' ? 'Set Inactive' : 'Set Active'}</button>`] : []),
-    ...(!isPilotRole() ? [`<button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-drawer-action="delink">Delink</button>`] : []),
     ...(canDelete ? [`<button type="button" class="cm-btn cm-btn-danger cm-btn-sm" data-drawer-action="soft-delete">Delete</button>`] : [])
   ].join('');
 
@@ -575,7 +501,6 @@ function renderMoreView(pilot) {
     <div class="kv-row"><dt>Link State</dt><dd>${escapeHtml(pilot.linkState || '—')}</dd></div>
   `;
   const notes = `<p class="cm-form-status" style="margin:0">${escapeHtml(pilot.notes || pilot.notesOrDetails || 'No notes added for this crew member.')}</p>`;
-  const links = !isPilotRole() ? `<div class="cm-more-list" id="cm-drawer-more-links"></div>` : '';
   return `
     <div>
       <h4>Profile</h4>
@@ -585,7 +510,6 @@ function renderMoreView(pilot) {
       <h4>Notes</h4>
       ${notes}
     </div>
-    ${links ? `<div><h4>Connection Requests</h4>${links}</div>` : ''}
   `;
 }
 
@@ -632,26 +556,6 @@ export async function softRemovePilot(pilotUid) {
       crewState.selectedRows.delete(pilotUid);
       setStatus(`Moved ${toProfileName(pilot)} to inactive pilots.`);
       showToast('Crew member moved to inactive.', 'success');
-      await refreshCrew();
-    }
-  });
-}
-
-export async function handleDelink(pilotUid) {
-  if (crewState.activeRole === 'PILOT') return;
-  const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
-  if (!pilot) return;
-
-  confirmModal({
-    title: 'Delink pilot',
-    message: `Delink "${toProfileName(pilot)}" from your organization? Their profile and documents remain.`,
-    confirmLabel: 'Delink',
-    danger: true,
-    onConfirm: async () => {
-      await delinkPilot(pilotUid);
-      crewState.selectedRows.delete(pilotUid);
-      setStatus(`Pilot ${pilotUid} delinked.`);
-      showToast('Pilot delinked.', 'success');
       await refreshCrew();
     }
   });

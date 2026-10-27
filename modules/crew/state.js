@@ -10,10 +10,7 @@ export const crewState = {
   pilotsCache: [],
   docsByPilotCache: new Map(),
   selectedPilotUid: null,
-  outgoingRequestsCache: [],
-  incomingRequestsCache: [],
   queueMonitorTimer: null,
-  linkCodeTimer: null,
   queueSyncBusy: false,
   queueSyncLastAttemptAt: null,
   queueSyncLastError: null,
@@ -23,15 +20,9 @@ export const crewState = {
   selectedRows: new Set(),
   currentPage: 1,
   drawerView: 'overview',
-  drawerInviteOpen: false,
   activeDocument: null,
-  activeLinkCode: null,
-  activeLinkCodeExpiresAt: null,
-  activeLinkCodePilotUid: null,
   crewUnsubscribe: null,
   pilotDocUnsubscribe: null,
-  outgoingRequestUnsubscribe: null,
-  incomingRequestUnsubscribe: null,
   requiredDocumentPolicy: null
 };
 

@@ -40,9 +40,6 @@ const CONTRACTS = {
   crew_profiles: {
     required: ['operatorId', 'name', 'role', 'status', 'createdAt', 'lastModified']
   },
-  crew_link_codes: {
-    required: ['crewProfileId', 'operatorId', 'code', 'expiresAt', 'used', 'status', 'createdAt', 'lastModified']
-  },
   admin_users: {
     required: ['uid', 'email', 'displayName', 'companyId', 'role', 'status', 'createdAt', 'lastModified']
   },
@@ -51,9 +48,6 @@ const CONTRACTS = {
   },
   company_accounts: {
     required: ['accountId', 'companyId', 'role', 'displayName', 'email', 'status', 'createdAt', 'lastModified']
-  },
-  company_invites: {
-    required: ['code', 'companyId', 'accountId', 'email', 'role', 'createdAt', 'expiresAt', 'usedBy', 'usedAt']
   },
   company_users: {
     required: [

@@ -8,6 +8,7 @@ import { manifest as dispatchManifest } from '../modules/dispatch/manifest.js';
 import { manifest as efbManifest } from '../modules/efb/manifest.js';
 import { manifest as flightOpsManifest } from '../modules/flightops/manifest.js';
 import { manifest as maintenanceManifest } from '../modules/maintenance/manifest.js';
+import { manifest as linkingManifest } from '../modules/linking/manifest.js';
 import { manifest as notamManifest } from '../modules/notam/manifest.js';
 import { manifest as notificationsManifest } from '../modules/notifications/manifest.js';
 import { manifest as reportsManifest } from '../modules/reports/manifest.js';
@@ -29,6 +30,7 @@ export const appRoutes = [
   efbManifest,
   flightOpsManifest,
   maintenanceManifest,
+  linkingManifest,
   notamManifest,
   notificationsManifest,
   reportsManifest,

@@ -39,6 +39,8 @@ const LOCKOUT_MS = 15 * 60 * 1000;
 const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1, keyLength: 32 };
 
 const VALID_STATUSES = ['ACTIVE', 'SUSPENDED'];
+const VALID_ACCESS_ROLES = ['PILOT', 'OPERATIONS', 'AME'];
+const CREW_PILOT_SOURCE = 'CREW_ADD_PILOT';
 
 function randomFromAlphabet(length) {
   const bytes = crypto.randomBytes(length);
@@ -96,10 +98,9 @@ function normalizePermissions(input) {
     if (!rights || typeof rights !== 'object' || Array.isArray(rights)) {
       throw new Error(`permissions for module "${module}" must be shaped like { view, edit }.`);
     }
-    normalized[`${module}`] = {
-      view: rights.view === true,
-      edit: rights.edit === true
-    };
+    const view = rights.view === true || rights.edit === true;
+    const edit = rights.edit === true;
+    if (view || edit) normalized[`${module}`] = { view, edit };
   });
   return { modules: normalized };
 }
@@ -112,11 +113,17 @@ function normalizeStatus(status) {
   return normalized;
 }
 
-async function assertCrewProfileExists(db, crewProfileId) {
-  if (!crewProfileId) return null;
+async function assertEligibleCrewPilot(db, companyId, crewProfileId) {
+  if (!crewProfileId) throw new Error('A Crew Management Add Pilot record is required for pilot access.');
   const snapshot = await db.doc(`${CREW_PROFILES}/${crewProfileId}`).get();
   if (!snapshot.exists) {
     throw new Error(`Linked pilot record ${crewProfileId} was not found. Link an EXISTING pilot only.`);
+  }
+  const profile = snapshot.data() || {};
+  if (profile.operatorId !== companyId || `${profile.role || ''}`.trim().toUpperCase() !== 'PILOT'
+    || `${profile.status || 'ACTIVE'}`.trim().toUpperCase() !== 'ACTIVE'
+    || profile.provisioningSource !== CREW_PILOT_SOURCE) {
+    throw new Error('Pilot access is limited to pilot profiles created by this company with Crew Management → Add Pilot.');
   }
   return snapshot;
 }
@@ -141,9 +148,15 @@ async function issueCompanyUser(db, {
 } = {}) {
   if (!companyId) throw new Error('companyId is required to issue a company user.');
   if (!displayName) throw new Error('displayName is required to issue a company user.');
-
-  // Read-only existence check. NEVER creates, moves, or rewrites the pilot record.
-  await assertCrewProfileExists(db, linkedCrewProfileId);
+  const normalizedRole = `${role || 'OPERATIONS'}`.trim().toUpperCase();
+  if (!VALID_ACCESS_ROLES.includes(normalizedRole)) {
+    throw new Error(`role must be one of: ${VALID_ACCESS_ROLES.join(', ')}.`);
+  }
+  if (normalizedRole === 'PILOT') {
+    await assertEligibleCrewPilot(db, companyId, linkedCrewProfileId);
+  } else if (linkedCrewProfileId) {
+    throw new Error('Only pilot access can be linked to a Crew Management pilot profile.');
+  }
 
   const companyUserId = generateCompanyUserId();
   const passcode = generatePasscode();
@@ -152,7 +165,7 @@ async function issueCompanyUser(db, {
     companyUserId,
     companyId,
     displayName,
-    role: `${role || 'OPERATIONS'}`.trim().toUpperCase(),
+    role: normalizedRole,
     permissions: normalizePermissions(permissions),
     linkedCrewProfileId: linkedCrewProfileId || null,
     status: normalizeStatus(status),
@@ -192,6 +205,13 @@ async function verifyCompanyUser(db, { companyUserId, passcode, now = new Date()
   const record = await getCompanyUser(db, companyUserId);
   if (!record) return { ok: false, reason: 'NOT_FOUND' };
   if (record.status !== 'ACTIVE') return { ok: false, reason: 'SUSPENDED' };
+  if (`${record.role || ''}`.trim().toUpperCase() === 'PILOT') {
+    try {
+      await assertEligibleCrewPilot(db, record.companyId, record.linkedCrewProfileId);
+    } catch {
+      return { ok: false, reason: 'INVALID' };
+    }
+  }
 
   const lockedUntil = record.lockedUntil ? new Date(record.lockedUntil).getTime() : 0;
   if (lockedUntil && lockedUntil > now.getTime()) return { ok: false, reason: 'LOCKED' };
@@ -220,7 +240,9 @@ async function verifyCompanyUser(db, { companyUserId, passcode, now = new Date()
       home: 'company',
       companyUserId: record.companyUserId,
       companyId: record.companyId,
-      role: record.role || 'OPERATIONS'
+      role: record.role || 'OPERATIONS',
+      linkedCrewProfileId: record.linkedCrewProfileId || null,
+      permissions: normalizePermissions(record.permissions)
     }
   };
 }
@@ -259,7 +281,7 @@ async function listCompanyUsers(db, companyId) {
 }
 
 async function updateCompanyUser(db, { callerCompanyId, companyUserId, patch = {}, now = new Date() } = {}) {
-  await requireCompanyUserInCompany(db, callerCompanyId, companyUserId);
+  const current = await requireCompanyUserInCompany(db, callerCompanyId, companyUserId);
 
   const allowed = {};
   if (patch.displayName !== undefined) {
@@ -268,7 +290,9 @@ async function updateCompanyUser(db, { callerCompanyId, companyUserId, patch = {
     allowed.displayName = displayName;
   }
   if (patch.role !== undefined) {
-    allowed.role = `${patch.role || ''}`.trim().toUpperCase() || 'OPERATIONS';
+    const role = `${patch.role || ''}`.trim().toUpperCase();
+    if (!VALID_ACCESS_ROLES.includes(role)) throw new Error(`role must be one of: ${VALID_ACCESS_ROLES.join(', ')}.`);
+    allowed.role = role;
   }
   if (patch.permissions !== undefined) {
     allowed.permissions = normalizePermissions(patch.permissions);
@@ -277,9 +301,16 @@ async function updateCompanyUser(db, { callerCompanyId, companyUserId, patch = {
     allowed.status = normalizeStatus(patch.status);
   }
   if (patch.linkedCrewProfileId !== undefined) {
-    // Read-only existence check. NEVER creates, moves, or rewrites the pilot record.
-    await assertCrewProfileExists(db, patch.linkedCrewProfileId || null);
     allowed.linkedCrewProfileId = patch.linkedCrewProfileId || null;
+  }
+  const nextRole = allowed.role || current.role;
+  const nextPilotId = Object.hasOwn(allowed, 'linkedCrewProfileId') ? allowed.linkedCrewProfileId : current.linkedCrewProfileId;
+  const roleChanged = allowed.role !== undefined && allowed.role !== current.role;
+  const pilotLinkChanged = Object.hasOwn(allowed, 'linkedCrewProfileId') && allowed.linkedCrewProfileId !== current.linkedCrewProfileId;
+  if (roleChanged || pilotLinkChanged) {
+    if (nextRole === 'PILOT' && nextPilotId) await assertEligibleCrewPilot(db, callerCompanyId, nextPilotId);
+    else if (nextRole === 'PILOT') allowed.status = 'SUSPENDED';
+    else if (nextPilotId) throw new Error('Only pilot access can be linked to a Crew Management pilot profile.');
   }
   if (Object.keys(allowed).length === 0) {
     throw new Error('Nothing to update. Provide displayName, role, permissions, status, or linkedCrewProfileId.');

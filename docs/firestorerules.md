@@ -54,6 +54,17 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/company_members/$(request.auth.uid)).data.companyId == companyId;
     }
 
+    // Company Home custom-token session issued after Company User ID/passcode
+    // verification. Module access is carried in signed token claims.
+    function hasCompanyModulePermission(companyId, module, permission) {
+      return request.auth != null
+        && request.auth.token.home == 'company'
+        && request.auth.token.companyId == companyId
+        && request.auth.token.permissions is map
+        && request.auth.token.permissions.modules is map
+        && request.auth.token.permissions.modules.get(module, {}).get(permission, false) == true;
+    }
+
     // ══════════════════════════════════════════════
     // USERS COLLECTION
     // ══════════════════════════════════════════════
@@ -273,16 +284,11 @@ service cloud.firestore {
       allow delete: if request.auth != null && isCompanyAdmin(resource.data.companyId);
     }
 
-    // COMPANY USERS (Phase C1 foundation — Admin-issued Company User registry).
-    // Reads/writes restricted to the company admin. Issuance and passcode
-    // verification run server-side via callables (Admin SDK bypasses rules);
-    // company sessions (custom-token claims) get NO direct registry access.
-    // NOTE: publish to the Firebase console with the hardening milestone and
-    // verify console matches this file before relying on it.
+    // COMPANY USERS: all registry operations run through owner/admin-checked
+    // Cloud Functions using the Admin SDK. Never expose hashes or permit a
+    // client to bypass pilot provenance and account status validation.
     match /company_users/{userId} {
-      allow read: if request.auth != null && isCompanyAdmin(resource.data.companyId);
-      allow create: if request.auth != null && isCompanyAdmin(request.resource.data.companyId);
-      allow update, delete: if request.auth != null && isCompanyAdmin(resource.data.companyId);
+      allow read, create, update, delete: if false;
     }
 
     // COMPANY MEMBERSHIPS (Android link record, keyed by the anonymous company-session uid).
@@ -308,15 +314,16 @@ service cloud.firestore {
     // COMPANY MODULE SUBCOLLECTIONS: companies/{companyId}/{module}/{docId}
     // Covers reminder_settings/current (company-editable) and
     // reminder_runs/* (server-written, company-readable) via the generic rule.
-    match /companies/{companyId}/{module}/{docId} {
+    match /companies/{companyId}/{module}/{document=**} {
       allow read: if request.auth != null && (
         isCompanyAdmin(companyId) ||
         isCompanyAccountMember(companyId) ||
-        isCompanyMember(companyId)
+        isCompanyMember(companyId) ||
+        hasCompanyModulePermission(companyId, module, 'view')
       );
       allow create, update, delete: if request.auth != null
-        && isCompanyAdmin(companyId)
-        && module != 'reminder_logs';
+        && module != 'reminder_logs'
+        && (isCompanyAdmin(companyId) || hasCompanyModulePermission(companyId, module, 'edit'));
     }
   }
 }
