@@ -9,14 +9,14 @@ async function callCompanyUserFn(name, payload) {
   return result?.data ?? null;
 }
 
-export async function issueCompanyUserViaCallable({ displayName, role, permissions, linkedCrewProfileId = null, status = 'ACTIVE' }) {
+export async function issueCompanyUserViaCallable({ role, permissions, linkedCrewProfileId = null, linkedPersonId = null, status = 'ACTIVE' }) {
   // Returns { companyUserId, ..., passcode }; the passcode is shown once and
   // is never persisted by the client or server.
   return callCompanyUserFn('issueCompanyUser', {
-    displayName,
     role,
     permissions,
     linkedCrewProfileId,
+    linkedPersonId,
     status
   });
 }

@@ -13,7 +13,7 @@ This repository contains the web app and Firebase Functions, not Android source.
 1. Accept a Company User ID (`CMU-…`) and passcode.
 2. Call `verifyCompanyUser` with `{ companyUserId, passcode }`.
 3. On success, call `signInWithCustomToken` with the returned token.
-4. Use claims `home`, `companyUserId`, `companyId`, `role`, `linkedCrewProfileId`, and `permissions.modules`.
+4. Use claims `home`, `companyUserId`, `companyId`, `role`, `displayName`, `linkedCrewProfileId`, `linkedPersonId`, and `permissions.modules`.
 5. Do not persist or log passcodes. An initial passcode is shown once in the web app; an admin must reset it if lost.
 6. After five failed attempts, the account is locked for 15 minutes.
 
@@ -23,14 +23,14 @@ This repository contains the web app and Firebase Functions, not Android source.
 - A module is visible when `permissions.modules[module].view == true`.
 - Allow edits only when `permissions.modules[module].edit == true` and deployed Firestore rules grant that operation.
 - Do not read `company_users` directly; the list is admin-callable only. Claims are a permission snapshot and should be refreshed after admin changes.
-- Pilot Company Users must have `linkedCrewProfileId` for an eligible Crew Management Add Pilot record. Operations and technical users do not receive pilot links.
+- Pilot Company Users use `linkedCrewProfileId` for an eligible Crew Management Add Pilot record. Operations and technical users use `linkedPersonId` for an active matching-role record in `companies/{companyId}/people`.
 - Keep personal and Company Home data isolated.
 
 ## Setup and security
 
 - Register the Android package under Firebase project `vyomsena-888` and use the matching `google-services.json`.
 - Enable the required Firebase Auth and Functions SDKs. The `verifyCompanyUser` callable is unauthenticated by design; issuance, listing, edits, resets, and suspension are owner/admin-only.
-- `docs/firestorerules.md` is the Firebase CLI rules source configured in `firebase.json`; rules and the 11 Cloud Functions are deployed to `vyomsena-888` for web release `V0.3.50`. The Android app still needs to implement and verify the Company Home login contract.
+- `docs/firestorerules.md` is the Firebase CLI rules source configured in `firebase.json`. Deploy callable changes for each Company Home contract release. The Android app still needs to implement and verify the Company Home login contract.
 - The old `crew_link_codes`, `company_invites`, and `company_members` paths are legacy and are not the current Company Home login mechanism.
 
 ## Devices

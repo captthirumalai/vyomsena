@@ -1,3 +1,5 @@
-﻿#flightops-content {
-  margin-top: 1rem;
-}
+#flightops-content { margin-top: 1rem; }
+.fo-person-form { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin-block: 1rem; }
+.fo-person-form label { display: grid; gap: .35rem; min-width: min(100%, 18rem); }
+.fo-person-form input { padding: .65rem .75rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: .5rem; }
+.fo-team-list, .mx-team-list { display: grid; gap: .5rem; padding-left: 1.25rem; }

@@ -17,7 +17,7 @@ Accept a Company User ID (`CMU-…`) and passcode. Do not persist, log, or cache
 
 - Request: `{ companyUserId, passcode }`.
 - Success: `{ token, claims }`; call Firebase `signInWithCustomToken(token)`.
-- Claims: `home`, `companyUserId`, `companyId`, `role`, `linkedCrewProfileId`, and compact `permissions.modules` grants (`{ view, edit }`).
+- Claims: `home`, `companyUserId`, `companyId`, `role`, `displayName`, `linkedCrewProfileId`, `linkedPersonId`, and compact `permissions.modules` grants (`{ view, edit }`). Pilot identities use `linkedCrewProfileId`; operations and technical identities use `linkedPersonId`.
 - Unknown ID, wrong passcode, suspended user, or invalid pilot association: show a generic credential error.
 - Lockout: show “Too many attempts. Try again later.”
 - Network failure: show a retryable server connection message.
@@ -29,12 +29,12 @@ Do not read `company_users/{id}` from Android. The collection is denied to clien
 - Read company data only under `companies/{companyId}/…` using the verified token's `companyId` claim.
 - Show a module only when `permissions.modules[module].view == true`.
 - Enable changes only when that module's `edit == true` and Firestore rules permit them.
-- A pilot Company User is linked only to an existing eligible `crew_profiles` record created by that company's Crew Management → Add Pilot flow. Other roles cannot be linked to a pilot profile.
+- A pilot Company User is linked only to an existing eligible `crew_profiles` record created by that company's Crew Management → Add Pilot flow. Operations and technical Company Users are linked to active, matching-role records in `companies/{companyId}/people` created from Flight Ops or Maintenance. A source person can be linked to one Company User.
 - Never fall back to personal `users/{uid}` data for Company Home.
 
 ## Web implementation and rules
 
 - `issueCompanyUser` and `verifyCompanyUser` run server-side. Passcodes use scrypt hashes and plaintext is returned only once at issuance/reset.
-- `company_users` stores role, status, company ID, optional eligible pilot link, and per-module grants.
+- `company_users` stores role, status, company ID, a source person link (`linkedCrewProfileId` or `linkedPersonId`), and per-module grants.
 - `docs/firestorerules.md` is configured as the Firestore rules source in `firebase.json`; rules and all 11 Cloud Functions were deployed to `vyomsena-888` on 2026-10-27. The Android app still needs to implement and verify this login contract.
 - Future EFB device enrollment is a separate identity and security flow. Do not reuse person credentials for devices.

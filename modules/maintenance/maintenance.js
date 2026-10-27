@@ -6,6 +6,7 @@
   deleteCompanyAircraft
 } from '../../services/aircraftService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
+import { addCompanyModuleDoc, listCompanyModuleDocs, onCompanyModuleSnapshot } from '../../services/companyService.js';
 import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 
 let fleetUnsubscribe = null;
@@ -13,6 +14,7 @@ let latestFleet = [];
 let activeView = null;
 let activeCompanyId = null;
 let editingReg = null;
+let teamUnsubscribe = null;
 
 function escapeHtml(value) {
   return `${value || ''}`
@@ -203,8 +205,8 @@ export async function init(view, context) {
     : '';
   mountModuleActions(`<span id="mx-status" class="vs-page-chip">Loading fleet...</span>${addTechAction}`);
   const addTechUserButton = getModuleAction('mx-add-tech-user');
-  const setRequestedRole = () => sessionStorage.setItem('vs-linking-prefill-role', 'AME');
-  addTechUserButton?.addEventListener('click', setRequestedRole);
+  const focusTechForm = (event) => { event.preventDefault(); view.querySelector('#mx-team-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); view.querySelector('#mx-person-name')?.focus(); };
+  addTechUserButton?.addEventListener('click', focusTechForm);
 
   const heading = view.querySelector('h2');
   if (heading) {
@@ -220,6 +222,29 @@ export async function init(view, context) {
     setStatus('No authorized operator found.');
     return { destroy() {} };
   }
+
+  const teamForm = view.querySelector('#mx-person-form');
+  const teamList = view.querySelector('#mx-team-list');
+  const teamStatus = view.querySelector('#mx-team-status');
+  const teamMessage = view.querySelector('#mx-person-message');
+  const canManageTeam = ['OWNER', 'ADMIN'].includes(role);
+  if (!canManageTeam) { const teamCard = view.querySelector('#mx-team-card'); if (teamCard) teamCard.hidden = true; }
+  const renderTeam = (records) => {
+    const staff = records.filter((p) => `${p.role || ''}`.toUpperCase() === 'AME' && `${p.status || 'ACTIVE'}`.toUpperCase() === 'ACTIVE').sort((a, b) => `${a.displayName || ''}`.localeCompare(`${b.displayName || ''}`));
+    if (teamList) teamList.innerHTML = staff.length ? staff.map((p) => `<li>${escapeHtml(p.displayName || p.name || 'Unnamed')}</li>`).join('') : '<li>No technical people yet. Add a person here to make them available in Linking &amp; Access.</li>';
+  };
+  if (canManageTeam) {
+    try { renderTeam(await listCompanyModuleDocs(activeCompanyId, 'people')); }
+    catch (error) { if (teamStatus) teamStatus.textContent = `Unable to load technical team${describeError(error)}.`; }
+    teamUnsubscribe = onCompanyModuleSnapshot(activeCompanyId, 'people', renderTeam, (error) => { if (teamStatus) teamStatus.textContent = `Unable to refresh technical team${describeError(error)}.`; });
+  }
+  teamForm?.addEventListener('submit', async (event) => {
+    event.preventDefault(); const input = view.querySelector('#mx-person-name'); const name = input.value.trim(); if (!name) return;
+    const button = teamForm.querySelector('button[type="submit"]'); button.disabled = true; teamMessage.hidden = false; teamMessage.textContent = 'Adding…';
+    try { await addCompanyModuleDoc(activeCompanyId, 'people', { displayName: name, role: 'AME', status: 'ACTIVE', createdBy: currentUser?.uid || null }); input.value = ''; teamMessage.textContent = `${name} added. They can now be selected in Linking & Access.`; teamMessage.classList.add('mx-form-message--ok'); }
+    catch (error) { teamMessage.textContent = error.message || 'Unable to add this person.'; teamMessage.classList.add('mx-form-message--error'); }
+    finally { button.disabled = false; }
+  });
 
   setFormMode();
   view.querySelector('#mx-fleet-form')?.addEventListener('submit', handleSaveFleet);
@@ -252,8 +277,10 @@ export async function init(view, context) {
   return {
     destroy() {
       fleetUnsubscribe?.();
-      addTechUserButton?.removeEventListener('click', setRequestedRole);
+      teamUnsubscribe?.();
+      addTechUserButton?.removeEventListener('click', focusTechForm);
       fleetUnsubscribe = null;
+      teamUnsubscribe = null;
       latestFleet = [];
       activeView = null;
       activeCompanyId = null;

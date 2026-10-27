@@ -22,10 +22,9 @@
               <option value="AME">Technical user</option>
             </select>
           </label>
-          <label class="ln-field"><span>Name</span><input id="ln-name" type="text" autocomplete="name" required placeholder="Full name" /></label>
-          <label class="ln-field" id="ln-pilot-field"><span>Existing Add Pilot record</span><select id="ln-pilot" required><option value="">Select a Crew Management pilot…</option></select></label>
+          <label class="ln-field ln-person-field"><span>Existing person</span><select id="ln-person" required></select></label>
         </div>
-        <p class="ln-note" id="ln-pilot-note">Pilot access can only be issued for a profile created with Crew Management → Add Pilot.</p>
+        <p class="ln-note" id="ln-person-note" aria-live="polite"></p>
         <div class="ln-permissions">
           <div class="ln-section-heading"><h4>Module permissions</h4><span>View and edit rights</span></div>
           <div class="ln-table-wrap"><table><thead><tr><th>Module</th><th>View</th><th>Edit</th></tr></thead><tbody id="ln-permissions-body"></tbody></table></div>
@@ -50,18 +49,17 @@
   </section>
 
   <section class="vs-card ln-roster-card">
-    <div class="ln-roster-heading"><div><h3>Linked people</h3><p class="muted">Pilot credentials only appear for Add Pilot records. Suspend access or reset a passcode from here.</p></div><label class="ln-search"><span class="hidden">Search linked people</span><input id="ln-search" type="search" placeholder="Search name, ID, role…" /></label></div>
+    <div class="ln-roster-heading"><div><h3>Linked people</h3><p class="muted">Accounts link to existing module records. Suspend access or reset a passcode from here.</p></div><label class="ln-search"><span class="hidden">Search linked people</span><input id="ln-search" type="search" placeholder="Search name, ID, role…" /></label></div>
     <p class="ln-status" id="ln-list-status" aria-live="polite"></p>
-    <div class="ln-table-wrap"><table class="ln-roster"><thead><tr><th>User</th><th>Type</th><th>Linked pilot</th><th>Modules</th><th>Status</th><th>Actions</th></tr></thead><tbody id="ln-users-body"><tr><td colspan="6" class="ln-empty">Loading…</td></tr></tbody></table></div>
+    <div class="ln-table-wrap"><table class="ln-roster"><thead><tr><th>User</th><th>Type</th><th>Linked person</th><th>Modules</th><th>Status</th><th>Actions</th></tr></thead><tbody id="ln-users-body"><tr><td colspan="6" class="ln-empty">Loading…</td></tr></tbody></table></div>
   </section>
   <dialog class="ln-edit-dialog" id="ln-edit-dialog">
     <form id="ln-edit-form">
       <div class="ln-card-heading"><div><p class="ln-eyebrow">ACCESS CONTROL</p><h3>Edit account access</h3></div><button type="button" class="vs-button vs-button--secondary vs-button--sm" id="ln-edit-close">Close</button></div>
       <input id="ln-edit-id" type="hidden" />
       <div class="ln-form-row">
-        <label class="ln-field"><span>Name</span><input id="ln-edit-name" required /></label>
         <label class="ln-field"><span>Access type</span><select id="ln-edit-role"><option value="PILOT">Pilot</option><option value="OPERATIONS">Operations user</option><option value="AME">Technical user</option></select></label>
-        <label class="ln-field" id="ln-edit-pilot-field"><span>Add Pilot record</span><select id="ln-edit-pilot"></select></label>
+        <label class="ln-field"><span>Existing person</span><select id="ln-edit-person" required></select></label>
       </div>
       <div class="ln-table-wrap"><table><thead><tr><th>Module</th><th>View</th><th>Edit</th></tr></thead><tbody id="ln-edit-permissions"></tbody></table></div>
       <div class="ln-actions"><button type="submit" class="vs-button vs-button--primary vs-button--md">Save access</button><span class="ln-status" id="ln-edit-status" aria-live="polite"></span></div>

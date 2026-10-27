@@ -7,7 +7,7 @@ Company Home uses the centralized **Linking & Access** identity contract. The ol
 1. Show Company User ID (`CMU-…`) and passcode fields.
 2. Call the Firebase callable `verifyCompanyUser` with `{ companyUserId, passcode }`.
 3. On success, sign in using `FirebaseAuth.signInWithCustomToken(token)`.
-4. Read the signed token claims: `home`, `companyUserId`, `companyId`, `role`, `linkedCrewProfileId`, and `permissions.modules`.
+4. Read the signed token claims: `home`, `companyUserId`, `companyId`, `role`, `displayName`, `linkedCrewProfileId`, `linkedPersonId`, and `permissions.modules`.
 5. Persist Firebase's authenticated session only. Never persist the passcode.
 6. Keep Company Home and Aviation Home sessions separate if one Firebase Auth instance would replace the other session.
 
@@ -19,7 +19,7 @@ The passcode is displayed once when the web admin creates or resets it. It is no
 - Display a module only if `permissions.modules[module].view == true`.
 - Permit edits only if `permissions.modules[module].edit == true`; Firestore rules must independently enforce the same boundary.
 - Do not read `company_users` directly from the app. The custom token contains the current permission snapshot. Refresh token or reauthenticate after admin changes.
-- A PILOT Company User is linked to an existing Crew Management Add Pilot profile. Read its ID from `linkedCrewProfileId`; do not create or alter the roster record from Android.
+- A PILOT Company User is linked to an existing Crew Management Add Pilot profile (`linkedCrewProfileId`). Operations and technical accounts link to an existing `companies/{companyId}/people` record (`linkedPersonId`). Do not create or alter these source records from Android.
 - Operations and technical Company Users have no pilot link unless the contract is changed deliberately.
 - Keep personal Aviation data out of Company Home and do not silently fall back between workspaces.
 

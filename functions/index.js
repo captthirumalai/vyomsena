@@ -175,11 +175,12 @@ exports.issueCompanyUser = onCall(async (request) => {
       role: data.role,
       permissions: data.permissions,
       linkedCrewProfileId: data.linkedCrewProfileId || null,
+      linkedPersonId: data.linkedPersonId || null,
       status: data.status,
       createdBy: request.auth.uid
     });
   } catch (error) {
-    if (error.message && /pilot record .* was not found|required|permissions|status|role must|pilot access|only pilot access/i.test(error.message)) {
+    if (error.message && /pilot record .* was not found|pilot already has|staff record|already has a Company Home|select an active|must have a name|required|permissions|status|role must|pilot access|only pilot access/i.test(error.message)) {
       throw new HttpsError('invalid-argument', error.message);
     }
     throw new HttpsError('internal', 'Unable to issue the company user.');
@@ -228,12 +229,13 @@ exports.updateCompanyUser = onCall(async (request) => {
           role: data.role,
           permissions: data.permissions,
           status: data.status,
-          linkedCrewProfileId: data.linkedCrewProfileId
+          linkedCrewProfileId: data.linkedCrewProfileId,
+          linkedPersonId: data.linkedPersonId
         }
       })
     );
   } catch (error) {
-    if (error.message && /not found|organisation|empty|permissions|status|pilot record|pilot access|only pilot access|role must|update/i.test(error.message)) {
+    if (error.message && /not found|organisation|empty|permissions|status|already has a Company Home|pilot record|staff record|select an active|pilot access|only pilot access|role must|update/i.test(error.message)) {
       throw new HttpsError('invalid-argument', error.message);
     }
     throw new HttpsError('internal', 'Unable to update the company user.');
