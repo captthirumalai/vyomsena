@@ -36,7 +36,9 @@ service cloud.firestore {
     function isCompanyAdmin(companyId) {
       return request.auth != null
         && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.companyId == companyId;
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.companyId == companyId
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.get('role', '') in ['ADMIN', 'OWNER']
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.get('status', 'ACTIVE') == 'ACTIVE';
     }
 
     // A real account (company_accounts/{uid}) that belongs to the given company.
