@@ -13,14 +13,12 @@ import {
   serverTimestamp
 } from './firestoreService.js';
 import { validateContract } from './schemaContract.js';
-import { resolveAdminCompanyId } from './organizationService.js';
 
 const ADMIN_USERS = 'admin_users';
 const COMPANIES = 'companies';
 const COMPANY_ACCOUNTS = 'company_accounts';
 
 const ROLE_ADMIN = 'ADMIN';
-const ROLE_OWNER = 'OWNER';
 
 function normalizeAdminUser(snapshotDoc) {
   const raw = snapshotDoc.data();
@@ -68,45 +66,6 @@ function normalizeAccount(snapshotDoc) {
   };
 }
 
-export async function ensureAdminUser({ uid, email = null, displayName = null, companyId = null, role = ROLE_ADMIN }) {
-  if (!uid) {
-    throw new Error('uid is required to register an admin user.');
-  }
-
-  const existingRef = doc(ADMIN_USERS, uid);
-  const existing = await getDoc(existingRef);
-  if (existing.exists()) {
-    const current = normalizeAdminUser(existing);
-    const patches = {};
-    // Clobber-guard: a valid stored companyId is NEVER overwritten by login.
-    // A member's company (or a solo owner's own company) survives re-login.
-    const resolved = resolveAdminCompanyId(current.companyId, companyId);
-    if (resolved.shouldUpdate) patches.companyId = resolved.companyId;
-    if (email && !current.email) patches.email = `${email}`.trim().toLowerCase();
-    if (displayName && !current.displayName) patches.displayName = displayName;
-    if (Object.keys(patches).length > 0) {
-      await updateDoc(existingRef, { ...patches, lastModified: serverTimestamp() });
-      return { ...current, ...patches, lastModified: serverTimestamp() };
-    }
-    return current;
-  }
-
-  const payload = {
-    uid,
-    email: email ? `${email}`.trim().toLowerCase() : null,
-    displayName: displayName || null,
-    companyId,
-    role,
-    status: 'ACTIVE',
-    createdAt: serverTimestamp(),
-    lastModified: serverTimestamp()
-  };
-
-  validateContract('admin_users', payload, 'ensureAdminUser', 'write');
-  await setDoc(existingRef, payload);
-  return payload;
-}
-
 export async function isAdminUser(uid) {
   if (!uid) return false;
   const snapshot = await getDoc(doc(ADMIN_USERS, uid));
@@ -140,10 +99,6 @@ export async function createCompany({ companyId, name, base = null, code = null,
 
   validateContract('companies', companyPayload, 'createCompany', 'write');
   await setDoc(doc(COMPANIES, companyId), companyPayload);
-
-  if (ownerUid) {
-    await ensureAdminUser({ uid: ownerUid, email: ownerEmail, displayName: ownerDisplayName, companyId, role: ROLE_OWNER });
-  }
 
   return companyPayload;
 }

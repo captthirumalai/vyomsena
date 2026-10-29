@@ -70,10 +70,18 @@ service cloud.firestore {
     // ══════════════════════════════════════════════
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow create, delete: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false;
       allow update: if request.auth != null && (
-        request.auth.uid == userId ||
-        resource.data.linkedOperator == request.auth.uid
+        (
+          request.auth.uid == userId &&
+          request.resource.data.get('role', null) == resource.data.get('role', null) &&
+          request.resource.data.get('linkedOperator', null) == resource.data.get('linkedOperator', null)
+        ) ||
+        (
+          resource.data.linkedOperator == request.auth.uid &&
+          request.resource.data.get('role', null) == resource.data.get('role', null)
+        )
       );
     }
 
@@ -238,19 +246,19 @@ service cloud.firestore {
     // COMPANY WORKSPACE (webapp manages, Android links)
     // ══════════════════════════════════════════════
 
-    // ADMIN USERS (web write grant, seeded once)
+    // ADMIN USERS (server-provisioned web administrator grants)
     match /admin_users/{uid} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == uid && !exists(/databases/$(database)/documents/admin_users/$(uid));
-      allow update: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
       allow delete: if false;
     }
 
-    // COMPANIES (owner writes)
+    // COMPANIES (admins manage settings; only the owner can delete)
     match /companies/{companyId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && request.auth.uid == companyId;
-      allow update, delete: if request.auth != null && request.auth.uid == companyId;
+      allow update: if request.auth != null && isCompanyAdmin(companyId);
+      allow delete: if request.auth != null && request.auth.uid == companyId;
     }
 
     // COMPANY ACCOUNTS (P4 Stage 1: self-read + admin roster read; no open read)

@@ -15,7 +15,8 @@ The `/linking` module is the operator admin console for Company Home identities 
 
 ## Entry points
 
-- The left pane opens **Linking & Access** for company owners/admins.
+- Every registered web account is provisioned as an active company administrator. An existing active company membership scopes the admin to that company; otherwise the account administers its own workspace.
+- The left pane opens **Linking & Access** for company administrators.
 - Flight Ops → Add Ops User opens the Operations Team source form.
 - Maintenance → Add Technical User opens the Technical Team source form.
 - Crew Management remains the pilot source. Pilot cards do not issue separate six-digit Company Home invitations.
@@ -33,4 +34,4 @@ This replaces the web-generated `company_invites` six-digit flow for Company Hom
 
 ## Deployment
 
-Release V0.3.51 updates the web UI and Company User callables. Firestore rules are unchanged for this release. The Android application still needs to implement the documented callable sign-in contract.
+Release V0.4.0 makes registered non-pilot web accounts company administrators through a server-managed callable, scopes each admin to an active member company or their own workspace, and makes admin grants server-only in Firestore rules. Company User access remains limited by the module permissions assigned here. The Android application still needs to implement the documented callable sign-in contract.

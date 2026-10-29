@@ -23,7 +23,7 @@ Treat Firestore schema as an API contract.
 - `operator_training_records` (web-only, operator managed)
 - `crew_profiles` (web-only, operator managed)
 - `crew_link_codes` (legacy pilot-link tokens; not used for Company Home)
-- `admin_users` (web-only, operator write grant)
+- `admin_users` (web-only, server-managed administrator role and company scope)
 - `companies` (web-only, operator owned)
 - `company_accounts` (web-only, operator managed)
 - `company_invites` (legacy six-digit invite records; no longer issued by the web app)

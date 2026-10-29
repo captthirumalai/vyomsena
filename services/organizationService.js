@@ -44,17 +44,3 @@ export function getCurrentOrganizationContext(user) {
     scopeUserUid: normalizeText(user.uid)
   };
 }
-
-/**
- * Pure clobber-guard for ensureAdminUser: an admin grant's companyId may only
- * be filled when missing — never overwritten. A member's valid company (or a
- * solo owner's own company) therefore survives every subsequent login.
- * Returns the companyId that should be stored (existing wins, else requested).
- */
-export function resolveAdminCompanyId(currentCompanyId, requestedCompanyId) {
-  const current = normalizeText(currentCompanyId);
-  if (current) return { companyId: current, shouldUpdate: false };
-  const requested = normalizeText(requestedCompanyId);
-  if (requested) return { companyId: requested, shouldUpdate: true };
-  return { companyId: null, shouldUpdate: false };
-}

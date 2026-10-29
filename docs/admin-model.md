@@ -5,6 +5,7 @@ This document defines the operator-admin operating model for VyomSena:
 
 - **Web app** is the central control plane. All create, edit, and delete actions happen here.
 - **Android app** is a thin client. It syncs data and presents it read-only; it does not drive shared data.
+- Every registered non-pilot web account is a company administrator; Android Company Home users are separate identities managed through Linking & Access.
 - The same Firebase project and data contract are shared by both platforms, so this is an access/ownership model, not a fork of data.
 
 This document is the blueprint that later modules (flight documents, company document management) follow.
@@ -24,7 +25,7 @@ This document is the blueprint that later modules (flight documents, company doc
 | `user_documents` | Web (operator) uploads and maintains crew documents; `operatorId`, `userId`, `readers[]` identify scope. | Read/sync only; downloads for offline access. |
 | `connection_requests` | Legacy request/accept flow. Web no longer creates new requests; kept for migration and history. | No new writes. |
 | `crew_link_codes` | Legacy pilot-link path retained for migration only. | Not part of current Company Home access. |
-| `admin_users` | Web seeds `admin_users/{operatorUid}` once at workspace creation so the webapp can write. | Read none / ignored. |
+| `admin_users` | `ensureWebAdmin` Cloud Function provisions the company scope and role; clients cannot write these grants. | Read none / ignored. |
 | `companies` | Web (operator) creates `companies/{companyId}` with `{ name, base, code, ownerEmail }`. | Read/sync for company context. |
 | `company_accounts` | Web (operator) creates `company_accounts/{accountId}` with `{ companyId, role, displayName, email }`. | Read own account. |
 | `company_invites` | Legacy six-digit Company Home invite path. | Not used by the current web Linking module. |
@@ -63,7 +64,7 @@ This document is the blueprint that later modules (flight documents, company doc
 
 The company workspace replaces the legacy bootstrap fields on `users` with dedicated collections:
 
-1. **`admin_users/{uid}`** — seeded once with the operator's UID so the web app is granted write access.
+1. **`admin_users/{uid}`** — server-managed web administrator record with the `ADMIN` role. A registered user administers their active member company, or their own workspace if they are not a member. Workspace ownership is recorded separately in `companies.ownerUid`.
 2. **`companies/{companyId}`** — `{ name, base, code, ownerEmail }`, created at workspace registration.
 3. **`company_accounts/{accountId}`** — `{ companyId, role, displayName, email }`, one per workspace member.
 4. **`company_users/{companyUserId}`** — the Linking module issues `CMU-…` IDs, one-time passcodes, and per-module access grants for pilots and other company staff.
@@ -71,12 +72,12 @@ The company workspace replaces the legacy bootstrap fields on `users` with dedic
 
 Company Home people and device access are centrally managed in the `/linking` module. It issues Company User IDs and passcodes, binds pilot accounts only to eligible Crew Management Add Pilot records, and stores module grants. See `docs/linking-module.md`.
 
-Registration (`registerWorkspace`) and operator sign-in (`bootstrapCompanyWorkspace`) create the workspace once and are idempotent. Company Home user issuance and module permissions live in `/linking` and `services/companyUserService.js`.
+Registration (`registerWorkspace`) and operator sign-in (`bootstrapCompanyWorkspace`) create the workspace once and are idempotent. The authenticated `ensureWebAdmin` callable provisions administrator role and company scope; Android Company Home credentials and module permissions live in `/linking` and `services/companyUserService.js`.
 
 ## Rules Roadmap (when Android is read-only ready)
 | Phase | Rule |
 | --- | --- |
-| 1 (now) | Keep existing permissive rules; web-first. |
+| 1 (now) | `admin_users` grants are server-only; company data remains scoped by the server-provisioned company ID. |
 | 2 | `crew_profiles`: write allowed only for operators owning the profile; Android read-only. |
 | 3 | `user_documents`: create/update/delete only by owning `operatorId`; Android read + download. |
 | 4 | Storage: write only by owning operator; Android read/download matching `user_documents`. |
@@ -89,6 +90,6 @@ Registration (`registerWorkspace`) and operator sign-in (`bootstrapCompanyWorksp
 - [ ] Company document management: new module following the same ownership pattern.
 
 ## Non-Goals for This Pass
-- Tightening Firestore/Storage rules.
+- Broad tightening of unrelated Firestore/Storage rules.
 - Changing Android app rules or behavior.
 - Removing legacy `connection_requests` data (kept for migration).

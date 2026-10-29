@@ -6,7 +6,7 @@ The same stability principle applies here as in the data layer contract: avoid b
 
 ## Source of truth
 
-- Role is read from the authenticated profile in `users/{uid}` (field: `role`).
+- Web administrator role and company scope are read from `admin_users/{uid}`, provisioned by the authenticated `ensureWebAdmin` Cloud Function. The session profile is populated from that server response; `users/{uid}.role` is legacy profile metadata and does not grant web administrator access.
 - Route permissions are declared in each module manifest (`modules/*/manifest.js`).
 - Access checks are enforced in the router and filtered in the sidebar.
 
@@ -17,6 +17,10 @@ The same stability principle applies here as in the data layer contract: avoid b
 - If a route has `permissions`, user must have one matching role.
 - Unauthorized routes render an Access Denied state.
 - Pilot identities may still exist in shared Firebase auth and data, but pilot users are blocked from entering the web shell and are expected to use the Android app.
+- Every non-pilot account signing into the web app receives the `ADMIN` role. It administers its own workspace unless it has an active company membership, in which case that membership determines the company scope. Workspace ownership is tracked separately in `companies/{companyId}.ownerUid`. The server does not accept a company ID or role from the client.
+- Pilot profiles stay Android-only; the server rejects them independently of the client-side route/UI checks. Firestore prevents clients from changing a profile's role or deleting it to bypass that restriction.
+- `admin_users` writes are server-only. Firestore rules continue to scope data access to the company ID in the server-provisioned admin record.
+- Company admins can update company settings, while deleting the company remains restricted to its original owner.
 
 ## Manifest contract
 

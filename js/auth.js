@@ -13,7 +13,7 @@ import {
 } from '../services/authService.js';
 import { initRouter, destroyActiveModule } from './router.js';
 import { emit as emitEvent } from '../services/eventBus.js';
-import { getUserMembership } from '../services/companyService.js';
+import { ensureWebAdminViaCallable } from '../services/webAdminService.js';
 
 let routerStarted = false;
 
@@ -273,44 +273,23 @@ export function initAuth() {
           return;
         }
 
-        // Authoritative membership is resolved once per session and attached to
-        // the profile; getCurrentOrganizationContext() consumes it (sync) in
-        // every module. A valid membership is never replaced by the own-UID
-        // fallback, and members never get solo workspaces or admin rows.
-        let membershipCompanyId = null;
-        try {
-          const membership = await getUserMembership(user.uid);
-          if (membership?.companyId) {
-            membershipCompanyId = membership.companyId;
-            profileData.companyId = membership.companyId;
-            profileData.membershipRole = membership.role || null;
-          }
-        } catch (err) {
-          console.warn('Company membership lookup skipped:', err);
+        const registeredRole = normalizeRole(profileData.role);
+        const webAdmin = await ensureWebAdminViaCallable();
+        if (!webAdmin?.companyId || normalizeRole(webAdmin.role) !== 'ADMIN') {
+          throw new Error("Unable to verify this account's company administrator access.");
         }
+        profileData.companyId = webAdmin.companyId;
+        profileData.role = normalizeRole(webAdmin.role);
 
-        if (membershipCompanyId) {
-          // Member of an existing company: use it. No solo workspace bootstrap,
-          // no admin/user grant creation — membership confers read context only.
-        } else if (normalizeRole(profileData.role) === 'OPERATIONS') {
-          try {
-            await bootstrapCompanyWorkspace({
-              uid: user.uid,
-              email: profileData.email || user.email,
-              fullName: profileData.name || profileData.fullName || user.displayName,
-              companyName: profileData.organizationName,
-              companyCode: profileData.organizationCode,
-              companyBase: profileData.organizationBase
-            });
-          } catch (err) {
-            console.warn('Company workspace bootstrap skipped:', err);
-          }
-        } else if (!['ADMIN', 'OWNER'].includes(normalizeRole(profileData.role))) {
-          // Non-pilot, non-admin, no membership and no solo bootstrap path:
-          // fail loudly instead of signing into an empty, misleading workspace.
-          showError(loginError, 'No organisation found for this account. Ask your company admin for an invite.');
-          await signOutUser();
-          return;
+        if (!webAdmin.isMember && registeredRole === 'OPERATIONS') {
+          await bootstrapCompanyWorkspace({
+            uid: user.uid,
+            email: profileData.email || user.email,
+            fullName: profileData.name || profileData.fullName || user.displayName,
+            companyName: profileData.organizationName,
+            companyCode: profileData.organizationCode,
+            companyBase: profileData.organizationBase
+          });
         }
 
         authStore.setUser(profileData);
@@ -324,7 +303,7 @@ export function initAuth() {
         }
       } catch (err) {
         console.error('Auth profile load failed:', err);
-        showError(loginError, 'Unable to load profile. Please try again later.');
+        showError(loginError, err.message || 'Unable to load profile. Please try again later.');
         await signOutUser();
       }
     } else {

@@ -12,12 +12,12 @@ import {
 import { serverTimestamp } from './firestoreService.js';
 import { getUserByUid, createUserProfile as createUserProfileRecord } from './userService.js';
 import {
-  ensureAdminUser,
   getCompany,
   getCompanyAccount,
   createCompany,
   createCompanyAccount
 } from './companyService.js';
+import { ensureWebAdminViaCallable } from './webAdminService.js';
 
 export function initializeFirebaseAuth() {
   initFirebase();
@@ -132,13 +132,7 @@ export async function signOutUser() {
 export async function bootstrapCompanyWorkspace({ uid, email, fullName, companyName, companyCode, companyBase }) {
   if (!uid) return null;
 
-  const admin = await ensureAdminUser({
-    uid,
-    email,
-    displayName: fullName,
-    role: 'OWNER',
-    companyId: uid
-  });
+  const admin = await ensureWebAdminViaCallable();
 
   const normalizedCompanyName = `${companyName || ''}`.trim();
   if (!normalizedCompanyName) return { admin, company: null };

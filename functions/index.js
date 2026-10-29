@@ -60,8 +60,9 @@ async function assertCallerAllowed(uid) {
     throw new HttpsError('unauthenticated', 'Sign in to run reminders.');
   }
   const snap = await db.doc(`admin_users/${uid}`).get();
-  const role = `${(snap.exists ? snap.data() || {} : {}).role || ''}`.toUpperCase();
-  if (!snap.exists || !['OWNER', 'ADMIN', 'OPERATIONS'].includes(role)) {
+  const data = snap.exists ? snap.data() || {} : {};
+  const role = `${data.role || ''}`.toUpperCase();
+  if (!snap.exists || `${data.status || 'ACTIVE'}`.toUpperCase() !== 'ACTIVE' || !['OWNER', 'ADMIN', 'OPERATIONS'].includes(role)) {
     throw new HttpsError('permission-denied', 'Only company owner, admin or operations accounts can run reminders.');
   }
   return { role, companyId: (snap.data() || {}).companyId || uid };
@@ -153,11 +154,66 @@ async function assertOwnerOrAdmin(uid) {
   const snap = await db.doc(`admin_users/${uid}`).get();
   const data = snap.exists ? snap.data() || {} : {};
   const role = `${data.role || ''}`.toUpperCase();
-  if (!snap.exists || !['OWNER', 'ADMIN'].includes(role)) {
+  if (!snap.exists || `${data.status || 'ACTIVE'}`.toUpperCase() !== 'ACTIVE' || !['OWNER', 'ADMIN'].includes(role)) {
     throw new HttpsError('permission-denied', 'Only the company owner or admin can manage company users.');
   }
   return { role, companyId: data.companyId || uid };
 }
+
+exports.ensureWebAdmin = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Sign in to open the web application.');
+  }
+  if (request.auth.token.home === 'company') {
+    throw new HttpsError('permission-denied', 'Company Home accounts use their assigned Android module access.');
+  }
+
+  const adminRef = db.doc(`admin_users/${uid}`);
+  const membershipRef = db.doc(`company_accounts/${uid}`);
+  const profileRef = db.doc(`users/${uid}`);
+  const crewProfileRef = db.doc(`crew_profiles/${uid}`);
+  return db.runTransaction(async (transaction) => {
+    const membershipSnapshot = await transaction.get(membershipRef);
+    const adminSnapshot = await transaction.get(adminRef);
+    const profileSnapshot = await transaction.get(profileRef);
+    const crewProfileSnapshot = await transaction.get(crewProfileRef);
+    const membership = membershipSnapshot.exists ? membershipSnapshot.data() || {} : {};
+    const current = adminSnapshot.exists ? adminSnapshot.data() || {} : {};
+    const profile = profileSnapshot.exists ? profileSnapshot.data() || {} : {};
+    const crewProfile = crewProfileSnapshot.exists ? crewProfileSnapshot.data() || {} : {};
+    const isMember = membership.isMember === true && Boolean(membership.companyId);
+
+    if (`${profile.role || ''}`.toUpperCase() === 'PILOT' || `${crewProfile.role || ''}`.toUpperCase() === 'PILOT') {
+      throw new HttpsError('permission-denied', 'Pilot accounts use the Android app and cannot become web administrators.');
+    }
+    if (isMember && `${membership.status || 'ACTIVE'}`.toUpperCase() !== 'ACTIVE') {
+      throw new HttpsError('permission-denied', 'This company membership is inactive.');
+    }
+    if (adminSnapshot.exists && `${current.status || 'ACTIVE'}`.toUpperCase() !== 'ACTIVE') {
+      throw new HttpsError('permission-denied', 'This web administrator account is inactive.');
+    }
+    if (isMember && current.companyId && current.companyId !== membership.companyId) {
+      throw new HttpsError('failed-precondition', 'This account has a different existing company scope. Contact support to resolve it.');
+    }
+
+    const companyId = isMember ? membership.companyId : (current.companyId || uid);
+    const role = 'ADMIN';
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    transaction.set(adminRef, {
+      uid,
+      email: request.auth.token.email || current.email || null,
+      displayName: request.auth.token.name || current.displayName || null,
+      companyId,
+      role,
+      status: 'ACTIVE',
+      ...(adminSnapshot.exists ? {} : { createdAt: now }),
+      lastModified: now
+    }, { merge: true });
+
+    return { uid, companyId, role, status: 'ACTIVE', isMember };
+  });
+});
 
 // Phase C1: Admin-only issuance of Company Users (ID + one-time passcode).
 // The plaintext passcode is returned ONCE in this response and never stored.
