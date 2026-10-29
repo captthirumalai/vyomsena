@@ -291,6 +291,10 @@ export function initLayout() {
                       <span>Need a company workspace?</span>
                       <a href="#" id="go-register" class="link-action">Create workspace</a>
                     </div>
+                    <nav class="auth-legal-links" aria-label="Legal information">
+                      <a href="/privacy-policy.html">Privacy Policy</a>
+                      <a href="/account-deletion.html">Account Deletion</a>
+                    </nav>
                   </div>
 
                   <div class="vs-auth-card" id="register-card">

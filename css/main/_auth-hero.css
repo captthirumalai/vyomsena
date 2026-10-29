@@ -347,6 +347,25 @@
   display: none;
 }
 
+.auth-legal-links {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 1rem;
+  font-size: 0.82rem;
+}
+
+.auth-legal-links a {
+  color: var(--muted-color);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.auth-legal-links a:hover,
+.auth-legal-links a:focus-visible {
+  color: var(--primary-strong);
+}
+
 .vs-form-inner .card-heading h2 {
   margin: 0;
   font-size: 1.55rem;
