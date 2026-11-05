@@ -197,8 +197,8 @@ body[data-theme='dark'] .vs-sidebar-group:focus-within > .vs-sidebar-group-toggl
   border-color: rgba(96, 165, 250, 0.22);
 }
 
-.vs-sidebar-group:hover .vs-sidebar-group-items,
-.vs-sidebar-group:focus-within .vs-sidebar-group-items {
+.vs-sidebar-group:not(.is-dismissed):hover .vs-sidebar-group-items,
+.vs-sidebar-group:not(.is-dismissed):focus-within .vs-sidebar-group-items {
   display: grid;
   animation: vs-sidebar-flyout 0.16s ease;
 }
@@ -382,8 +382,8 @@ body[data-theme='dark'] .vs-sidebar-backdrop {
     display: none;
   }
 
-  .vs-sidebar-group:hover .vs-sidebar-group-items,
-  .vs-sidebar-group:focus-within .vs-sidebar-group-items {
+  .vs-sidebar-group:not(.is-dismissed):hover .vs-sidebar-group-items,
+  .vs-sidebar-group:not(.is-dismissed):focus-within .vs-sidebar-group-items {
     display: none;
   }
 
@@ -395,6 +395,10 @@ body[data-theme='dark'] .vs-sidebar-backdrop {
   .vs-sidebar-group.is-open .vs-sidebar-group-items {
     display: grid;
     animation: none;
+  }
+
+  .vs-sidebar-group.is-dismissed .vs-sidebar-group-items {
+    display: none;
   }
 
   .vs-sidebar-group.is-open .vs-sidebar-chevron {

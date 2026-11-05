@@ -87,6 +87,11 @@ function renderSidebar(user) {
       writeGroupState(state);
     });
   });
+
+  nav.querySelectorAll('.vs-sidebar-group').forEach((groupEl) => {
+    groupEl.addEventListener('pointerenter', () => groupEl.classList.remove('is-dismissed'));
+    groupEl.addEventListener('pointerleave', () => groupEl.classList.remove('is-dismissed'));
+  });
 }
 
 function updateUserPanel(user) {
@@ -470,6 +475,11 @@ export function initLayout() {
 
   window.addEventListener('hashchange', () => {
     setActiveSidebarLink(window.location.hash.replace('#', '') || '/dashboard');
+    const nav = query('#app-sidebar-nav');
+    nav?.querySelectorAll('.vs-sidebar-group').forEach((groupEl) => groupEl.classList.add('is-dismissed'));
+    if (nav?.contains(document.activeElement) && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     const shellEl = query('#app-shell');
     if (shellEl?.classList.contains('sidebar-open')) {
       shellEl.classList.remove('sidebar-open');
