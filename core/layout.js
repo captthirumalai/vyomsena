@@ -55,7 +55,7 @@ function renderSidebar(user) {
       const hasActive = group.routes.some((route) => route.path === path);
       const isOpen = hasActive || savedState[group.key] !== false;
       return `
-        <div class="vs-sidebar-group${isOpen ? ' is-open' : ''}" data-group="${group.key}">
+        <div class="vs-sidebar-group${isOpen ? ' is-open' : ''}${hasActive ? ' has-active' : ''}" data-group="${group.key}">
           <button type="button" class="vs-sidebar-group-toggle" aria-expanded="${isOpen}">
             <span>${group.label}</span>
             <svg class="vs-sidebar-chevron" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
@@ -104,6 +104,9 @@ function updateThemeButton(theme) {
 }
 
 function setActiveSidebarLink(path) {
+  document.querySelectorAll('.vs-sidebar-group').forEach((groupEl) => {
+    groupEl.classList.toggle('has-active', Boolean(groupEl.querySelector(`.vs-sidebar-link[href="#${path}"]`)));
+  });
   document.querySelectorAll('.vs-sidebar-link').forEach((link) => {
     const isActive = link.getAttribute('href') === `#${path}`;
     link.classList.toggle('active', isActive);
