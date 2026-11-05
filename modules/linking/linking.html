@@ -25,10 +25,10 @@
           <label class="ln-field ln-person-field"><span>Existing person</span><select id="ln-person" required></select></label>
         </div>
         <p class="ln-note" id="ln-person-note" aria-live="polite"></p>
-        <div class="ln-permissions">
-          <div class="ln-section-heading"><h4>Module permissions</h4><span>View and edit rights</span></div>
+        <details class="ln-permissions" id="ln-permissions-section" hidden>
+          <summary class="ln-section-heading"><h4>Module permissions</h4><span>View and edit rights</span></summary>
           <div class="ln-table-wrap"><table><thead><tr><th>Module</th><th>View</th><th>Edit</th></tr></thead><tbody id="ln-permissions-body"></tbody></table></div>
-        </div>
+        </details>
         <div class="ln-actions">
           <button class="vs-button vs-button--primary vs-button--md" id="ln-create-submit" type="submit">Create access and generate credentials</button>
           <span class="ln-status" id="ln-form-status" aria-live="polite"></span>
@@ -61,7 +61,10 @@
         <label class="ln-field"><span>Access type</span><select id="ln-edit-role"><option value="PILOT">Pilot</option><option value="OPERATIONS">Operations user</option><option value="AME">Technical user</option></select></label>
         <label class="ln-field"><span>Existing person</span><select id="ln-edit-person" required></select></label>
       </div>
-      <div class="ln-table-wrap"><table><thead><tr><th>Module</th><th>View</th><th>Edit</th></tr></thead><tbody id="ln-edit-permissions"></tbody></table></div>
+      <details class="ln-permissions" id="ln-edit-permissions-section" hidden>
+        <summary class="ln-section-heading"><h4>Module permissions</h4><span>View and edit rights</span></summary>
+        <div class="ln-table-wrap"><table><thead><tr><th>Module</th><th>View</th><th>Edit</th></tr></thead><tbody id="ln-edit-permissions"></tbody></table></div>
+      </details>
       <div class="ln-actions"><button type="submit" class="vs-button vs-button--primary vs-button--md">Save access</button><span class="ln-status" id="ln-edit-status" aria-live="polite"></span></div>
     </form>
   </dialog>

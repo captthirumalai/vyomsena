@@ -30,6 +30,7 @@ export async function init(view, context) {
   if (!companyId) { view.innerHTML = '<section class="vs-card"><h2>No operator workspace</h2><p>Sign in to a company workspace before managing access.</p></section>'; return { destroy() {} }; }
   const $ = (selector) => view.querySelector(selector);
   const roleSelect = $('#ln-role'), personSelect = $('#ln-person'), form = $('#ln-user-form'), permissionsBody = $('#ln-permissions-body'), userBody = $('#ln-users-body');
+  const permissionsSection = $('#ln-permissions-section');
   const statusEl = $('#ln-form-status'), listStatus = $('#ln-list-status'), credentialPanel = $('#ln-credentials'), modules = moduleOptions();
   let crewProfiles = [], people = [], users = [], oneTimeCredentials = null, disposed = false;
   const personId = (person) => person.id || person.crewProfileId || person.uid;
@@ -53,6 +54,12 @@ export async function init(view, context) {
     }
     return options.length > 0;
   }
+  function syncPermissionsSection(section, person) {
+    if (!section) return;
+    const hasPerson = Boolean(person);
+    section.hidden = !hasPerson;
+    section.open = hasPerson;
+  }
   function renderPermissions(preset = {}, tbody = permissionsBody) {
     tbody.innerHTML = modules.map(({ key, label }) => { const rights = preset[key] || {}; return `<tr><td>${escapeHtml(label)}</td><td><input type="checkbox" data-module="${escapeHtml(key)}" data-right="view" ${rights.view ? 'checked' : ''} aria-label="${escapeHtml(label)} view" /></td><td><input type="checkbox" data-module="${escapeHtml(key)}" data-right="edit" ${rights.edit ? 'checked' : ''} aria-label="${escapeHtml(label)} edit" /></td></tr>`; }).join('');
   }
@@ -72,9 +79,14 @@ export async function init(view, context) {
     userBody.innerHTML = filtered.map((u) => { const active = `${u.status || 'ACTIVE'}`.toUpperCase() === 'ACTIVE'; return `<tr><td><strong>${escapeHtml(u.displayName || '—')}</strong><br><span class="ln-person-id">${escapeHtml(u.companyUserId)}</span></td><td>${escapeHtml(u.role || '—')}</td><td>${escapeHtml(selectedName(u.role, linkedId(u)))}</td><td><span class="ln-module-summary">${escapeHtml(permissionSummary(u))}</span></td><td><span class="ln-state ${active ? '' : 'is-suspended'}">${active ? 'ACTIVE' : 'SUSPENDED'}</span></td><td><div class="ln-row-actions"><button type="button" class="vs-button vs-button--secondary vs-button--sm" data-action="edit" data-id="${escapeHtml(u.companyUserId)}">Edit access</button><button type="button" class="vs-button vs-button--secondary vs-button--sm" data-action="reset" data-id="${escapeHtml(u.companyUserId)}">Reset passcode</button><button type="button" class="vs-button vs-button--secondary vs-button--sm" data-action="status" data-id="${escapeHtml(u.companyUserId)}" data-next="${active ? 'SUSPENDED' : 'ACTIVE'}">${active ? 'Suspend' : 'Reactivate'}</button></div></td></tr>`; }).join('');
   }
   async function reloadUsers() { users = await listCompanyUsersViaCallable(); if (!disposed) { renderPersonOptions(personSelect, roleSelect.value, personSelect.value); renderUsers(); } }
-  function setRole(role, defaults = true) { renderPersonOptions(personSelect, role); if (defaults) renderPermissions(defaultRights(role)); }
+  function setRole(role, defaults = true) {
+    renderPersonOptions(personSelect, role);
+    syncPermissionsSection(permissionsSection, personSelect.value);
+    if (defaults) renderPermissions(defaultRights(role));
+  }
   function clearCredentials() { oneTimeCredentials = null; $('#ln-created-id').textContent = '—'; $('#ln-created-passcode').textContent = '—'; credentialPanel.classList.add('hidden'); }
   roleSelect.addEventListener('change', () => setRole(roleSelect.value));
+  personSelect.addEventListener('change', () => syncPermissionsSection(permissionsSection, personSelect.value));
   $('#ln-search').addEventListener('input', renderUsers);
   form.addEventListener('submit', async (event) => {
     event.preventDefault(); const role = roleSelect.value, selected = personSelect.value;
@@ -92,7 +104,12 @@ export async function init(view, context) {
   credentialPanel.addEventListener('click', async (event) => { const button = event.target.closest('[data-copy]'); if (!button || !oneTimeCredentials) return; const value = button.dataset.copy === 'id' ? oneTimeCredentials.companyUserId : oneTimeCredentials.passcode; try { await navigator.clipboard.writeText(value); setStatus(statusEl, `${button.dataset.copy === 'id' ? 'User ID' : 'Passcode'} copied.`, 'success'); } catch { setStatus(statusEl, 'Copy failed. Select the credential and copy it manually.', 'error'); } });
   $('#ln-credentials-done').addEventListener('click', clearCredentials);
   const editDialog = $('#ln-edit-dialog'), editRole = $('#ln-edit-role'), editPerson = $('#ln-edit-person'), editPermissions = $('#ln-edit-permissions');
-  editRole.addEventListener('change', () => renderPersonOptions(editPerson, editRole.value));
+  const editPermissionsSection = $('#ln-edit-permissions-section');
+  editRole.addEventListener('change', () => {
+    renderPersonOptions(editPerson, editRole.value);
+    syncPermissionsSection(editPermissionsSection, editPerson.value);
+  });
+  editPerson.addEventListener('change', () => syncPermissionsSection(editPermissionsSection, editPerson.value));
   $('#ln-edit-close').addEventListener('click', () => editDialog.close());
   $('#ln-edit-form').addEventListener('submit', async (event) => {
     event.preventDefault(); const role = editRole.value, selected = editPerson.value, person = eligiblePeople(role).find((p) => personId(p) === selected);
@@ -104,7 +121,7 @@ export async function init(view, context) {
   });
   userBody.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-action]'); if (!button) return; const user = users.find((u) => u.companyUserId === button.dataset.id); if (!user) return;
-    if (button.dataset.action === 'edit') { $('#ln-edit-id').value = user.companyUserId; editRole.value = ALLOWED_ROLES.includes(user.role) ? user.role : 'OPERATIONS'; renderPersonOptions(editPerson, editRole.value, linkedId(user), user.companyUserId); renderPermissions(user.permissions?.modules || {}, editPermissions); editDialog.showModal(); return; }
+    if (button.dataset.action === 'edit') { $('#ln-edit-id').value = user.companyUserId; editRole.value = ALLOWED_ROLES.includes(user.role) ? user.role : 'OPERATIONS'; renderPersonOptions(editPerson, editRole.value, linkedId(user), user.companyUserId); syncPermissionsSection(editPermissionsSection, editPerson.value); renderPermissions(user.permissions?.modules || {}, editPermissions); editDialog.showModal(); return; }
     button.disabled = true;
     try { if (button.dataset.action === 'reset') { const result = await resetCompanyUserPasscodeViaCallable(user.companyUserId); oneTimeCredentials = result; $('#ln-created-id').textContent = result.companyUserId; $('#ln-created-passcode').textContent = result.passcode; credentialPanel.classList.remove('hidden'); credentialPanel.scrollIntoView({ behavior: 'smooth', block: 'center' }); setStatus(statusEl, 'New initial passcode created. Copy and share it now.', 'success'); } else if (button.dataset.action === 'status') { await updateCompanyUserViaCallable(user.companyUserId, { status: button.dataset.next }); setStatus(listStatus, `${user.displayName || user.companyUserId} ${button.dataset.next.toLowerCase()}.`, 'success'); await reloadUsers(); } }
     catch (error) { setStatus(listStatus, error.message || 'Unable to update this account.', 'error'); } finally { button.disabled = false; }
