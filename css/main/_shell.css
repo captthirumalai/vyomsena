@@ -282,11 +282,6 @@ body[data-theme='dark'] .vs-sidebar-link.active::before {
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
 }
 
-.vs-sidebar-footer {
-  margin-top: auto;
-  padding-top: 0.5rem;
-}
-
 .vs-main {
   display: grid;
   gap: 0.6rem;

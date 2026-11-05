@@ -1024,16 +1024,15 @@
   margin-top: 0.45rem;
 }
 
-/* ============================ HEADER CENTER (SYNC STRIP) ============================
-   Sync strip + actions live in the topbar module actions host. */
+/* ============================ PAGE TOOLBAR (SYNC STRIP) ============================ */
 
-.vs-module-actions .cm-sync-strip {
+.vs-page-toolbar .cm-sync-strip {
   margin: 0;
   font-size: 0.72rem;
   gap: 0.5rem;
 }
 
-.vs-module-actions .cm-status {
+.vs-page-toolbar .cm-status {
   margin-left: 0;
   max-width: 30rem;
   overflow: hidden;
@@ -1041,12 +1040,12 @@
   white-space: nowrap;
 }
 
-.vs-module-actions .cm-sync-error {
+.vs-page-toolbar .cm-sync-error {
   max-width: 22rem;
 }
 
-.vs-module-actions .cm-icon-btn,
-.vs-module-actions .cm-btn-md {
+.vs-page-toolbar .cm-icon-btn,
+.vs-page-toolbar .cm-btn-md {
   min-height: 32px;
 }
 
@@ -1065,7 +1064,7 @@
 /* ============================ RESPONSIVE FOR NEW LAYOUT ============================ */
 
 @media (max-width: 900px) {
-  .vs-module-actions .cm-sync-strip {
+  .vs-page-toolbar .cm-sync-strip {
     flex-wrap: wrap;
   }
 }
@@ -1181,4 +1180,3 @@
   font-size: 0.66rem;
   color: var(--cm-muted);
 }
-

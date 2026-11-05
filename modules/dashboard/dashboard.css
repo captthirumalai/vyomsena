@@ -35,12 +35,6 @@
   padding: 0.12rem 0.5rem;
 }
 
-.dashboard-quick-links {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
 .dashboard-kpi-grid {
   margin: 0.8rem 0 0;
 }

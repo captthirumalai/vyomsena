@@ -384,11 +384,6 @@ export async function init(view, context) {
         <option value="60">60 days</option>
       </select>
     </label>
-    <div class="dashboard-quick-links">
-      <a href="#/crew" class="vs-button vs-button--ghost vs-button--sm">Crew</a>
-      <a href="#/fdtl" class="vs-button vs-button--ghost vs-button--sm">FDTL</a>
-      <a href="#/reports" class="vs-button vs-button--ghost vs-button--sm">Reports</a>
-    </div>
   `);
 
   const cards = view.querySelectorAll('.card');

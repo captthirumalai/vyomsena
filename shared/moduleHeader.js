@@ -4,7 +4,10 @@ export function getModuleActionsHost() {
 
 export function mountModuleActions(html) {
   const host = getModuleActionsHost();
-  if (host) host.innerHTML = html || '';
+  if (!host) return;
+  const content = html || '';
+  host.innerHTML = content;
+  host.parentElement?.classList.toggle('hidden', !content.trim());
 }
 
 export function clearModuleActions() {

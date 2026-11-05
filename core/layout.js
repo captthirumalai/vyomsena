@@ -124,6 +124,13 @@ function setActiveSidebarLink(path) {
 }
 
 function initShellActions() {
+  const accountMenu = query('.vs-account-menu');
+  accountMenu?.querySelectorAll('button').forEach((button) => {
+    button.addEventListener('click', () => {
+      accountMenu.open = false;
+    });
+  });
+
   query('#btn-theme-toggle')?.addEventListener('click', () => {
     themeStore.toggleTheme();
   });
@@ -172,10 +179,6 @@ export function initLayout() {
         </div>
 
         <nav class="vs-sidebar-nav" id="app-sidebar-nav"></nav>
-
-        <div class="vs-sidebar-footer">
-          <button id="btn-signout-mobile" class="vs-button vs-button--secondary vs-button--sm">Sign out</button>
-        </div>
       </aside>
 
       <div class="vs-main">
@@ -185,35 +188,38 @@ export function initLayout() {
               <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
             <div class="brand-copy">
-              <h1>VAMS Portal</h1>
-              <p id="app-user">Secure operations dashboard</p>
+              <h1>VyomSena</h1>
+              <p id="app-user" class="hidden">Secure operations dashboard</p>
             </div>
           </div>
           <div class="vs-module-header">
-            <nav class="vs-module-breadcrumb" aria-label="Breadcrumb">
-              <ol id="app-breadcrumbs" class="breadcrumb-list"></ol>
-            </nav>
-            <div class="vs-module-header-row">
-              <h2 id="app-route">Dashboard</h2>
-              <p id="app-route-subtitle" class="vs-module-subtitle"></p>
-            </div>
+            <h2 id="app-route">Dashboard</h2>
+            <p id="app-route-subtitle" class="hidden"></p>
           </div>
-          <div class="vs-topbar-actions">
-            <div id="app-module-actions" class="vs-module-actions"></div>
-            <div class="vs-topbar-user-actions">
-              <button id="btn-theme-toggle" class="vs-button vs-button--secondary vs-button--sm" type="button">🌙</button>
+          <details class="vs-account-menu">
+            <summary class="vs-account-menu-trigger" aria-label="Account options">
+              <span aria-hidden="true">👤</span>
+              <span>Account</span>
+              <span aria-hidden="true">⌄</span>
+            </summary>
+            <div class="vs-account-menu-items">
+              <button id="btn-theme-toggle" class="vs-button vs-button--secondary vs-button--sm" type="button" aria-label="Toggle theme">🌙</button>
               <button id="btn-user-info" class="vs-button vs-button--secondary vs-button--sm" type="button">
                 <span class="vs-user-icon">👤</span>
                 <span class="vs-user-info-name" id="btn-user-info-name">User</span>
               </button>
-              <button id="btn-workspace-settings" class="vs-button vs-button--secondary vs-button--sm" type="button" title="Workspace settings" aria-label="Workspace settings">
+              <button id="btn-workspace-settings" class="vs-button vs-button--secondary vs-button--sm" type="button">
                 <span aria-hidden="true">⚙️</span>
-                <span>Settings</span>
+                <span>Workspace settings</span>
               </button>
               <button id="btn-logout" class="vs-button vs-button--secondary vs-button--sm">Sign Out</button>
             </div>
-          </div>
+          </details>
         </header>
+
+        <div class="vs-page-toolbar hidden" id="app-page-toolbar">
+          <div id="app-module-actions" class="vs-module-actions"></div>
+        </div>
 
         <div id="app-notification" class="vs-notification hidden"></div>
 

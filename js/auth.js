@@ -94,7 +94,6 @@ export function initAuth() {
   const goRecover = query('#go-recover');
   const goLoginFromRecover = query('#go-login-from-recover');
   const logoutButton = query('#btn-logout');
-  const logoutMobileButton = query('#btn-signout-mobile');
   const appUserLabel = query('#app-user');
   const loginError = query('#login-error');
   const registerError = query('#register-error');
@@ -223,11 +222,6 @@ export function initAuth() {
   });
 
   logoutButton?.addEventListener('click', async () => {
-    await signOutUser();
-    setActiveCard('login');
-  });
-
-  logoutMobileButton?.addEventListener('click', async () => {
     await signOutUser();
     setActiveCard('login');
   });
