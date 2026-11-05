@@ -221,13 +221,16 @@ This collection is additive and does not replace Android training collections.
 
 Rule model:
 
-- Operator creates/updates/deletes their own records.
+- Operator or active company admin creates/updates/deletes records scoped to their own `operatorId`/company.
 - Pilot can read own record.
-- Linked operator can read pilot records.
+- Linked operator or active company admin can read pilot records in their company.
 
 ## crew_profiles (web-only)
 
 This collection is additive and is the operator-owned roster source for web workflows.
+
+- The owning operator and active web admins for that operator's company can read and manage these profiles.
+- Admin access is determined from the server-managed `admin_users/{uid}` grant and is restricted to its `companyId`.
 
 - `crewProfileId`
 - `operatorId`

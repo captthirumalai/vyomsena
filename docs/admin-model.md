@@ -38,6 +38,7 @@ This document is the blueprint that later modules (flight documents, company doc
 4. Company Home access is issued only in the Linking module. Pilot credentials bind to a real Crew Management Add Pilot profile; the Company User ID/passcode authenticates through the server callable.
 5. Android may read/sync the company modules it is granted, but must not create/edit/delete crew profiles or documents unless a future module explicitly grants an edit capability.
 6. Company Home users authenticate through the `verifyCompanyUser` callable. Module grants are included in custom-token claims. `docs/firestorerules.md` is configured in `firebase.json` and deployed to `vyomsena-888` on 2026-10-27.
+7. Active web `ADMIN`/`OWNER` accounts can read and manage crew data only when its `operatorId` matches their server-provisioned `admin_users/{uid}.companyId`; pilot access remains subject to the existing linked-pilot rules.
 
 ## Roster Resolution (crew_profiles only)
 - `getCrew(operatorUid)` / `onCrewSnapshot(operatorUid, ...)` return **`crew_profiles` only**.

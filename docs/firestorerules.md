@@ -20,25 +20,28 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == record.operatorId;
     }
 
-    function isCrewProfileOwnerById(crewProfileId) {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/crew_profiles/$(crewProfileId))
-        && request.auth.uid == get(/databases/$(database)/documents/crew_profiles/$(crewProfileId)).data.operatorId;
-    }
-
-    function isCrewProfileLinkedPilot(crewProfileId) {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/crew_profiles/$(crewProfileId))
-        && request.auth.uid == get(/databases/$(database)/documents/crew_profiles/$(crewProfileId)).data.pilotUid;
-    }
-
-    // Webapp admin of a specific company (admin_users/{uid} has a companyId field).
+    // Webapp admins can manage crew data only within their server-assigned company.
     function isCompanyAdmin(companyId) {
       return request.auth != null
         && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
         && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.companyId == companyId
         && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.get('role', '') in ['ADMIN', 'OWNER']
         && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.get('status', 'ACTIVE') == 'ACTIVE';
+    }
+
+    function canManageCrewProfileById(crewProfileId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/crew_profiles/$(crewProfileId))
+        && (
+          request.auth.uid == get(/databases/$(database)/documents/crew_profiles/$(crewProfileId)).data.operatorId ||
+          isCompanyAdmin(get(/databases/$(database)/documents/crew_profiles/$(crewProfileId)).data.operatorId)
+        );
+    }
+
+    function isCrewProfileLinkedPilot(crewProfileId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/crew_profiles/$(crewProfileId))
+        && request.auth.uid == get(/databases/$(database)/documents/crew_profiles/$(crewProfileId)).data.pilotUid;
     }
 
     // A real account (company_accounts/{uid}) that belongs to the given company.
@@ -117,57 +120,82 @@ service cloud.firestore {
     match /operator_training_records/{recordId} {
       allow read: if request.auth != null && (
         isOperatorTrainingOwner(resource.data) ||
+        isCompanyAdmin(resource.data.operatorId) ||
         isCrewProfileLinkedPilot(resource.data.userId)
       );
 
       allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.operatorId
-        && isCrewProfileOwnerById(request.resource.data.userId);
+        && (
+          request.auth.uid == request.resource.data.operatorId ||
+          isCompanyAdmin(request.resource.data.operatorId)
+        )
+        && canManageCrewProfileById(request.resource.data.userId);
 
       allow update: if request.auth != null
-        && isOperatorTrainingOwner(resource.data)
+        && (isOperatorTrainingOwner(resource.data) || isCompanyAdmin(resource.data.operatorId))
         && request.resource.data.operatorId == resource.data.operatorId
         && request.resource.data.userId == resource.data.userId;
 
-      allow delete: if request.auth != null && isOperatorTrainingOwner(resource.data);
+      allow delete: if request.auth != null
+        && (isOperatorTrainingOwner(resource.data) || isCompanyAdmin(resource.data.operatorId));
     }
 
     // CREW PROFILES (Web operator-owned source of truth)
     match /crew_profiles/{crewProfileId} {
       allow read: if request.auth != null && (
         request.auth.uid == resource.data.operatorId ||
-        request.auth.uid == resource.data.pilotUid
+        request.auth.uid == resource.data.pilotUid ||
+        isCompanyAdmin(resource.data.operatorId)
       );
 
       allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.operatorId;
+        && (
+          request.auth.uid == request.resource.data.operatorId ||
+          isCompanyAdmin(request.resource.data.operatorId)
+        );
 
       allow update: if request.auth != null
-        && request.auth.uid == resource.data.operatorId
+        && (
+          request.auth.uid == resource.data.operatorId ||
+          isCompanyAdmin(resource.data.operatorId)
+        )
         && request.resource.data.operatorId == resource.data.operatorId;
 
       allow delete: if request.auth != null
-        && request.auth.uid == resource.data.operatorId;
+        && (
+          request.auth.uid == resource.data.operatorId ||
+          isCompanyAdmin(resource.data.operatorId)
+        );
     }
 
     // CREW LINK CODES (Web operator-generated 5-minute linking codes)
     match /crew_link_codes/{tokenId} {
       allow read: if request.auth != null && (
         request.auth.uid == resource.data.operatorId ||
-        isCrewProfileLinkedPilot(resource.data.crewProfileId)
+        isCrewProfileLinkedPilot(resource.data.crewProfileId) ||
+        isCompanyAdmin(resource.data.operatorId)
       );
 
       allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.operatorId
-        && isCrewProfileOwnerById(request.resource.data.crewProfileId);
+        && (
+          request.auth.uid == request.resource.data.operatorId ||
+          isCompanyAdmin(request.resource.data.operatorId)
+        )
+        && canManageCrewProfileById(request.resource.data.crewProfileId);
 
       allow update: if request.auth != null
-        && request.auth.uid == resource.data.operatorId
+        && (
+          request.auth.uid == resource.data.operatorId ||
+          isCompanyAdmin(resource.data.operatorId)
+        )
         && request.resource.data.operatorId == resource.data.operatorId
         && request.resource.data.crewProfileId == resource.data.crewProfileId;
 
       allow delete: if request.auth != null
-        && request.auth.uid == resource.data.operatorId;
+        && (
+          request.auth.uid == resource.data.operatorId ||
+          isCompanyAdmin(resource.data.operatorId)
+        );
     }
 
     // USER DOCUMENTS
@@ -175,13 +203,13 @@ service cloud.firestore {
       allow read: if request.auth != null;
 
       allow delete: if request.auth != null
-        && (isOwner(resource.data) || isLinkedOperator(resource.data.userId) || isCrewProfileOwnerById(resource.data.userId));
+        && (isOwner(resource.data) || isLinkedOperator(resource.data.userId) || canManageCrewProfileById(resource.data.userId));
 
       allow create: if request.auth != null
-        && (isOwner(request.resource.data) || isLinkedOperator(request.resource.data.userId) || isCrewProfileOwnerById(request.resource.data.userId));
+        && (isOwner(request.resource.data) || isLinkedOperator(request.resource.data.userId) || canManageCrewProfileById(request.resource.data.userId));
 
       allow update: if request.auth != null
-        && (isOwner(resource.data) || isLinkedOperator(resource.data.userId) || isCrewProfileOwnerById(resource.data.userId))
+        && (isOwner(resource.data) || isLinkedOperator(resource.data.userId) || canManageCrewProfileById(resource.data.userId))
         && request.resource.data.userId == resource.data.userId;
 
       // Subcollection for immutable edit logs
@@ -189,7 +217,7 @@ service cloud.firestore {
         allow create: if request.auth != null && (
           isOwner(get(/databases/$(database)/documents/user_documents/$(docId)).data) ||
           isLinkedOperator(get(/databases/$(database)/documents/user_documents/$(docId)).data.userId) ||
-          isCrewProfileOwnerById(get(/databases/$(database)/documents/user_documents/$(docId)).data.userId)
+          canManageCrewProfileById(get(/databases/$(database)/documents/user_documents/$(docId)).data.userId)
         );
         allow read, update, delete: if false;
       }
@@ -202,7 +230,8 @@ service cloud.firestore {
 
       allow read: if request.auth != null && (
         request.auth.uid == resource.data.recipientId ||
-        request.auth.uid == resource.data.requesterId
+        request.auth.uid == resource.data.requesterId ||
+        isCompanyAdmin(resource.data.requesterId)
       );
 
       allow update: if request.auth != null
