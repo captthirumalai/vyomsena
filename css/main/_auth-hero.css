@@ -12,15 +12,16 @@
 
 .vs-auth-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.85fr) minmax(360px, 0.95fr);
-  gap: 1.9rem;
+  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.85fr);
+  gap: 1.25rem;
   align-items: stretch;
-  min-height: 0;
+  height: min(760px, calc(100vh - 4rem));
+  min-height: 560px;
 }
 
 .vs-hero-panel {
   position: relative;
-  min-height: 620px;
+  min-height: 0;
   background-image: linear-gradient(180deg, rgba(5, 10, 23, 0.88), rgba(9, 18, 36, 0.58)), url('../../vams_hero.jpg');
   background-size: cover;
   background-position: center;
@@ -42,9 +43,12 @@
 .vs-hero-content {
   position: relative;
   z-index: 1;
-  display: grid;
-  gap: 1.5rem;
-  padding: 2.8rem 2.4rem;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(0.8rem, 2vh, 1.35rem);
+  padding: clamp(1.25rem, 3vh, 2rem) clamp(1.25rem, 2.5vw, 2rem);
   color: #ffffff;
 }
 
@@ -99,33 +103,107 @@
 }
 
 .brand-subtitle {
-  margin: 0.3rem 0 0;
+  margin: 0.2rem 0 0;
   max-width: 460px;
   color: rgba(255, 255, 255, 0.72);
-  line-height: 1.7;
-  font-size: 0.95rem;
+  line-height: 1.45;
+  font-size: 0.86rem;
 }
 
 .hero-headline-block {
   display: grid;
-  gap: 0.9rem;
+  gap: 0.45rem;
 }
 
 .brand-tagline {
   margin: 0;
-  max-width: 760px;
-  font-size: clamp(2.35rem, 4.1vw, 4.5rem);
-  line-height: 0.97;
+  max-width: 600px;
+  font-size: clamp(1.75rem, 3.2vw, 3.2rem);
+  line-height: 1.02;
   font-weight: 800;
   letter-spacing: -0.05em;
 }
 
 .brand-desc {
-  max-width: 640px;
+  max-width: 560px;
   margin: 0;
   color: rgba(255, 255, 255, 0.84);
-  font-size: 1.04rem;
-  line-height: 1.8;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.hero-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.hero-info-card {
+  position: relative;
+  min-width: 0;
+  min-height: 112px;
+  padding: 0.85rem 0.9rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+  backdrop-filter: blur(7px);
+  transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.hero-info-icon {
+  display: inline-grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(147, 197, 253, 0.2);
+  color: #bfdbfe;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.hero-info-card h2 {
+  margin: 0.45rem 0 0.2rem;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.hero-info-card > p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.hero-info-detail {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0.9rem;
+  background: rgba(8, 18, 38, 0.96);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(5px);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+}
+
+.hero-info-card:hover,
+.hero-info-card:focus-within {
+  z-index: 1;
+  border-color: rgba(191, 219, 254, 0.7);
+  transform: translateY(-2px);
+}
+
+.hero-info-card:hover .hero-info-detail,
+.hero-info-card:focus-within .hero-info-detail {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 .hero-metrics {
@@ -323,8 +401,8 @@
 
 .vs-form-panel {
   display: flex;
-  justify-content: flex-start;
-  align-items: flex-start;
+  justify-content: center;
+  align-items: center;
 }
 
 .vs-form-inner {

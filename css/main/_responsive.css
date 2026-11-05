@@ -3,18 +3,31 @@
 
 @media (max-width: 980px) {
   .vs-auth-grid {
-    grid-template-columns: 1fr;
-    min-height: auto;
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+    height: min(760px, calc(100vh - 3rem));
+    min-height: 540px;
   }
 
   .vs-hero-panel {
-    min-height: auto;
+    min-height: 0;
   }
 
-  .hero-metrics,
-  .hero-bottom-grid,
-  .hero-mission {
-    grid-template-columns: 1fr;
+  .vs-hero-content {
+    padding: 1.25rem;
+  }
+
+  .hero-kicker {
+    min-height: 28px;
+    padding: 0 0.65rem;
+    font-size: 0.66rem;
+  }
+
+  .brand-tagline {
+    font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+  }
+
+  .hero-info-card {
+    min-height: 108px;
   }
 }
 
@@ -28,11 +41,29 @@
     padding: 1.35rem;
   }
 
+  .vs-auth-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+  }
+
+  .vs-hero-panel {
+    min-height: 420px;
+  }
+
+  .vs-hero-content {
+    height: auto;
+  }
+
   .brand-tagline {
     font-size: 2rem;
   }
 
   .logo-wrapper {
     align-items: center;
+  }
+
+  .hero-info-card {
+    min-height: 112px;
   }
 }
