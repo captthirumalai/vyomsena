@@ -1,15 +1,40 @@
 import {
+  getCrew,
   getPilotDocuments,
+  getPilotDocumentsForProfile,
   getPilotTrainingRecords,
-  summarizeCrewDocumentCompliance
+  getCrewDocumentsByPilots,
+  summarizeCrewDocumentCompliance,
+  updatePilotProfile,
+  delinkPilot,
+  deletePilot
 } from '../../services/crewService.js';
 import { getUserByUid } from '../../services/userService.js';
-import { mountModuleActions, getModuleAction, setModuleTitle, setModuleSubtitle } from '../../shared/moduleHeader.js';
+import { canPerformCrewAction } from '../../services/permissionService.js';
+import { getCurrentOrganizationContext } from '../../services/organizationService.js';
+import { mountModuleActions, setModuleTitle, setModuleSubtitle } from '../../shared/moduleHeader.js';
+import { cpState } from './state.js';
+import {
+  q,
+  escapeHtml,
+  formatDate,
+  showToast,
+  openModal,
+  closeModal,
+  confirmModal,
+  getProfileStatusBadgeHtml,
+  getPilotRoleLabel,
+  getPilotBase,
+  toProfileName,
+  normalizeRole,
+  isActivePilot
+} from './ui.js';
+import { renderRoster, renderInactive, avatarHtml } from './roster.js';
+import { openProfileForm, bindProfileForm } from './profileForm.js';
+import { getCrewAttentionLevel, getAttentionBadgeHtml, getAttentionSummary } from '../crew/utils.js';
 
 const PROFILE_KEY = 'vs-selected-crew-profile';
 
-let activeView = null;
-let profileUid = null;
 let profileUser = null;
 let profileDocuments = [];
 let profileTrainingRecords = [];
@@ -65,23 +90,9 @@ function toDateValue(value) {
   return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
 }
 
-function formatDate(value) {
-  const date = toDateValue(value);
-  return date ? date.toLocaleDateString() : 'N/A';
-}
-
 function formatDateTime(value) {
   const date = toDateValue(value);
   return date ? date.toLocaleString() : 'N/A';
-}
-
-function escapeHtml(value) {
-  return `${value || ''}`
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
 
 function getDocumentStatus(document, warningDays = 30) {
@@ -274,21 +285,23 @@ function toHistoryEventFromEditLog(document, log, index) {
   };
 }
 
+/* ================= DETAIL VIEW ================= */
+
 function setTab(tabName) {
-  if (!activeView) return;
-  activeView.querySelectorAll('.crew-tab').forEach((button) => {
+  if (!cpState.view) return;
+  cpState.view.querySelectorAll('.crew-tab').forEach((button) => {
     const isActive = button.getAttribute('data-tab') === tabName;
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
 
-  activeView.querySelectorAll('.crew-tab-panel').forEach((panel) => {
+  cpState.view.querySelectorAll('.crew-tab-panel').forEach((panel) => {
     panel.classList.toggle('active', panel.getAttribute('data-panel') === tabName);
   });
 }
 
 function renderHeader() {
-  if (!activeView || !profileUser) return;
+  if (!cpState.view || !profileUser) return;
 
   const name = profileUser.fullName || profileUser.name || profileUser.email || profileUser.uid;
   const subtitle = [
@@ -300,7 +313,7 @@ function renderHeader() {
   const compliance = summarizeCrewDocumentCompliance(profileDocuments || []);
   const status = compliance.expired > 0 ? 'Expired' : compliance.expiring > 0 ? 'Expiring' : 'Valid';
 
-  const statusEl = getModuleAction('crew-profile-status');
+  const statusEl = q('#cp-detail-status');
   if (statusEl) {
     statusEl.textContent = status;
     statusEl.className = `vs-page-chip crew-profile-status ${status.toLowerCase()}`;
@@ -309,7 +322,12 @@ function renderHeader() {
   setModuleTitle(name || 'Crew Profile');
   setModuleSubtitle(subtitle);
 
-  const kpiContainer = activeView.querySelector('#crew-profile-kpis');
+  const editButton = q('#cp-detail-edit');
+  if (editButton) {
+    editButton.classList.toggle('hidden', !canPerformCrewAction(cpState.currentUser, 'edit'));
+  }
+
+  const kpiContainer = q('#crew-profile-kpis');
   if (!kpiContainer) return;
   kpiContainer.innerHTML = [
     { label: 'Documents', value: profileDocuments.length },
@@ -320,9 +338,9 @@ function renderHeader() {
 }
 
 function renderPersonalTab() {
-  if (!activeView || !profileUser) return;
+  if (!cpState.view || !profileUser) return;
 
-  const grid = activeView.querySelector('#crew-profile-grid');
+  const grid = q('#crew-profile-grid');
   if (!grid) return;
 
   const items = [
@@ -350,9 +368,9 @@ function renderPersonalTab() {
 }
 
 function renderDocumentsTab() {
-  if (!activeView) return;
+  if (!cpState.view) return;
 
-  const body = activeView.querySelector('#crew-profile-doc-body');
+  const body = q('#crew-profile-doc-body');
   if (!body) return;
 
   if (!profileDocuments.length) {
@@ -382,8 +400,8 @@ function renderDocumentsTab() {
 }
 
 function renderTrainingTab() {
-  if (!activeView) return;
-  const body = activeView.querySelector('#crew-profile-training-body');
+  if (!cpState.view) return;
+  const body = q('#crew-profile-training-body');
   if (!body) return;
 
   if (profileTrainingRecords.length) {
@@ -444,8 +462,8 @@ function renderTrainingTab() {
 }
 
 function renderQualificationMatrix() {
-  if (!activeView) return;
-  const container = activeView.querySelector('#crew-qualification-matrix');
+  if (!cpState.view) return;
+  const container = q('#crew-qualification-matrix');
   if (!container) return;
 
   const items = QUALIFICATION_RULES.map((rule) => {
@@ -458,8 +476,8 @@ function renderQualificationMatrix() {
 }
 
 function renderRecencyMatrix() {
-  if (!activeView || !profileUser) return;
-  const container = activeView.querySelector('#crew-recency-matrix');
+  if (!cpState.view || !profileUser) return;
+  const container = q('#crew-recency-matrix');
   if (!container) return;
 
   const thresholds = CURRENCY_THRESHOLDS.recency;
@@ -532,8 +550,8 @@ function renderRecencyMatrix() {
 }
 
 function renderFlightExperienceTab() {
-  if (!activeView || !profileUser) return;
-  const grid = activeView.querySelector('#crew-profile-experience-grid');
+  if (!cpState.view || !profileUser) return;
+  const grid = q('#crew-profile-experience-grid');
   if (!grid) return;
 
   const experience = profileUser.flightExperience || {};
@@ -560,8 +578,8 @@ function renderFlightExperienceTab() {
 }
 
 function renderNotesTab() {
-  if (!activeView || !profileUser) return;
-  const container = activeView.querySelector('#crew-profile-notes');
+  if (!cpState.view || !profileUser) return;
+  const container = q('#crew-profile-notes');
   if (!container) return;
 
   const operationalNotes = normalizeText(profileUser.notes || profileUser.operationalNotes || profileUser.internalNotes || '');
@@ -597,8 +615,8 @@ function renderNotesTab() {
 }
 
 function renderHistoryTab() {
-  if (!activeView) return;
-  const body = activeView.querySelector('#crew-profile-history-body');
+  if (!cpState.view) return;
+  const body = q('#crew-profile-history-body');
   if (!body) return;
 
   const documentEvents = profileDocuments
@@ -654,53 +672,74 @@ function renderHistoryTab() {
     .join('');
 }
 
-function bindEvents() {
-  if (!activeView) return;
-  activeView.querySelectorAll('.crew-tab').forEach((button) => {
-    button.addEventListener('click', () => {
-      setTab(button.getAttribute('data-tab') || 'personal');
-    });
-  });
-}
+/* ================= ROSTER / OVERVIEW ================= */
 
-function resolveProfileUid(currentUser) {
-  const fromSession = window.sessionStorage.getItem(PROFILE_KEY);
-  if (fromSession) return fromSession;
-  if (`${currentUser?.role || ''}`.toUpperCase() === 'PILOT') return currentUser?.uid || null;
-  return null;
-}
-
-export async function init(view, context) {
-  activeView = view;
-  profileUid = resolveProfileUid(context?.currentUser);
-
-  mountModuleActions(`
-    <span id="crew-profile-status" class="vs-page-chip">Pending</span>
-    <a href="#/crew" class="vs-button vs-button--secondary vs-button--sm">Back to Crew</a>
-  `);
-
-  if (!profileUid) {
-    setModuleSubtitle('No crew member selected. Open Crew Licenses and choose Profile from a crew row.');
-    return {
-      destroy() {
-        activeView = null;
-      }
-    };
+async function loadRosterData() {
+  if (!cpState.currentUser?.uid) {
+    cpState.pilots = [];
+    cpState.docsByUid = new Map();
+    return;
   }
 
-  profileUser = await getUserByUid(profileUid);
+  if (cpState.role === 'PILOT') {
+    const uid = cpState.currentUser.uid;
+    const docs = await getPilotDocuments(uid).catch(() => []);
+    cpState.pilots = [{ ...cpState.currentUser, uid }];
+    cpState.docsByUid = new Map([[uid, docs]]);
+    return;
+  }
+
+  if (!cpState.operatorUid) {
+    cpState.pilots = [];
+    cpState.docsByUid = new Map();
+    return;
+  }
+
+  const pilots = await getCrew(cpState.operatorUid);
+  cpState.pilots = pilots;
+  cpState.docsByUid = await getCrewDocumentsByPilots(pilots);
+}
+
+async function refreshRoster() {
+  await loadRosterData();
+  renderRoster();
+  renderInactive();
+}
+
+function showRoster() {
+  cpState.mode = 'roster';
+  cpState.detailUid = null;
+  q('#cp-detail-view')?.classList.add('hidden');
+  q('#cp-roster-view')?.classList.remove('hidden');
+  setModuleTitle('Crew Profile');
+  setModuleSubtitle('Manage all pilot profiles, add pilots and keep their records current.');
+  renderRoster();
+  renderInactive();
+}
+
+async function openDetail(uid) {
+  if (!uid) return;
+  cpState.mode = 'detail';
+  cpState.detailUid = uid;
+
+  q('#cp-roster-view')?.classList.add('hidden');
+  q('#cp-detail-view')?.classList.remove('hidden');
+
+  const backButton = q('#cp-back-to-roster');
+  if (backButton) backButton.classList.toggle('hidden', cpState.role === 'PILOT');
+
+  const cached = cpState.pilots.find((item) => item.uid === uid) || null;
+  const loadedUser = await getUserByUid(uid).catch(() => null);
+  profileUser = cached ? { ...(loadedUser || {}), ...cached } : loadedUser;
   if (!profileUser) {
-    setModuleSubtitle('Crew profile not found or inaccessible.');
-    return {
-      destroy() {
-        activeView = null;
-      }
-    };
+    showToast('Crew profile not found or inaccessible.', 'error');
+    showRoster();
+    return;
   }
 
   const [documents, trainingRecords] = await Promise.all([
-    getPilotDocuments(profileUid),
-    getPilotTrainingRecords(profileUid).catch(() => [])
+    getPilotDocumentsForProfile(profileUser).catch(() => getPilotDocuments(uid).catch(() => [])),
+    getPilotTrainingRecords(uid).catch(() => [])
   ]);
 
   profileDocuments = documents;
@@ -713,16 +752,299 @@ export async function init(view, context) {
   renderFlightExperienceTab();
   renderNotesTab();
   renderHistoryTab();
-  bindEvents();
   setTab('personal');
+}
+
+function backToRoster() {
+  window.sessionStorage.removeItem(PROFILE_KEY);
+  profileUser = null;
+  profileDocuments = [];
+  profileTrainingRecords = [];
+  showRoster();
+}
+
+function openOverview(uid) {
+  const pilot = cpState.pilots.find((item) => item.uid === uid);
+  if (!pilot) return;
+  cpState.modalUid = uid;
+
+  const docs = cpState.docsByUid.get(uid) || [];
+  const level = getCrewAttentionLevel(docs);
+  const summary = getAttentionSummary(pilot, docs);
+  const canEdit = canPerformCrewAction(cpState.currentUser, 'edit');
+  const canDelete = canPerformCrewAction(cpState.currentUser, 'delete');
+  const active = isActivePilot(pilot);
+
+  const actions = [
+    ...(canEdit ? [`<button type="button" class="cp-btn cp-btn-ghost cp-btn-md" data-cp-action="edit">Edit Profile</button>`] : []),
+    ...(canEdit
+      ? [`<button type="button" class="cp-btn cp-btn-ghost cp-btn-md" data-cp-action="toggle-status">${active ? 'Set Inactive' : 'Set Active'}</button>`]
+      : []),
+    ...(canDelete ? [`<button type="button" class="cp-btn cp-btn-danger cp-btn-md" data-cp-action="delete">Delete Account</button>`] : []),
+    `<button type="button" class="cp-btn cp-btn-primary cp-btn-md" data-cp-action="view">View Full Profile</button>`
+  ].join('');
+
+  openModal(`
+    <div class="cp-overview-head">
+      ${avatarHtml(pilot, 'cp-avatar-lg')}
+      <div class="cp-overview-identity">
+        <strong>${escapeHtml(toProfileName(pilot))}</strong>
+        <span>${escapeHtml(pilot.email || 'No email')}</span>
+        <span class="cp-overview-badges">
+          <span class="cp-badge cp-badge-muted">${escapeHtml(getPilotRoleLabel(pilot))}</span>
+          ${getProfileStatusBadgeHtml(pilot.status)}
+        </span>
+      </div>
+    </div>
+    <div class="cp-overview-compliance">
+      ${getAttentionBadgeHtml(level)}
+      <span>${escapeHtml(summary.text)}</span>
+    </div>
+    <dl class="cp-kv">
+      <div class="cp-kv-row"><dt>Employee ID</dt><dd>${escapeHtml(pilot.employeeId || '—')}</dd></div>
+      <div class="cp-kv-row"><dt>Designation</dt><dd>${escapeHtml(pilot.designation || '—')}</dd></div>
+      <div class="cp-kv-row"><dt>Phone</dt><dd>${escapeHtml(pilot.mobile || pilot.companyPhone || '—')}</dd></div>
+      <div class="cp-kv-row"><dt>Base</dt><dd>${escapeHtml(getPilotBase(pilot) || '—')}</dd></div>
+      <div class="cp-kv-row"><dt>Operator</dt><dd>${escapeHtml(pilot.operatorId || '—')}</dd></div>
+      <div class="cp-kv-row"><dt>Documents</dt><dd>${docs.length}</dd></div>
+    </dl>
+    <div class="cp-overview-actions">${actions}</div>
+  `, { title: 'Pilot Overview' });
+}
+
+async function toggleStatus(uid) {
+  if (!canPerformCrewAction(cpState.currentUser, 'edit')) {
+    showToast('You do not have permission to modify crew records.', 'error');
+    return;
+  }
+  const pilot = cpState.pilots.find((item) => item.uid === uid);
+  if (!pilot) return;
+  const next = isActivePilot(pilot) ? 'Inactive' : 'Active';
+  try {
+    await updatePilotProfile(uid, { status: next });
+    if (next !== 'Active' && cpState.detailUid === uid) backToRoster();
+    await refreshRoster();
+    showToast(`Status updated to ${next}.`, 'success');
+  } catch (error) {
+    console.error('Crew status update failed:', error);
+    showToast(error.message || 'Unable to update crew status.', 'error');
+  }
+}
+
+async function deleteAccount(uid) {
+  if (!canPerformCrewAction(cpState.currentUser, 'delete')) {
+    showToast('You do not have permission to delete crew accounts.', 'error');
+    return;
+  }
+  const pilot = cpState.pilots.find((item) => item.uid === uid);
+  if (!pilot) return;
+  confirmModal({
+    title: 'Delete Account',
+    message: `Move "${toProfileName(pilot)}" to Inactive? They will be unlinked from the operator and can be restored or permanently deleted from Inactive Profiles.`,
+    confirmLabel: 'Delete Account',
+    danger: true,
+    onConfirm: async () => {
+      try {
+        await updatePilotProfile(uid, { status: 'Deleted' });
+        await delinkPilot(uid);
+        if (cpState.detailUid === uid) backToRoster();
+        await refreshRoster();
+        showToast('Crew account moved to inactive.', 'success');
+      } catch (error) {
+        console.error('Crew account deletion failed:', error);
+        showToast(error.message || 'Unable to delete crew account.', 'error');
+      }
+    }
+  });
+}
+
+async function restorePilot(uid) {
+  if (!canPerformCrewAction(cpState.currentUser, 'edit')) {
+    showToast('You do not have permission to modify crew records.', 'error');
+    return;
+  }
+  try {
+    await updatePilotProfile(uid, { status: 'Active' });
+    await refreshRoster();
+    showToast('Pilot restored to active roster.', 'success');
+  } catch (error) {
+    console.error('Crew restore failed:', error);
+    showToast(error.message || 'Unable to restore pilot.', 'error');
+  }
+}
+
+async function permanentlyDeletePilot(uid) {
+  if (!canPerformCrewAction(cpState.currentUser, 'delete')) {
+    showToast('You do not have permission to delete crew accounts.', 'error');
+    return;
+  }
+  const pilot = cpState.pilots.find((item) => item.uid === uid);
+  if (!pilot) return;
+  confirmModal({
+    title: 'Permanently delete pilot',
+    message: `Permanently delete "${toProfileName(pilot)}"? This removes their profile, documents, uploaded files and account link. This cannot be undone.`,
+    confirmLabel: 'Delete Forever',
+    danger: true,
+    onConfirm: async () => {
+      let failed = false;
+      try {
+        await deletePilot(uid);
+      } catch (error) {
+        failed = true;
+        console.error('Permanent crew delete failed:', error);
+        showToast(error.message || 'Unable to permanently delete crew member.', 'error');
+      }
+      await refreshRoster();
+      if (!failed) showToast('Crew member permanently deleted.', 'success');
+    }
+  });
+}
+
+/* ================= EVENT BINDING ================= */
+
+function bindRosterControls() {
+  const roster = q('#cp-roster-view');
+  roster?.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    if (target.closest('[data-cp-add]')) {
+      openProfileForm(null);
+      return;
+    }
+
+    const inactiveButton = target.closest('[data-cp-inactive-action]');
+    if (inactiveButton) {
+      const uid = inactiveButton.getAttribute('data-cp-uid');
+      if (!uid) return;
+      if (inactiveButton.getAttribute('data-cp-inactive-action') === 'restore') restorePilot(uid);
+      else permanentlyDeletePilot(uid);
+      return;
+    }
+
+    const card = target.closest('.cp-card');
+    if (card) openOverview(card.getAttribute('data-cp-uid'));
+  });
+
+  roster?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const card = event.target instanceof HTMLElement ? event.target.closest('.cp-card') : null;
+    if (!card) return;
+    event.preventDefault();
+    openOverview(card.getAttribute('data-cp-uid'));
+  });
+
+  q('#cp-search')?.addEventListener('input', (event) => {
+    cpState.searchText = event.target?.value || '';
+    renderRoster();
+  });
+}
+
+function bindDetailControls() {
+  q('#cp-back-to-roster')?.addEventListener('click', backToRoster);
+  q('#cp-detail-edit')?.addEventListener('click', () => openProfileForm(cpState.detailUid));
+  q('#cp-detail-view')?.addEventListener('click', (event) => {
+    const tab = event.target instanceof HTMLElement ? event.target.closest('.crew-tab') : null;
+    if (tab) setTab(tab.getAttribute('data-tab') || 'personal');
+  });
+}
+
+function bindModalControls() {
+  q('#cp-modal-close')?.addEventListener('click', closeModal);
+  q('#cp-modal-backdrop')?.addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) closeModal();
+  });
+
+  q('#cp-modal-content')?.addEventListener('click', async (event) => {
+    const button = event.target instanceof HTMLElement ? event.target.closest('[data-cp-action]') : null;
+    if (!button) return;
+    const action = button.getAttribute('data-cp-action');
+    const uid = cpState.modalUid;
+    if (!uid) return;
+
+    if (action === 'view') {
+      closeModal();
+      await openDetail(uid);
+    } else if (action === 'edit') {
+      closeModal();
+      openProfileForm(uid);
+    } else if (action === 'toggle-status') {
+      closeModal();
+      await toggleStatus(uid);
+    } else if (action === 'delete') {
+      closeModal();
+      await deleteAccount(uid);
+    }
+  });
+}
+
+/* ================= INIT / DESTROY ================= */
+
+export async function init(view, context) {
+  cpState.view = view;
+  cpState.currentUser = context?.currentUser || null;
+  cpState.role = normalizeRole(cpState.currentUser?.role);
+  cpState.operatorUid = getCurrentOrganizationContext(cpState.currentUser).organizationId || cpState.currentUser?.uid || null;
+  cpState.searchText = '';
+  cpState.mode = 'roster';
+  cpState.detailUid = null;
+  cpState.modalUid = null;
+  cpState.editingUid = null;
+  cpState.pilots = [];
+  cpState.docsByUid = new Map();
+
+  mountModuleActions('');
+
+  bindRosterControls();
+  bindDetailControls();
+  bindModalControls();
+  bindProfileForm(async () => {
+    await loadRosterData();
+    if (cpState.mode === 'detail' && cpState.detailUid) {
+      await openDetail(cpState.detailUid);
+    } else {
+      renderRoster();
+      renderInactive();
+    }
+  });
+
+  if (!cpState.currentUser?.uid) {
+    setModuleSubtitle('Crew Profile requires a signed-in user.');
+    return {
+      destroy() {
+        cpState.view = null;
+      }
+    };
+  }
+
+  await loadRosterData();
+
+  if (cpState.role === 'PILOT') {
+    await openDetail(cpState.currentUser.uid);
+  } else {
+    const preselected = window.sessionStorage.getItem(PROFILE_KEY);
+    window.sessionStorage.removeItem(PROFILE_KEY);
+    if (preselected) await openDetail(preselected);
+    else showRoster();
+  }
 
   return {
     destroy() {
-      activeView = null;
-      profileUid = null;
+      cpState.view = null;
+      cpState.currentUser = null;
+      cpState.operatorUid = null;
+      cpState.pilots = [];
+      cpState.docsByUid = new Map();
+      cpState.searchText = '';
+      cpState.mode = 'roster';
+      cpState.detailUid = null;
+      cpState.modalUid = null;
+      cpState.editingUid = null;
       profileUser = null;
       profileDocuments = [];
       profileTrainingRecords = [];
+      clearTimeout(cpState.toastTimer);
+      mountModuleActions('');
     }
   };
 }

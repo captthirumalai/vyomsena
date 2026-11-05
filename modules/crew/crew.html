@@ -53,11 +53,6 @@
           <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
         </button>
       </div>
-      <button type="button" class="cm-btn cm-btn-primary cm-btn-md" id="cm-btn-add-crew">
-        <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
-        <span>Add Pilot</span>
-      </button>
-
       <div class="cm-filter-popover hidden" id="cm-filter-popover">
         <div class="cm-filter-groups">
           <div class="cm-filter-group" data-filter-group="status">
@@ -144,19 +139,11 @@
         <strong id="cm-empty-title">No pilots found</strong>
         <p id="cm-empty-message">Try adjusting your search or filters.</p>
         <div class="cm-empty-actions">
-          <button type="button" class="cm-btn cm-btn-primary cm-btn-sm hidden" id="cm-empty-add">+ Add Pilot</button>
           <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm hidden" id="cm-empty-clear">Clear filters</button>
         </div>
       </div>
     </section>
 
-    <section class="cm-section hidden" id="cm-inactive-section" aria-label="Inactive pilots">
-      <div class="cm-section-head">
-        <h2>Inactive Pilots</h2>
-        <span class="cm-section-sub" id="cm-inactive-count"></span>
-      </div>
-      <div class="cm-more-list" id="cm-inactive-list"></div>
-    </section>
   </main>
 
   <div class="cm-bulk-bar hidden" id="cm-bulk-toolbar" role="toolbar" aria-label="Bulk actions">
@@ -165,11 +152,8 @@
     <span class="cm-bulk-actions">
       <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-bulk-action="reminder">Send Reminder</button>
       <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-bulk-action="export">Export</button>
-      <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-bulk-action="active">Set Active</button>
-      <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-bulk-action="inactive">Set Inactive</button>
       <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-bulk-action="assign-operator">Assign</button>
       <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-bulk-action="reports">Report</button>
-      <button type="button" class="cm-btn cm-btn-danger cm-btn-sm" data-bulk-action="delete">Delete</button>
     </span>
     <button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" id="cm-bulk-clear">Clear</button>
   </div>
@@ -185,73 +169,6 @@
         <svg class="cm-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/></svg>
       </button>
       <div class="cm-modal-content" id="cm-modal-content"></div>
-      <div class="cm-modal-content hidden" id="cm-profile-form-wrap">
-        <div class="cm-profile-head">
-          <h3 id="cm-profile-heading">Create Crew Profile</h3>
-          <p class="cm-form-status" id="cm-profile-sub">Add a new crew member or update their operator-level record.</p>
-          <span class="cm-profile-mode" id="cm-profile-mode">NEW</span>
-        </div>
-        <form id="cm-profile-form" novalidate>
-          <div class="cm-form-grid">
-            <label class="cm-field">
-              <span>Full name</span>
-              <input type="text" name="name" id="cm-field-name" placeholder="e.g. Rajiv Sharma" />
-              <span class="cm-error" id="cm-error-name"></span>
-            </label>
-            <label class="cm-field">
-              <span>Email</span>
-              <input type="email" name="email" id="cm-field-email" placeholder="pilot@example.com" />
-              <span class="cm-error" id="cm-error-email"></span>
-            </label>
-            <label class="cm-field">
-              <span>Phone</span>
-              <input type="tel" name="phone" id="cm-field-phone" placeholder="Optional" />
-            </label>
-            <label class="cm-field">
-              <span>Employee ID</span>
-              <input type="text" name="employeeId" id="cm-field-employeeId" placeholder="Optional" />
-            </label>
-            <label class="cm-field">
-              <span>Role</span>
-              <select name="role" id="cm-field-role">
-                <option value="PILOT">Pilot</option>
-                <option value="CAPTAIN">Captain</option>
-                <option value="CO-PILOT">Co-Pilot</option>
-                <option value="TRAINEE">Trainee</option>
-              </select>
-            </label>
-            <label class="cm-field">
-              <span>Status</span>
-              <select name="status" id="cm-field-status">
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Suspended">Suspended</option>
-                <option value="On Leave">On Leave</option>
-              </select>
-            </label>
-            <label class="cm-field">
-              <span>Operator</span>
-              <input type="text" name="operator" id="cm-field-operator" disabled />
-            </label>
-            <label class="cm-field cm-field-photo">
-              <span>Photo</span>
-              <div class="cm-photo-row">
-                <span class="cm-photo-preview" id="cm-profile-photo-preview"></span>
-                <input type="file" id="cm-field-photo" accept="image/jpeg,image/png,image/webp" />
-              </div>
-              <small class="cm-field-hint">JPG, PNG or WebP · max 5 MB (auto-compressed to 600px)</small>
-            </label>
-          </div>
-          <p class="cm-form-status" id="cm-profile-status"></p>
-          <div class="cm-modal-actions">
-            <button type="button" class="cm-btn cm-btn-ghost cm-btn-md" id="cm-profile-cancel">Cancel</button>
-            <button type="submit" class="cm-btn cm-btn-primary cm-btn-md" id="cm-profile-save">
-              <span class="cm-btn-spinner hidden"></span>
-              <span id="cm-profile-save-label">Create Crew</span>
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
   </div>
 

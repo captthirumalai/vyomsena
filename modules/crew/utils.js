@@ -435,8 +435,6 @@ export function openModal(contentHtml, { title = '', subtitle = '' } = {}) {
   const backdrop = query('#cm-modal-backdrop');
   const content = query('#cm-modal-content');
   if (!backdrop || !content) return;
-  const profileWrap = query('#cm-profile-form-wrap');
-  if (profileWrap) profileWrap.classList.add('hidden');
   content.classList.remove('hidden');
   content.innerHTML = `
     ${title ? `<h3>${escapeHtml(title)}</h3>` : ''}
@@ -445,17 +443,6 @@ export function openModal(contentHtml, { title = '', subtitle = '' } = {}) {
   `;
   backdrop.classList.remove('hidden');
   requestAnimationFrame(() => query('#cm-modal-close')?.focus());
-}
-
-export function openProfileModal() {
-  const backdrop = query('#cm-modal-backdrop');
-  const content = query('#cm-modal-content');
-  const profileWrap = query('#cm-profile-form-wrap');
-  if (!backdrop || !profileWrap) return;
-  if (content) content.classList.add('hidden');
-  profileWrap.classList.remove('hidden');
-  backdrop.classList.remove('hidden');
-  requestAnimationFrame(() => query('#cm-profile-heading')?.focus());
 }
 
 export function closeModal() {

@@ -12,14 +12,13 @@ import {
   daysUntil,
   formatExpiry,
   escapeHtml,
-  confirmModal,
   openModal,
   closeModal,
   showToast
 } from './utils.js';
 import { canPerformCrewAction } from '../../services/permissionService.js';
 import { getDocumentComplianceState } from '../../services/documentService.js';
-import { updatePilotProfile, delinkPilot } from '../../services/crewService.js';
+import { updatePilotProfile } from '../../services/crewService.js';
 import { findUserByEmail } from '../../services/userService.js';
 import { refreshCrew } from './crew.js';
 
@@ -51,26 +50,7 @@ export async function applyBulkAction(action) {
     return;
   }
 
-  const names = selected.slice(0, 3).map((pilot) => toProfileName(pilot)).join(', ') + (selected.length > 3 ? ` +${selected.length - 3} more` : '');
-
-  if (action === 'active' || action === 'inactive') {
-    const next = action === 'active' ? 'Active' : 'Inactive';
-    confirmModal({
-      title: `Set ${next}`,
-      message: `Set status to "${next}" for ${selected.length} selected crew member(s)? (${names})`,
-      confirmLabel: `Set ${next}`,
-      onConfirm: async () => {
-        await Promise.all(selected.map((pilot) => updatePilotProfile(pilot.uid, { status: next })));
-        selected.forEach((pilot) => crewState.selectedRows.delete(pilot.uid));
-        if (statusEl) {
-          statusEl.textContent = `Applied status ${next} to ${selected.length} crew record(s).`;
-          statusEl.classList.add('is-success');
-        }
-        showToast(`Status set to ${next} for ${selected.length} crew.`, 'success');
-        await refreshCrew();
-      }
-    });
-  } else if (action === 'assign-operator') {
+  if (action === 'assign-operator') {
     openModal(`
       <label class="cm-field">
         <span>Operator UID or email</span>
@@ -147,28 +127,6 @@ export async function applyBulkAction(action) {
     `, { title: 'Crew Report', subtitle: `Summary for ${total} selected crew member(s). Use Export CSV for a full extract.` });
   } else if (action === 'export') {
     exportCrewCsv(selected);
-  } else if (action === 'delete') {
-    confirmModal({
-      title: 'Move to Inactive',
-      message: `Move ${selected.length} selected crew member(s) to Inactive Pilots? (${names}) This unlinks them and sets status=Deleted. You can restore or permanently delete them from the inactive section.`,
-      confirmLabel: 'Move to Inactive',
-      danger: true,
-      onConfirm: async () => {
-        await Promise.all(
-          selected.map(async (pilot) => {
-            await updatePilotProfile(pilot.uid, { status: 'Deleted' });
-            await delinkPilot(pilot.uid);
-            crewState.selectedRows.delete(pilot.uid);
-          })
-        );
-        if (statusEl) {
-          statusEl.textContent = `Moved ${selected.length} crew record(s) to inactive.`;
-          statusEl.classList.add('is-success');
-        }
-        showToast(`${selected.length} crew members moved to inactive.`, 'success');
-        await refreshCrew();
-      }
-    });
   }
 }
 

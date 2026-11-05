@@ -14,9 +14,6 @@ import {
   renderExpiryCell,
   getProfileStatusBadgeHtml,
   isPilotRole,
-  setStatus,
-  showToast,
-  confirmModal,
   getCrewAttentionLevel,
   getAttentionSummary,
   getAttentionBadgeHtml,
@@ -26,10 +23,6 @@ import {
   getMissingRequiredDocs,
   isActivePilot
 } from './utils.js';
-import { canPerformCrewAction } from '../../services/permissionService.js';
-import { updatePilotProfile, delinkPilot, deletePilot } from '../../services/crewService.js';
-import { refreshCrew } from './crew.js';
-import { openProfileForm } from './profile.js';
 import { renderPilotDocuments, openDocumentUploadModal, openDocumentDetail } from './documents.js';
 
 export function setText(selector, text) {
@@ -55,95 +48,9 @@ export function renderCrewScreen() {
   renderFilterOptions();
   renderFilterSummary();
   renderPilotList();
-  renderInactivePilots();
   renderBulkBar();
 }
 
-/* ================= INACTIVE PILOTS ================= */
-
-export function getInactivePilots() {
-  return crewState.pilotsCache.filter((pilot) => !isActivePilot(pilot));
-}
-
-export function renderInactivePilots() {
-  const section = query('#cm-inactive-section');
-  const list = query('#cm-inactive-list');
-  const count = query('#cm-inactive-count');
-  if (!section || !list) return;
-
-  const inactive = getInactivePilots();
-  if (!inactive.length) {
-    section.classList.add('hidden');
-    list.innerHTML = '';
-    return;
-  }
-
-  section.classList.remove('hidden');
-  if (count) count.textContent = `${inactive.length} pilot${inactive.length === 1 ? '' : 's'}`;
-
-  const canEdit = canPerformCrewAction(crewState.activeCurrentUser, 'edit');
-  const canDelete = canPerformCrewAction(crewState.activeCurrentUser, 'delete');
-
-  list.innerHTML = inactive
-    .map((pilot) => {
-      const actions = [
-        ...(canEdit
-          ? [`<button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-inactive-action="restore" data-pilot-uid="${escapeHtml(pilot.uid)}">Set Active</button>`]
-          : []),
-        ...(canDelete
-          ? [`<button type="button" class="cm-btn cm-btn-danger cm-btn-sm" data-inactive-action="delete-permanent" data-pilot-uid="${escapeHtml(pilot.uid)}">Delete Forever</button>`]
-          : [])
-      ].join('');
-
-      return `
-        <div class="cm-inactive-row">
-          ${renderAvatarHtml(pilot)}
-          <div class="cm-inactive-identity">
-            <strong class="cm-user-name">${escapeHtml(toProfileName(pilot))}</strong>
-            <span class="cm-user-email">${escapeHtml(pilot.email || 'No email')} · ${escapeHtml(getPilotRoleLabel(pilot))}</span>
-          </div>
-          <span class="cm-inactive-status">${getProfileStatusBadgeHtml(pilot.status)}</span>
-          <span class="cm-inactive-actions">${actions}</span>
-        </div>`;
-    })
-    .join('');
-}
-
-export async function restorePilot(pilotUid) {
-  if (!canPerformCrewAction(crewState.activeCurrentUser, 'edit')) return;
-  const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
-  if (!pilot) return;
-  await updatePilotProfile(pilotUid, { status: 'Active' });
-  crewState.selectedRows.delete(pilotUid);
-  setStatus(`Pilot restored to active roster.`);
-  showToast('Pilot moved back to Active.', 'success');
-  await refreshCrew();
-}
-
-export async function permanentlyDeletePilot(pilotUid) {
-  if (!canPerformCrewAction(crewState.activeCurrentUser, 'delete')) return;
-  const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
-  if (!pilot) return;
-
-  confirmModal({
-    title: 'Permanently delete pilot',
-    message: `Permanently delete "${toProfileName(pilot)}"? This removes their profile, documents, uploaded files and account link. This cannot be undone.`,
-    confirmLabel: 'Delete Forever',
-    danger: true,
-    onConfirm: async () => {
-      try {
-        await deletePilot(pilotUid);
-        crewState.selectedRows.delete(pilotUid);
-        setStatus(`Permanently deleted ${toProfileName(pilot)}.`);
-        showToast('Crew member permanently deleted.', 'success');
-      } catch (error) {
-        console.error('Permanent crew delete failed:', error);
-        showToast(error.message || 'Unable to permanently delete crew member.', 'error');
-      }
-      await refreshCrew();
-    }
-  });
-}
 /* ================= ATTENTION STRIP ================= */
 
 export function updateAttentionStrip() {
@@ -213,7 +120,6 @@ export function renderPilotList() {
   const empty = query('#cm-empty-state');
   const emptyTitle = query('#cm-empty-title');
   const emptyMessage = query('#cm-empty-message');
-  const emptyAdd = query('#cm-empty-add');
   const emptyClear = query('#cm-empty-clear');
   const countEl = query('#cm-pilots-count');
   if (!grid || !empty) return;
@@ -232,10 +138,9 @@ export function renderPilotList() {
     empty.classList.remove('hidden');
     emptyTitle.textContent = noCrew ? 'No pilots yet' : 'No pilots match';
     emptyMessage.textContent = noCrew
-      ? 'Add your first pilot to start tracking their documents and compliance.'
+      ? 'Add pilots from Crew Profile to start tracking their licences and documents.'
       : 'Try adjusting your search or filters.';
-    emptyAdd.classList.toggle('hidden', noCrew || isPilotRole());
-    emptyClear.classList.toggle('hidden', !noCrew);
+    if (emptyClear) emptyClear.classList.toggle('hidden', !noCrew);
     if (countEl) countEl.textContent = '0 pilots';
     renderBulkBar();
     return;
@@ -460,15 +365,7 @@ function renderOverviewView(pilot) {
   const chips = getPrimaryDocChips(docs);
   const expiries = getExpiryFooter(docs);
   const missingRequired = getMissingRequiredDocs(docs, crewState.requiredDocumentPolicy?.requiredDocumentNames);
-  const canEdit = canPerformCrewAction(crewState.activeCurrentUser, 'edit');
-  const canDelete = canPerformCrewAction(crewState.activeCurrentUser, 'delete');
-  const pilotStatus = `${pilot.status || 'Active'}`;
-
-  const actionButtons = [
-    ...(canEdit ? [`<button type="button" class="cm-btn cm-btn-primary cm-btn-sm" data-drawer-action="edit">Edit Profile</button>`] : []),
-    ...(canEdit ? [`<button type="button" class="cm-btn cm-btn-ghost cm-btn-sm" data-drawer-action="toggle-status">${pilotStatus === 'Active' ? 'Set Inactive' : 'Set Active'}</button>`] : []),
-    ...(canDelete ? [`<button type="button" class="cm-btn cm-btn-danger cm-btn-sm" data-drawer-action="soft-delete">Delete</button>`] : [])
-  ].join('');
+  const actionButtons = `<button type="button" class="cm-btn cm-btn-primary cm-btn-sm" data-drawer-action="view-profile">Open Profile</button>`;
 
   return `
     <div class="cm-drawer-reason is-${getAttentionTone(level)}">
@@ -524,39 +421,4 @@ export function closeDrawer() {
     drawer.classList.add('hidden');
   }, 200);
   crewState.activeDocument = null;
-}
-
-/* ================= CREW ACTIONS ================= */
-
-export async function togglePilotStatus(pilotUid) {
-  if (!canPerformCrewAction(crewState.activeCurrentUser, 'edit')) return;
-  const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
-  if (!pilot) return;
-  const current = `${pilot.status || 'Active'}`;
-  const next = current === 'Active' ? 'Inactive' : 'Active';
-  await updatePilotProfile(pilotUid, { status: next });
-  setStatus(`Status updated to ${next} for ${toProfileName(pilot)}.`);
-  showToast(`Status updated to ${next}.`, 'success');
-  await refreshCrew();
-}
-
-export async function softRemovePilot(pilotUid) {
-  if (!canPerformCrewAction(crewState.activeCurrentUser, 'delete')) return;
-  const pilot = crewState.pilotsCache.find((item) => item.uid === pilotUid);
-  if (!pilot) return;
-
-  confirmModal({
-    title: 'Remove crew member',
-    message: `Move "${toProfileName(pilot)}" to Inactive Pilots? They will be unlinked from the operator and listed under the inactive section, where you can restore or permanently delete them.`,
-    confirmLabel: 'Move to Inactive',
-    danger: true,
-    onConfirm: async () => {
-      await updatePilotProfile(pilotUid, { status: 'Deleted' });
-      await delinkPilot(pilotUid);
-      crewState.selectedRows.delete(pilotUid);
-      setStatus(`Moved ${toProfileName(pilot)} to inactive pilots.`);
-      showToast('Crew member moved to inactive.', 'success');
-      await refreshCrew();
-    }
-  });
 }

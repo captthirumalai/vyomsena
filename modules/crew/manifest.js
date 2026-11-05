@@ -7,7 +7,7 @@ export const manifest = {
   category: 'people',
   showInMenu: true,
   permissions: ['operations'],
-  subtitle: 'Manage your pilots and keep their documents current.',
+  subtitle: 'Manage pilot licences and keep their documents current.',
   breadcrumbs: ['Home', 'Crew Licenses'],
   html: 'modules/crew/crew.html',
   js: 'modules/crew/crew.js',

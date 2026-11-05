@@ -1,78 +1,200 @@
-<section class="card crew-profile-shell">
-  <div class="crew-profile-kpis" id="crew-profile-kpis"></div>
+<section class="cp-shell" id="cp-shell" aria-label="Crew profiles">
 
-  <div class="crew-profile-tabs" role="tablist" aria-label="Crew profile tabs">
-    <button type="button" class="crew-tab active" data-tab="personal" role="tab" aria-selected="true">Personal</button>
-    <button type="button" class="crew-tab" data-tab="documents" role="tab" aria-selected="false">Documents</button>
-    <button type="button" class="crew-tab" data-tab="training" role="tab" aria-selected="false">Training</button>
-    <button type="button" class="crew-tab" data-tab="experience" role="tab" aria-selected="false">Flight Experience</button>
-    <button type="button" class="crew-tab" data-tab="notes" role="tab" aria-selected="false">Notes</button>
-    <button type="button" class="crew-tab" data-tab="history" role="tab" aria-selected="false">History</button>
+  <section class="cp-roster" id="cp-roster-view">
+    <div class="cp-toolbar">
+      <div class="cp-search-wrap">
+        <svg class="cp-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M21 21l-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>
+        <input type="search" id="cp-search" class="cp-search-input" placeholder="Search pilot, email, base..." autocomplete="off" aria-label="Search pilot profiles" />
+      </div>
+      <span class="cp-roster-count" id="cp-roster-count">0 pilots</span>
+      <button type="button" class="cp-btn cp-btn-primary cp-btn-md" data-cp-add>
+        <svg class="cp-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
+        <span>Add Pilot</span>
+      </button>
+    </div>
+
+    <div class="cp-grid" id="cp-grid"></div>
+
+    <div class="cp-empty hidden" id="cp-empty">
+      <strong id="cp-empty-title">No pilots yet</strong>
+      <p id="cp-empty-message">Add your first pilot to start managing their profile and documents.</p>
+      <button type="button" class="cp-btn cp-btn-primary cp-btn-md" data-cp-add>+ Add Pilot</button>
+    </div>
+
+    <section class="cp-inactive hidden" id="cp-inactive-section" aria-label="Inactive pilots">
+      <div class="cp-inactive-head">
+        <h3>Inactive Profiles</h3>
+        <span id="cp-inactive-count"></span>
+      </div>
+      <div class="cp-inactive-list" id="cp-inactive-list"></div>
+    </section>
+  </section>
+
+  <section class="cp-detail-view hidden" id="cp-detail-view">
+    <div class="cp-detail-toolbar">
+      <button type="button" class="cp-btn cp-btn-ghost cp-btn-sm" id="cp-back-to-roster">
+        <svg class="cp-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"/></svg>
+        <span>Back to Profiles</span>
+      </button>
+      <span id="cp-detail-status" class="vs-page-chip">Pending</span>
+      <button type="button" class="cp-btn cp-btn-primary cp-btn-sm hidden" id="cp-detail-edit">Edit Profile</button>
+    </div>
+
+    <section class="card crew-profile-shell">
+      <div class="crew-profile-kpis" id="crew-profile-kpis"></div>
+
+      <div class="crew-profile-tabs" role="tablist" aria-label="Crew profile tabs">
+        <button type="button" class="crew-tab active" data-tab="personal" role="tab" aria-selected="true">Personal</button>
+        <button type="button" class="crew-tab" data-tab="documents" role="tab" aria-selected="false">Documents</button>
+        <button type="button" class="crew-tab" data-tab="training" role="tab" aria-selected="false">Training</button>
+        <button type="button" class="crew-tab" data-tab="experience" role="tab" aria-selected="false">Flight Experience</button>
+        <button type="button" class="crew-tab" data-tab="notes" role="tab" aria-selected="false">Notes</button>
+        <button type="button" class="crew-tab" data-tab="history" role="tab" aria-selected="false">History</button>
+      </div>
+
+      <section class="crew-tab-panel active" data-panel="personal" role="tabpanel">
+        <div class="crew-profile-grid" id="crew-profile-grid"></div>
+      </section>
+
+      <section class="crew-tab-panel" data-panel="documents" role="tabpanel">
+        <div class="crew-profile-table-wrap">
+          <table class="crew-profile-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Name</th>
+                <th>Number</th>
+                <th>Issue</th>
+                <th>Expiry</th>
+                <th>Status</th>
+                <th>Last Edited</th>
+              </tr>
+            </thead>
+            <tbody id="crew-profile-doc-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="crew-tab-panel" data-panel="training" role="tabpanel">
+        <div class="crew-profile-table-wrap">
+          <table class="crew-profile-table">
+            <thead>
+              <tr>
+                <th>Training</th>
+                <th>Completed</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody id="crew-profile-training-body"></tbody>
+          </table>
+        </div>
+        <div class="crew-profile-matrix" id="crew-qualification-matrix"></div>
+      </section>
+
+      <section class="crew-tab-panel" data-panel="experience" role="tabpanel">
+        <div class="crew-profile-grid" id="crew-profile-experience-grid"></div>
+        <div class="crew-profile-matrix" id="crew-recency-matrix"></div>
+      </section>
+
+      <section class="crew-tab-panel" data-panel="notes" role="tabpanel">
+        <div class="crew-profile-notes" id="crew-profile-notes"></div>
+      </section>
+
+      <section class="crew-tab-panel" data-panel="history" role="tabpanel">
+        <div class="crew-profile-table-wrap">
+          <table class="crew-profile-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Event</th>
+                <th>Source</th>
+                <th>Edited By</th>
+              </tr>
+            </thead>
+            <tbody id="crew-profile-history-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </section>
+
+  <div class="cp-modal-backdrop hidden" id="cp-modal-backdrop" aria-hidden="true">
+    <div class="cp-modal" role="dialog" aria-modal="true">
+      <button type="button" class="cp-modal-close" id="cp-modal-close" aria-label="Close dialog">
+        <svg class="cp-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M6 18L18 6"/></svg>
+      </button>
+      <div class="cp-modal-content" id="cp-modal-content"></div>
+      <div class="cp-modal-content hidden" id="cp-profile-form-wrap">
+        <div class="cp-profile-head">
+          <h3 id="cp-profile-heading">Create Crew Profile</h3>
+          <p class="cp-form-status" id="cp-profile-sub">Add a new crew member or update their operator-level record.</p>
+          <span class="cp-profile-mode" id="cp-profile-mode">NEW</span>
+        </div>
+        <form id="cp-profile-form" novalidate>
+          <div class="cp-form-grid">
+            <label class="cp-field">
+              <span>Full name</span>
+              <input type="text" name="name" id="cp-field-name" placeholder="e.g. Rajiv Sharma" />
+              <span class="cp-error" id="cp-error-name"></span>
+            </label>
+            <label class="cp-field">
+              <span>Email</span>
+              <input type="email" name="email" id="cp-field-email" placeholder="pilot@example.com" />
+              <span class="cp-error" id="cp-error-email"></span>
+            </label>
+            <label class="cp-field">
+              <span>Phone</span>
+              <input type="tel" name="phone" id="cp-field-phone" placeholder="Optional" />
+            </label>
+            <label class="cp-field">
+              <span>Employee ID</span>
+              <input type="text" name="employeeId" id="cp-field-employeeId" placeholder="Optional" />
+            </label>
+            <label class="cp-field">
+              <span>Role</span>
+              <select name="role" id="cp-field-role">
+                <option value="PILOT">Pilot</option>
+                <option value="CAPTAIN">Captain</option>
+                <option value="CO-PILOT">Co-Pilot</option>
+                <option value="TRAINEE">Trainee</option>
+              </select>
+            </label>
+            <label class="cp-field">
+              <span>Status</span>
+              <select name="status" id="cp-field-status">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Suspended">Suspended</option>
+                <option value="On Leave">On Leave</option>
+              </select>
+            </label>
+            <label class="cp-field">
+              <span>Operator</span>
+              <input type="text" name="operator" id="cp-field-operator" disabled />
+            </label>
+            <label class="cp-field cp-field-photo">
+              <span>Photo</span>
+              <div class="cp-photo-row">
+                <span class="cp-photo-preview" id="cp-profile-photo-preview"></span>
+                <input type="file" id="cp-field-photo" accept="image/jpeg,image/png,image/webp" />
+              </div>
+              <small class="cp-field-hint">JPG, PNG or WebP · max 5 MB (auto-compressed to 600px)</small>
+            </label>
+          </div>
+          <p class="cp-form-status" id="cp-profile-status"></p>
+          <div class="cp-modal-actions">
+            <button type="button" class="cp-btn cp-btn-ghost cp-btn-md" id="cp-profile-cancel">Cancel</button>
+            <button type="submit" class="cp-btn cp-btn-primary cp-btn-md" id="cp-profile-save">
+              <span class="cp-btn-spinner hidden"></span>
+              <span id="cp-profile-save-label">Create Crew</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
-  <section class="crew-tab-panel active" data-panel="personal" role="tabpanel">
-    <div class="crew-profile-grid" id="crew-profile-grid"></div>
-  </section>
-
-  <section class="crew-tab-panel" data-panel="documents" role="tabpanel">
-    <div class="crew-profile-table-wrap">
-      <table class="crew-profile-table">
-        <thead>
-          <tr>
-            <th>Category</th>
-            <th>Name</th>
-            <th>Number</th>
-            <th>Issue</th>
-            <th>Expiry</th>
-            <th>Status</th>
-            <th>Last Edited</th>
-          </tr>
-        </thead>
-        <tbody id="crew-profile-doc-body"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="crew-tab-panel" data-panel="training" role="tabpanel">
-    <div class="crew-profile-table-wrap">
-      <table class="crew-profile-table">
-        <thead>
-          <tr>
-            <th>Training</th>
-            <th>Completed</th>
-            <th>Due Date</th>
-            <th>Status</th>
-            <th>Reference</th>
-          </tr>
-        </thead>
-        <tbody id="crew-profile-training-body"></tbody>
-      </table>
-    </div>
-    <div class="crew-profile-matrix" id="crew-qualification-matrix"></div>
-  </section>
-
-  <section class="crew-tab-panel" data-panel="experience" role="tabpanel">
-    <div class="crew-profile-grid" id="crew-profile-experience-grid"></div>
-    <div class="crew-profile-matrix" id="crew-recency-matrix"></div>
-  </section>
-
-  <section class="crew-tab-panel" data-panel="notes" role="tabpanel">
-    <div class="crew-profile-notes" id="crew-profile-notes"></div>
-  </section>
-
-  <section class="crew-tab-panel" data-panel="history" role="tabpanel">
-    <div class="crew-profile-table-wrap">
-      <table class="crew-profile-table">
-        <thead>
-          <tr>
-            <th>When</th>
-            <th>Event</th>
-            <th>Source</th>
-            <th>Edited By</th>
-          </tr>
-        </thead>
-        <tbody id="crew-profile-history-body"></tbody>
-      </table>
-    </div>
-  </section>
+  <div class="cp-toast hidden" id="cp-toast" role="status" aria-live="polite"></div>
 </section>

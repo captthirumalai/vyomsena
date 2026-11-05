@@ -8,7 +8,7 @@ import {
 } from '../../services/crewService.js';
 import { watchDocumentsByUser } from '../../services/documentService.js';
 import { startCrewDocumentSyncWorker, stopCrewDocumentSyncWorker } from '../../services/crewDocumentSyncService.js';
-import { canPerformCrewAction, getCrewPermissionsForUser } from '../../services/permissionService.js';
+import { getCrewPermissionsForUser } from '../../services/permissionService.js';
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { mirrorCrewProfilesToCompany } from '../../services/companyService.js';
 import { mountModuleActions } from '../../shared/moduleHeader.js';
@@ -18,26 +18,18 @@ import {
   queryAll,
   normalizeRole,
   setStatus,
-  showToast,
   closeModal,
-  confirmModal,
   isPilotRole,
   getSortedAndFilteredPilots
 } from './utils.js';
 import {
   renderCrewScreen,
   renderPilotList,
-  renderFilterSummary,
   renderBulkBar,
   renderDrawerView,
   openDrawer,
-  closeDrawer,
-  togglePilotStatus,
-  softRemovePilot,
-  restorePilot,
-  permanentlyDeletePilot
+  closeDrawer
 } from './directory.js';
-import { openProfileForm, saveProfileForm } from './profile.js';
 import { openDocumentDetail, openDocumentUploadModal } from './documents.js';
 import { applyBulkAction } from './bulk.js';
 import { runQueueSync, renderQueueSyncState } from './queue.js';
@@ -176,8 +168,6 @@ function scrollToPilots() {
 /* ================= EVENT BINDING ================= */
 
 function bindScreenControls() {
-  query('#cm-btn-add-crew')?.addEventListener('click', () => openProfileForm(null));
-
   query('#cm-btn-policy')?.addEventListener('click', openCompanyPolicyModal);
 
   query('#cm-search')?.addEventListener('input', (event) => {
@@ -320,7 +310,6 @@ function bindScreenControls() {
     renderCrewScreen();
   });
 
-  query('#cm-empty-add')?.addEventListener('click', () => openProfileForm(null));
   query('#cm-empty-clear')?.addEventListener('click', () => {
     crewListState.searchText = '';
     crewListState.statuses.clear();
@@ -333,27 +322,13 @@ function bindScreenControls() {
     renderCrewScreen();
   });
 
-  query('#cm-inactive-list')?.addEventListener('click', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    const button = target.closest('[data-inactive-action]');
-    if (!button) return;
-    const action = button.getAttribute('data-inactive-action');
-    const pilotUid = button.getAttribute('data-pilot-uid');
-    if (!pilotUid) return;
-    if (action === 'restore') restorePilot(pilotUid);
-    else if (action === 'delete-permanent') permanentlyDeletePilot(pilotUid);
-  });
 }
 
-async function handleDrawerAction(action) {
+function handleDrawerAction(action) {
   const pilotUid = crewState.selectedPilotUid;
-  if (action === 'edit') {
-    openProfileForm(pilotUid);
-  } else if (action === 'toggle-status') {
-    await togglePilotStatus(pilotUid);
-  } else if (action === 'soft-delete') {
-    await softRemovePilot(pilotUid);
+  if (action === 'view-profile' && pilotUid) {
+    window.sessionStorage.setItem('vs-selected-crew-profile', pilotUid);
+    window.location.hash = '#/crew-profile';
   }
 }
 
@@ -389,34 +364,6 @@ function bindDrawerControls() {
   });
 }
 
-function bindProfileForm() {
-  query('#cm-profile-form')?.addEventListener('submit', (event) => {
-    event.preventDefault();
-    saveProfileForm();
-  });
-
-  query('#cm-profile-cancel')?.addEventListener('click', () => {
-    crewState.profileEditUid = null;
-    closeModal();
-  });
-
-  query('#cm-field-photo')?.addEventListener('change', (event) => {
-    const file = event.target?.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const preview = query('#cm-profile-photo-preview');
-      if (preview && typeof ev.target?.result === 'string') {
-        preview.style.backgroundImage = `url(${ev.target.result})`;
-        preview.style.backgroundSize = 'cover';
-        preview.style.backgroundPosition = 'center';
-        preview.textContent = '';
-      }
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 const bindKeyboard = { handler: null };
 
 function bindGlobalOverlays() {
@@ -448,7 +395,6 @@ function mountCrewHeader() {
 
 function applyRoleLayout() {
   if (isPilotRole()) {
-    query('#cm-btn-add-crew')?.classList.add('hidden');
     query('#cm-btn-policy')?.classList.add('hidden');
     queryAll('[data-bulk-action]').forEach((btn) => btn.classList.add('hidden'));
     query('#cm-bulk-toolbar')?.classList.add('hidden');
@@ -487,7 +433,6 @@ export async function init(view, context) {
 
   bindScreenControls();
   bindDrawerControls();
-  bindProfileForm();
   bindGlobalOverlays();
 
   startCrewDocumentSyncWorker();
@@ -560,7 +505,6 @@ export async function init(view, context) {
       crewState.currentPage = 1;
       crewState.drawerView = 'overview';
       crewState.activeDocument = null;
-      crewState.profileEditUid = null;
       crewState.requiredDocumentPolicy = null;
       if (crewState.queueMonitorTimer) {
         clearInterval(crewState.queueMonitorTimer);

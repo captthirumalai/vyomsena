@@ -16,7 +16,6 @@ export const crewState = {
   queueSyncLastError: null,
   queueSyncFlashTimer: null,
   crewPermissions: null,
-  profileEditUid: null,
   selectedRows: new Set(),
   currentPage: 1,
   drawerView: 'overview',
