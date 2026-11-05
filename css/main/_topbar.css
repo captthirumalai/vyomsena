@@ -24,8 +24,12 @@
 
 .vs-topbar-title h1 {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 1.15rem;
+  font-weight: 800;
   line-height: 1.2;
+  max-width: 24rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -134,7 +138,8 @@
   }
 
   .vs-topbar-title h1 {
-    font-size: 0.75rem;
+    font-size: 0.9rem;
+    max-width: 10rem;
   }
 
   .vs-module-header {

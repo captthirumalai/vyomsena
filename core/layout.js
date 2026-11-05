@@ -97,6 +97,8 @@ function renderSidebar(user) {
 function updateUserPanel(user) {
   const label = query('#app-user');
   if (label) label.textContent = getUserLabel(user);
+  const companyName = query('#app-company-name');
+  if (companyName) companyName.textContent = user?.organizationName || user?.companyName || appConfig.appName;
   const userInfoName = query('#btn-user-info-name');
   if (userInfoName) userInfoName.textContent = user?.name || user?.email || 'User';
   renderSidebar(user);
@@ -188,7 +190,7 @@ export function initLayout() {
               <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
             <div class="brand-copy">
-              <h1>VyomSena</h1>
+              <h1 id="app-company-name">VyomSena</h1>
               <p id="app-user" class="hidden">Secure operations dashboard</p>
             </div>
           </div>
