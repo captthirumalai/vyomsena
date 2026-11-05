@@ -1,4 +1,4 @@
-import { getMenuRoutesForUser } from '../shared/routes.js';
+import { getMenuGroupsForUser } from '../shared/routes.js';
 import { authStore } from '../stores/authStore.js';
 import { themeStore } from '../stores/themeStore.js';
 import { appConfig } from '../config/app.config.js';
@@ -13,25 +13,80 @@ function getUserLabel(user) {
   return `Signed in as ${user.name || user.email || user.uid}`;
 }
 
+const SIDEBAR_GROUPS_KEY = 'vams.sidebarGroups.v1';
+
+function currentPath() {
+  return window.location.hash.replace('#', '') || '/dashboard';
+}
+
+function readGroupState() {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_GROUPS_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeGroupState(state) {
+  try {
+    localStorage.setItem(SIDEBAR_GROUPS_KEY, JSON.stringify(state));
+  } catch {
+    /* storage unavailable; open state just won't persist */
+  }
+}
+
 function renderSidebar(user) {
   const nav = query('#app-sidebar-nav');
   if (!nav) return;
 
-  const routes = getMenuRoutesForUser(user);
-  if (!routes.length) {
+  const groups = getMenuGroupsForUser(user);
+  if (!groups.length) {
     nav.innerHTML = '<p class="vs-sidebar-empty">No modules available for your role.</p>';
     return;
   }
 
-  nav.innerHTML = routes
-    .map(
-      (route) => `
-        <a href="#${route.path}" class="vs-sidebar-link" data-route="${route.path}" aria-label="${route.title || route.name}">
-          <span>${route.title || route.name}</span>
-        </a>
-      `
-    )
+  const path = currentPath();
+  const savedState = readGroupState();
+
+  nav.innerHTML = groups
+    .map((group) => {
+      const hasActive = group.routes.some((route) => route.path === path);
+      const isOpen = hasActive || savedState[group.key] !== false;
+      return `
+        <div class="vs-sidebar-group${isOpen ? ' is-open' : ''}" data-group="${group.key}">
+          <button type="button" class="vs-sidebar-group-toggle" aria-expanded="${isOpen}">
+            <span>${group.label}</span>
+            <svg class="vs-sidebar-chevron" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="vs-sidebar-group-items">
+            ${group.routes
+              .map(
+                (route) => `
+              <a href="#${route.path}" class="vs-sidebar-link" data-route="${route.path}" aria-label="${route.title || route.name}">
+                <span>${route.title || route.name}</span>
+              </a>`
+              )
+              .join('')}
+          </div>
+        </div>
+      `;
+    })
     .join('');
+
+  nav.querySelectorAll('.vs-sidebar-group-toggle').forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+      const groupEl = toggle.closest('.vs-sidebar-group');
+      if (!groupEl) return;
+      const isOpen = !groupEl.classList.contains('is-open');
+      groupEl.classList.toggle('is-open', isOpen);
+      toggle.setAttribute('aria-expanded', String(isOpen));
+      const state = readGroupState();
+      state[groupEl.dataset.group] = isOpen;
+      writeGroupState(state);
+    });
+  });
 }
 
 function updateUserPanel(user) {
@@ -50,7 +105,13 @@ function updateThemeButton(theme) {
 
 function setActiveSidebarLink(path) {
   document.querySelectorAll('.vs-sidebar-link').forEach((link) => {
-    link.classList.toggle('active', link.getAttribute('href') === `#${path}`);
+    const isActive = link.getAttribute('href') === `#${path}`;
+    link.classList.toggle('active', isActive);
+    if (!isActive) return;
+    const groupEl = link.closest('.vs-sidebar-group');
+    if (!groupEl) return;
+    groupEl.classList.add('is-open');
+    groupEl.querySelector('.vs-sidebar-group-toggle')?.setAttribute('aria-expanded', 'true');
   });
 }
 

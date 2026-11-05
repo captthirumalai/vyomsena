@@ -58,8 +58,37 @@ export function canAccessRoute(route, user) {
   return route.permissions.some((permission) => normalizeRole(permission) === role);
 }
 
+export const menuCategories = [
+  { key: 'overview', label: 'Overview', order: 1 },
+  { key: 'operations', label: 'Operations', order: 2 },
+  { key: 'people', label: 'People', order: 3 },
+  { key: 'compliance', label: 'Compliance', order: 4 },
+  { key: 'system', label: 'System Management', order: 5 }
+];
+
 export function getMenuRoutesForUser(user) {
   return appRoutes
     .filter((route) => route.showInMenu !== false && canAccessRoute(route, user))
     .sort((left, right) => (left.order || 0) - (right.order || 0));
+}
+
+export function getMenuGroupsForUser(user) {
+  const routes = getMenuRoutesForUser(user);
+  const byCategory = new Map();
+
+  routes.forEach((route) => {
+    const key = route.category || 'system';
+    if (!byCategory.has(key)) byCategory.set(key, []);
+    byCategory.get(key).push(route);
+  });
+
+  return menuCategories
+    .filter((category) => byCategory.has(category.key))
+    .sort((left, right) => left.order - right.order)
+    .map((category) => ({
+      ...category,
+      routes: byCategory
+        .get(category.key)
+        .sort((left, right) => (left.order || 0) - (right.order || 0))
+    }));
 }

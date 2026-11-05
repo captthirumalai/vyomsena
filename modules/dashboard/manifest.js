@@ -4,6 +4,7 @@ export const manifest = {
   title: 'Operations Dashboard',
   icon: 'dashboard',
   order: 10,
+  category: 'overview',
   showInMenu: true,
   permissions: ['operations'],
   subtitle: 'Monitoring fleet, crew, and compliance from Firestore.',

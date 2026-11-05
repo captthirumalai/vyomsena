@@ -680,7 +680,7 @@ export async function init(view, context) {
   `);
 
   if (!profileUid) {
-    setModuleSubtitle('No crew member selected. Open Crew Management and choose Profile from a crew row.');
+    setModuleSubtitle('No crew member selected. Open Crew Licenses and choose Profile from a crew row.');
     return {
       destroy() {
         activeView = null;

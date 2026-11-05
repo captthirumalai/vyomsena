@@ -11,12 +11,12 @@ import {
 
 const PILOT_SOURCE = 'CREW_ADD_PILOT';
 const ALLOWED_ROLES = ['PILOT', 'OPERATIONS', 'AME'];
-const SOURCE_ROUTES = { PILOT: ['Crew Management', '#/crew'], OPERATIONS: ['Flight Ops', '#/flightops'], AME: ['Maintenance', '#/maintenance'] };
+const SOURCE_ROUTES = { PILOT: ['Crew Licenses', '#/crew'], OPERATIONS: ['Flight Ops', '#/flightops'], AME: ['Maintenance', '#/maintenance'] };
 const ROLE_NAMES = { PILOT: 'pilot', OPERATIONS: 'operations person', AME: 'technical person' };
 function escapeHtml(value) { return `${value ?? ''}`.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
 function setStatus(el, message, tone = '') { if (!el) return; el.textContent = message || ''; el.classList.remove('is-error', 'is-success'); if (tone) el.classList.add(`is-${tone}`); }
 function moduleOptions() {
-  const routes = appRoutes.filter((route) => route.showInMenu !== false && route.path && route.name && !['/settings', '/linking'].includes(route.path)).map((route) => ({ key: route.path.replace(/^\//, ''), label: route.name }));
+  const routes = appRoutes.filter((route) => route.showInMenu !== false && route.grantable !== false && route.path && route.name && !['/settings', '/linking'].includes(route.path)).map((route) => ({ key: route.path.replace(/^\//, ''), label: route.name }));
   return [...routes, { key: 'aircraft', label: 'Company Aircraft data' }, { key: 'crew', label: 'Company Crew data' }, { key: 'flights', label: 'Company Flight records' }].sort((a, b) => a.label.localeCompare(b.label));
 }
 function defaultRights(role) {
@@ -49,7 +49,7 @@ export async function init(view, context) {
     select.value = selected || '';
     const note = $('#ln-person-note');
     if (note) {
-      note.innerHTML = options.length ? (role === 'PILOT' ? 'Pilots must be active records created with Crew Management → Add Pilot.' : 'Choose an existing staff record. Company User credentials are issued here.') : `No eligible ${ROLE_NAMES[role]} found. Add one in <a href="${source[1]}">${source[0]}</a>.`;
+      note.innerHTML = options.length ? (role === 'PILOT' ? 'Pilots must be active records created with Crew Licenses → Add Pilot.' : 'Choose an existing staff record. Company User credentials are issued here.') : `No eligible ${ROLE_NAMES[role]} found. Add one in <a href="${source[1]}">${source[0]}</a>.`;
     }
     return options.length > 0;
   }
