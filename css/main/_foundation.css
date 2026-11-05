@@ -71,9 +71,8 @@
 
 html {
   scroll-behavior: smooth;
-  /* UI scale — matches an 87.5% browser zoom (70% base + 25% readability bump).
-     Adjust this value (e.g. 1 = 100%) if the density feels too tight or too loose. */
-  zoom: 0.875;
+  /* Increase the app's global display scale by 20% from the previous setting. */
+  zoom: 1.05;
 }
 
 body {
