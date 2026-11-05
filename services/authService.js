@@ -5,9 +5,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
-  signOut,
-  GoogleAuthProvider,
-  signInWithPopup
+  signOut
 } from './firebaseService.js';
 import { serverTimestamp } from './firestoreService.js';
 import { getUserByUid, createUserProfile as createUserProfileRecord } from './userService.js';
@@ -31,19 +29,7 @@ function mapAuthError(error) {
   const code = error?.code || '';
 
   if (code === 'auth/invalid-credential') {
-    return 'Invalid email/password for this account. If this user was registered in Android, use Continue with Google.';
-  }
-  if (code === 'auth/popup-blocked') {
-    return 'Google popup was blocked by the browser. Allow popups for this site and try again.';
-  }
-  if (code === 'auth/popup-closed-by-user') {
-    return 'Google sign-in was cancelled before completion.';
-  }
-  if (code === 'auth/unauthorized-domain') {
-    return 'This domain is not authorized for Google sign-in. Add this site domain in Firebase Authentication -> Settings -> Authorized domains.';
-  }
-  if (code === 'auth/operation-not-allowed') {
-    return 'Google sign-in is not enabled in Firebase. Enable Google provider in Firebase Authentication -> Sign-in method.';
+    return 'Invalid email or password. Use the email and password set up for your workspace.';
   }
   if (code === 'auth/user-not-found') {
     return 'No account found for this email.';
@@ -61,19 +47,6 @@ function mapAuthError(error) {
 export async function signIn(email, password) {
   try {
     return await signInWithEmailAndPassword(getAuthInstance(), email, password);
-  } catch (error) {
-    throw new Error(mapAuthError(error));
-  }
-}
-
-export async function signInWithGoogle() {
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({
-    prompt: 'select_account'
-  });
-
-  try {
-    return await signInWithPopup(getAuthInstance(), provider);
   } catch (error) {
     throw new Error(mapAuthError(error));
   }

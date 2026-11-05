@@ -391,6 +391,19 @@
   text-transform: uppercase;
 }
 
+.auth-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.auth-panel-version {
+  color: var(--muted-color);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .auth-side-note {
   display: grid;
   gap: 0.25rem;

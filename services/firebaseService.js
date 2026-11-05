@@ -5,9 +5,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
-  signOut,
-  GoogleAuthProvider,
-  signInWithPopup
+  signOut
 } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 import { getStorage } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js';
@@ -46,7 +44,5 @@ export {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
-  signOut,
-  GoogleAuthProvider,
-  signInWithPopup
+  signOut
 };

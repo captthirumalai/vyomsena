@@ -320,7 +320,10 @@ export function initLayout() {
               <div class="vs-form-panel">
                 <div class="vs-form-inner">
                   <div class="vs-auth-card active" id="login-card">
-                    <div class="auth-panel-badge">Operations Workspace</div>
+                    <div class="auth-panel-meta">
+                      <div class="auth-panel-badge">Operations Workspace</div>
+                      <span class="auth-panel-version">Build ${appConfig.releaseVersion || 'V2.x'}</span>
+                    </div>
                     <div class="card-heading">
                       <h2>Sign In</h2>
                       <p>Access your company workspace for crew oversight, compliance tracking, and operational coordination.</p>
@@ -344,11 +347,6 @@ export function initLayout() {
                       <div id="login-error" class="error-banner hidden"></div>
                       <button type="submit" class="vs-button vs-button--primary vs-button--md" id="btn-login-submit">
                         <span class="btn-text">Sign In</span>
-                        <span class="btn-spinner hidden"></span>
-                      </button>
-                      <div class="auth-divider" aria-hidden="true"><span>or</span></div>
-                      <button type="button" class="vs-button vs-button--secondary vs-button--md" id="btn-login-google">
-                        <span class="btn-text">Continue with Google</span>
                         <span class="btn-spinner hidden"></span>
                       </button>
                     </form>
