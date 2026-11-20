@@ -130,18 +130,22 @@ export async function computeSha256(blob) {
     .join('');
 }
 
-// Returns null when the uploaded bytes cannot be re-downloaded for verification.
+// Throws when the uploaded bytes cannot be re-downloaded for verification.
 export async function verifyRemoteChecksum(url, expectedSha256) {
-  if (!url || !expectedSha256) return null;
-  try {
-    const response = await fetch(url, { cache: 'no-store' });
-    if (!response.ok) return null;
-    const actual = await computeSha256(await response.blob());
-    return actual === expectedSha256;
-  } catch (error) {
-    console.warn('Checksum verification skipped:', error);
-    return null;
+  if (!url || !expectedSha256) {
+    throw new Error('A download URL and expected SHA-256 checksum are required for verification.');
   }
+  let response;
+  try {
+    response = await fetch(url, { cache: 'no-store' });
+  } catch (error) {
+    throw new Error(`Storage re-download failed; check network, CORS, and Storage read access. ${error.message || error}`);
+  }
+  if (!response.ok) {
+    throw new Error(`Storage re-download returned HTTP ${response.status}.`);
+  }
+  const actual = await computeSha256(await response.blob());
+  return actual === expectedSha256;
 }
 
 // Immutable revision upload: bytes are hashed before upload, the object is
@@ -159,27 +163,30 @@ export async function uploadManualRevision({ companyId, manualId, revisionId, fi
 
   const path = buildManualRevisionStoragePath(companyId, manualId, revisionId, preparedFile.name);
   const targetRef = storageRef(getStorageInstance(), path);
-  const snapshot = await uploadBytes(targetRef, preparedFile);
+  await uploadBytes(targetRef, preparedFile);
 
-  const downloadToken = snapshot.metadata?.downloadTokens?.[0];
-  const downloadUrl = buildTokenDownloadUrl(path, downloadToken) || (await getDownloadURL(targetRef));
-
-  const verified = await verifyRemoteChecksum(downloadUrl, sha256);
-  if (verified !== true) {
+  let downloadUrl = null;
+  let verified = false;
+  let verificationError = null;
+  try {
+    downloadUrl = await getDownloadURL(targetRef);
+    verified = await verifyRemoteChecksum(downloadUrl, sha256);
+  } catch (error) {
+    verificationError = error;
+  }
+  if (!verified) {
     try {
       await deleteObject(targetRef);
     } catch (cleanupError) {
       console.error('Unverified revision file cleanup failed:', cleanupError);
       throw new Error(
-        verified === false
-          ? 'Uploaded file failed SHA-256 verification, and the invalid file could not be removed.'
-          : 'Uploaded file could not be SHA-256 verified, and the unverified file could not be removed.'
+        `Uploaded file could not be verified. Verification failed: ${verificationError?.message || 'SHA-256 mismatch.'} Cleanup failed: ${cleanupError.message || cleanupError}`
       );
     }
     throw new Error(
-      verified === false
-        ? 'Uploaded file failed SHA-256 verification and was removed. Please retry the upload.'
-        : 'Uploaded file could not be SHA-256 verified and was removed. Check storage access and retry.'
+      verificationError
+        ? `Uploaded file could not be SHA-256 verified and was removed. ${verificationError.message}`
+        : 'Uploaded file failed SHA-256 verification and was removed. Please retry the upload.'
     );
   }
 

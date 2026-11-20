@@ -15,7 +15,7 @@ import {
   archiveManual,
   unarchiveManual,
   deleteDraftManual,
-  resolveViewableDocument,
+  resolveViewableManual,
   suggestNextRevisionNumber,
   TEMPORARY_REVISION_STATUSES,
   TEMPORARY_EFFECTIVE_STATES,
@@ -373,15 +373,15 @@ function readManualForm(prefix) {
 }
 
 function manualFormHtml(prefix, manual = null, { includeFile = true } = {}) {
-  const fileSection = includeFile ? fileField(`${prefix}-file`, 'PDF / document file (required to publish)') : '';
+  const fileSection = includeFile ? fileField(`${prefix}-file`, 'Manual PDF (required to publish)') : '';
   return `
     <div class="efb-ml-form">
       ${textField(`${prefix}-title`, 'Manual Title', { value: manual?.title || '', required: true, placeholder: 'e.g. Operations Manual' })}
-      ${textField(`${prefix}-doc-number`, 'Document Number', { value: manual?.documentNumber || '', placeholder: 'e.g. OM-001' })}
+      ${textField(`${prefix}-doc-number`, 'Manual Number', { value: manual?.documentNumber || '', placeholder: 'e.g. OM-001' })}
       ${selectField(`${prefix}-category`, 'Category', MANUAL_CATEGORIES, manual?.category || 'Operations Manual')}
       ${textField(`${prefix}-aircraft`, 'Aircraft Applicability', { value: manual?.aircraftApplicability || '', placeholder: 'e.g. A320, All fleet' })}
       ${textField(`${prefix}-department`, 'Department', { value: manual?.department || '', placeholder: 'e.g. Flight Operations' })}
-      ${textField(`${prefix}-owner`, 'Document Owner', { value: manual?.documentOwner || '', placeholder: 'e.g. Director of Operations' })}
+      ${textField(`${prefix}-owner`, 'Manual Owner', { value: manual?.documentOwner || '', placeholder: 'e.g. Director of Operations' })}
       ${textField(`${prefix}-issue-number`, 'Issue Number', { value: manual?.issueNumber ?? '', placeholder: 'e.g. 3' })}
       ${textField(`${prefix}-rev-number`, 'Revision Number', { type: 'number', value: manual?.revisionNumber ?? '', placeholder: 'e.g. 1', attrs: 'min="1" step="1"' })}
       ${dateField(`${prefix}-issue-date`, 'Issue Date', manual?.issueDate)}
@@ -565,9 +565,9 @@ function render() {
   renderTemporaryRevisions();
 }
 
-/* ================= DOCUMENT ACTIONS ================= */
+/* ================= MANUAL FILE ACTIONS ================= */
 
-async function downloadDocument(uri, fileName) {
+async function downloadManualFile(uri, fileName) {
   if (!uri) return;
   try {
     const response = await fetch(uri);
@@ -588,9 +588,9 @@ async function downloadDocument(uri, fileName) {
 }
 
 async function openView(manual) {
-  openModal(manual.title, '<p class="muted">Loading document…</p>');
+  openModal(manual.title, '<p class="muted">Loading manual…</p>');
   try {
-    const { uri, revision, futureEffective } = await resolveViewableDocument(state.companyId, manual, {
+    const { uri, revision, futureEffective } = await resolveViewableManual(state.companyId, manual, {
       allowFuture: state.canManage
     });
     const effectiveNote = futureEffective
@@ -614,7 +614,7 @@ async function openView(manual) {
     openModal(
       manual.title,
       `<div class="efb-ml-detail-grid">
-        <div><span>Document Number</span><strong>${escapeHtml(manual.documentNumber || '—')}</strong></div>
+        <div><span>Manual Number</span><strong>${escapeHtml(manual.documentNumber || '—')}</strong></div>
         <div><span>Category</span><strong>${escapeHtml(manual.category)}</strong></div>
         <div><span>Aircraft</span><strong>${escapeHtml(manual.aircraftApplicability || '—')}</strong></div>
         <div><span>Issue / Revision</span><strong>${escapeHtml(manual.issueNumber ?? '—')} / ${escapeHtml(manual.revisionNumber ?? '—')}</strong></div>
@@ -629,18 +629,18 @@ async function openView(manual) {
         ${revision ? `<div><span>Revision</span><strong>#${escapeHtml(revision.revisionNumber ?? '—')}</strong></div>` : ''}
         ${revision?.reason ? `<div class="efb-ml-field--wide"><span>Revision Reason</span><strong>${escapeHtml(revision.reason)}</strong></div>` : ''}
         <div class="efb-ml-field--wide"><span>Description</span><strong>${escapeHtml(manual.description || '—')}</strong></div>
-        <div class="efb-ml-field--wide"><span>Owner</span><strong>${escapeHtml(manual.documentOwner || '—')}</strong></div>
+        <div class="efb-ml-field--wide"><span>Manual Owner</span><strong>${escapeHtml(manual.documentOwner || '—')}</strong></div>
         <div class="efb-ml-field--wide"><span>Approval</span><strong>${escapeHtml(manual.approvedBy || '—')}${manual.approvalReference ? ` · Ref ${escapeHtml(manual.approvalReference)}` : ''} · ${escapeHtml(manual.regulatoryApprovalStatus || 'Not Applicable')}</strong></div>
       </div>
       ${effectiveNote}${legacyNote}${fileSection}`
     );
 
     state.view?.querySelector('#efb-view-download')?.addEventListener('click', () => {
-      downloadDocument(uri, revision?.fileName || manual.fileName || `${manual.title}.pdf`);
+      downloadManualFile(uri, revision?.fileName || manual.fileName || `${manual.title}.pdf`);
     });
   } catch (error) {
     console.error('Manual view failed:', error);
-    openModal(manual.title, `<p class="efb-ml-note">Unable to load the document: ${escapeHtml(error.message || error)}</p>`);
+    openModal(manual.title, `<p class="efb-ml-note">Unable to load the manual: ${escapeHtml(error.message || error)}</p>`);
   }
 }
 
@@ -701,7 +701,7 @@ async function openHistory(manual) {
     state.view?.querySelectorAll('[data-rev-download]').forEach((button) => {
       button.addEventListener('click', () => {
         const revision = revisions.find((item) => item.id === button.getAttribute('data-rev-download'));
-        if (revision?.documentUri) downloadDocument(revision.documentUri, revision.fileName || 'revision');
+        if (revision?.documentUri) downloadManualFile(revision.documentUri, revision.fileName || 'revision');
       });
     });
   } catch (error) {
@@ -831,7 +831,7 @@ async function openReviseModal(manual) {
     `Upload Revision — ${manual.title}`,
     `<div class="efb-ml-form">
       <div class="efb-ml-readonly">
-        <span>Document</span><strong>${escapeHtml(manual.documentNumber || '—')} · ${escapeHtml(manual.title)}</strong>
+        <span>Manual</span><strong>${escapeHtml(manual.documentNumber || '—')} · ${escapeHtml(manual.title)}</strong>
       </div>
       ${textField('efm-rev-number', 'Revision Number', { type: 'number', value: String(nextNumber), required: true, attrs: 'min="1" step="1"' })}
       ${textField('efm-rev-issue-number', 'Issue Number', { value: manual.issueNumber ?? '' })}
@@ -1162,7 +1162,7 @@ function openTemporaryRevisionView(revision) {
     <div><span>SHA-256</span><strong>${escapeHtml(revision.sha256 || '—')} · ${revision.checksumVerified === true ? 'verified' : 'not verified'}</strong></div>
     <div class="efb-ml-field--wide"><span>Description / Reason</span><strong>${escapeHtml(revision.description || '—')}</strong></div>
   </div>${file}`);
-  state.view?.querySelector('#efb-temp-download')?.addEventListener('click', () => downloadDocument(revision.documentUri, revision.fileName || `${revision.referenceNumber}.pdf`));
+  state.view?.querySelector('#efb-temp-download')?.addEventListener('click', () => downloadManualFile(revision.documentUri, revision.fileName || `${revision.referenceNumber}.pdf`));
 }
 
 function setDistributionSection(section) {
@@ -1323,18 +1323,18 @@ async function loadMoreMyAcknowledgements(button = null) {
 
 function openAcknowledgementReview(item) {
   const typeLabel = item.revisionType === 'temporary' ? 'Temporary' : 'Permanent';
-  const documentSection = item.documentUri
+  const manualFileSection = item.documentUri
     ? `<div class="efb-ml-preview">
         <iframe src="${escapeHtml(item.documentUri)}" title="${escapeHtml(item.documentTitle)} revision ${escapeHtml(item.revisionNumber ?? '')}" class="efb-ml-pdf-viewer"></iframe>
         <div class="efb-modal-actions"><button type="button" class="vs-button vs-button--secondary vs-button--sm" id="efb-ack-download">Download exact revision</button></div>
       </div>`
-    : '<p class="efb-ml-note">The exact revision file is not available. Contact your administrator; no acknowledgement can be submitted without reviewing the document.</p>';
+    : '<p class="efb-ml-note">The exact revision file is not available. Contact your administrator; no acknowledgement can be submitted without reviewing the manual.</p>';
   const canAcknowledge = item.actionable && Boolean(item.documentUri);
   openModal(
     `Review Revision — ${item.documentTitle}`,
     `<div class="efb-ml-detail-grid">
-      <div><span>Document Number</span><strong>${escapeHtml(item.documentNumber || '—')}</strong></div>
-      <div><span>Document Title</span><strong>${escapeHtml(item.documentTitle)}</strong></div>
+      <div><span>Manual Number</span><strong>${escapeHtml(item.documentNumber || '—')}</strong></div>
+      <div><span>Manual Title</span><strong>${escapeHtml(item.documentTitle)}</strong></div>
       <div><span>Revision Type</span><strong>${typeLabel}</strong></div>
       <div><span>Revision Number</span><strong>${escapeHtml(item.revisionNumber ?? '—')}</strong></div>
       <div><span>Issue Number</span><strong>${escapeHtml(item.issueNumber ?? '—')}</strong></div>
@@ -1343,8 +1343,8 @@ function openAcknowledgementReview(item) {
       <div><span>Aircraft / Department</span><strong>${escapeHtml((item.aircraftApplicability || 'All aircraft'))} · ${escapeHtml(item.department || 'All departments')}</strong></div>
       <div><span>Acknowledgement Status</span><strong>${escapeHtml(acknowledgementStatusLabel(item))}</strong></div>
     </div>
-    ${documentSection}
-    <p class="efb-ack-statement">I acknowledge that I have received and reviewed this document revision. I understand that I am responsible for familiarising myself with its applicable contents.</p>
+    ${manualFileSection}
+    <p class="efb-ack-statement">I acknowledge that I have received and reviewed this manual revision. I understand that I am responsible for familiarising myself with its applicable contents.</p>
     <div class="efb-modal-actions">
       <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="efb-ack-review-close">Close</button>
       ${canAcknowledge ? '<button type="button" class="vs-button vs-button--primary vs-button--sm" id="efb-ack-submit">I Acknowledge This Revision</button>' : ''}
@@ -1352,7 +1352,7 @@ function openAcknowledgementReview(item) {
   );
   state.view?.querySelector('#efb-ack-review-close')?.addEventListener('click', closeModal);
   state.view?.querySelector('#efb-ack-download')?.addEventListener('click', () => {
-    downloadDocument(item.documentUri, item.fileName || `${item.documentNumber || 'manual'}-${item.revisionNumber || 'revision'}.pdf`);
+    downloadManualFile(item.documentUri, item.fileName || `${item.documentNumber || 'manual'}-${item.revisionNumber || 'revision'}.pdf`);
   });
   state.view?.querySelector('#efb-ack-submit')?.addEventListener('click', async (event) => {
     const button = event.currentTarget;

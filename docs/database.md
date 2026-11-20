@@ -433,6 +433,8 @@ Master fields:
 - `documentUri`, `storagePath`, `fileName`, `size`, `contentType`, `pdfChecksum` (SHA-256), `checksumVerified` — denormalised pointers to the **effective** file (legacy flat-path values for V0.4.13 manuals)
 - `archivedAt`, `uploadedBy`, `createdAt`, `lastModified`
 
+Compatibility: persisted fields including `documentNumber`, `documentOwner`, and `documentUri` are retained as-is for existing web, Android, Cloud Function, and historical-data consumers. `user_documents` and `documents/{userId}/{documentId}/{fileName}` belong to pilot-document workflows and are unrelated to EFB Manuals; no collection, field, ID, or Storage path migration is part of the terminology audit.
+
 #### companies/{companyId}/manuals/{manualId}/revisions/{revisionId} (immutable)
 
 Document key: generated `revisionId`. Revision records and their files are never overwritten; corrections create a new revision.
@@ -457,7 +459,7 @@ Deletion policy: only `draft` masters may be permanently deleted (all revision f
 
 #### Distribution targeting (M2)
 
-`distribution` is stored on the manual master and on each permanent revision. A value is versionable and independent of document ownership:
+`distribution` is stored on the manual master and on each permanent revision. A value is versionable and independent of manual ownership:
 
 ```json
 {
@@ -478,7 +480,7 @@ Deletion policy: only `draft` masters may be permanently deleted (all revision f
 - The web recipient resolver only uses company-scoped, active records: `company_accounts` members, linked `crew_profiles`, Company Users returned by the admin-checked callable, company people, company aircraft, and flight crew-to-aircraft assignments. Department and aircraft filters are offered only when corresponding data exists. A criterion with no resolvable records is rejected; it is never widened to company-wide. No reliable total is exposed for company-wide targeting.
 - Current aircraft targeting is based on company flight assignments (crew profile IDs linked to the active company roster). It does not infer a person's fleet from their role, and does not assume missing department or aircraft data.
 
-Android matching contract: use the authenticated user's stable UID/Company User ID and linked crew identifier(s) to match `userIds`; compare role, department, aircraft type, and registration against the user's company-scoped profile and aircraft assignments. Never match by email or across `companyId`. For a permanent manual with a future current revision, retain the previous `distribution`/`effectiveRevisionId` until `currentRevisionEffectiveDate`; after that date, use `currentDistribution` and the current revision file even if no server-side scheduled pointer mutation has run. The same service-level date rules apply to temporary revisions. A document is eligible only when its distribution matches and its effective status is `effective`.
+Android matching contract: use the authenticated user's stable UID/Company User ID and linked crew identifier(s) to match `userIds`; compare role, department, aircraft type, and registration against the user's company-scoped profile and aircraft assignments. Never match by email or across `companyId`. For a permanent manual with a future current revision, retain the previous `distribution`/`effectiveRevisionId` until `currentRevisionEffectiveDate`; after that date, use `currentDistribution` and the current revision file even if no server-side scheduled pointer mutation has run. The same service-level date rules apply to temporary revisions. A manual or revision is eligible only when its distribution matches and its effective status is `effective`.
 
 #### Temporary revisions
 
@@ -501,9 +503,9 @@ Fields:
 
 Temporary revision PDF objects use the immutable storage path `manuals/{companyId}/{manualId}/revisions/{attachmentRevisionId}/{fileName}` and are accepted for publication only when the SHA-256 checksum is successfully re-downloaded and verified. Temporary revisions require a published parent manual to publish. Effective-until must be later than effective-from. Publication requires an approver; when regulatory approval is applicable it must be `Approved` and include an approval reference and date.
 
-`evaluateEffectiveStatus(document, referenceDate)` is the shared service-level date evaluator. It returns `draft`, `in_review`, `published_not_yet_effective`, `effective`, `expired`, `withdrawn`, or `archived`. A published document is effective on and after its effective date and through its inclusive effective-until/expiry date; it is expired after that date. Withdrawn/archived documents are never effective. Reaching an effective date never publishes a draft. Web evaluates temporary revision validity at read/render time; no browser timer or expiry mutation is required. Android should apply the same date rules locally and re-evaluate after refresh.
+`evaluateEffectiveStatus(manualRecord, referenceDate)` is the shared service-level date evaluator. It returns `draft`, `in_review`, `published_not_yet_effective`, `effective`, `expired`, `withdrawn`, or `archived`. A published manual or revision is effective on and after its effective date and through its inclusive effective-until/expiry date; it is expired after that date. Withdrawn/archived manuals and revisions are never effective. Reaching an effective date never publishes a draft. Web evaluates temporary revision validity at read/render time; no browser timer or expiry mutation is required. Android should apply the same date rules locally and re-evaluate after refresh.
 
-Temporary revision details, distribution criteria, attachment metadata, and checksums are browser-independent Firestore values so the Android Kotlin client can list eligible documents, verify downloads, identify future-effective/expired/withdrawn items, and save eligible PDFs for offline use. Android UI, download synchronization, and offline storage are not part of M2.
+Temporary revision details, distribution criteria, attachment metadata, and checksums are browser-independent Firestore values so the Android Kotlin client can list eligible manuals, verify downloads, identify future-effective/expired/withdrawn items, and save eligible PDFs for offline use. Android UI, download synchronization, and offline storage are not part of M2.
 
 #### Revision acknowledgement metadata (M3)
 
@@ -517,7 +519,7 @@ Published revision tracking fields:
 - `acknowledgementGeneration.total`, `acknowledged`, `pending`, `distributionVersion`, `completedAt`, `lastError`, `redistributionStatus`, `redistributionError` (aggregate state; error text is bounded and contains no recipient data)
 - `distributionHistory[]` (explicit redistribution versions, target snapshot, admin UID, and server-side redistribution time)
 
-Acknowledgement records are nested under the existing manual; no parallel manual collection is introduced:
+Manual acknowledgement records are nested under the existing manual; no parallel manual collection is introduced:
 
 `companies/{companyId}/manuals/{manualId}/acknowledgements/{acknowledgementId}`
 
@@ -546,7 +548,7 @@ Android contract: query the authenticated user's pending/history records from th
 
 Security boundary: direct writes to the manuals subtree (including acknowledgement records) are restricted to active company admins; ordinary users submit acknowledgements only through authenticated Cloud Functions. This is a narrow M3 protection, not comprehensive M4 rules hardening. M4 must additionally review all company module write grants, storage rules, publication authorization, callable abuse/rate limits, and Firestore/Storage emulator behavior.
 
-Web service API: `createTemporaryRevision`, `updateTemporaryRevision` (draft only), `listTemporaryRevisions`, `onTemporaryRevisionsSnapshot`, `submitTemporaryRevisionForReview`, `publishTemporaryRevision`, `withdrawTemporaryRevision`, `evaluateEffectiveStatus`, `normalizeDistributionTargeting`, `resolveCompanyRecipients`, `resolveMatchingCompanyRecipients`, `validateDistributionTargeting`, and `updateManualDistributionTargeting`, all in `services/manualService.js`. EFB UI code continues to use the service layer only.
+Web service API: `createTemporaryRevision`, `updateTemporaryRevision` (draft only), `listTemporaryRevisions`, `onTemporaryRevisionsSnapshot`, `submitTemporaryRevisionForReview`, `publishTemporaryRevision`, `withdrawTemporaryRevision`, `evaluateEffectiveStatus`, `resolveViewableManual`, `normalizeDistributionTargeting`, `resolveCompanyRecipients`, `resolveMatchingCompanyRecipients`, `validateDistributionTargeting`, and `updateManualDistributionTargeting`, all in `services/manualService.js`. EFB UI code continues to use the service layer only. `resolveViewableDocument` remains a compatibility alias for `resolveViewableManual`.
 
 M3 implements web acknowledgement generation/tracking and per-revision reporting. M4 remains responsible for comprehensive Firestore/Storage rule hardening, publication/audit enforcement, Android contract verification, and emulator/security testing.
 

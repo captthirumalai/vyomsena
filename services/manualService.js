@@ -104,8 +104,8 @@ function isoDate(value) {
   return null;
 }
 
-export function evaluateEffectiveStatus(document, referenceDate = new Date().toISOString().slice(0, 10)) {
-  const status = `${document?.status || ''}`.toLowerCase();
+export function evaluateEffectiveStatus(manualRecord, referenceDate = new Date().toISOString().slice(0, 10)) {
+  const status = `${manualRecord?.status || ''}`.toLowerCase();
   if (status === TEMPORARY_REVISION_STATUSES.WITHDRAWN || status === REVISION_STATUSES.WITHDRAWN) {
     return TEMPORARY_EFFECTIVE_STATES.WITHDRAWN;
   }
@@ -123,16 +123,16 @@ export function evaluateEffectiveStatus(document, referenceDate = new Date().toI
   }
 
   const operationalEffectiveDate =
-    document.currentRevisionId && document.effectiveRevisionId && document.currentRevisionId !== document.effectiveRevisionId
-      ? document.effectiveDate
-      : document.currentRevisionId && !document.effectiveRevisionId
-        ? document.currentRevisionEffectiveDate || document.effectiveDate
-        : document.effectiveFrom || document.effectiveDate;
-  if (document.currentRevisionId && !document.effectiveRevisionId && !operationalEffectiveDate) {
+    manualRecord.currentRevisionId && manualRecord.effectiveRevisionId && manualRecord.currentRevisionId !== manualRecord.effectiveRevisionId
+      ? manualRecord.effectiveDate
+      : manualRecord.currentRevisionId && !manualRecord.effectiveRevisionId
+        ? manualRecord.currentRevisionEffectiveDate || manualRecord.effectiveDate
+        : manualRecord.effectiveFrom || manualRecord.effectiveDate;
+  if (manualRecord.currentRevisionId && !manualRecord.effectiveRevisionId && !operationalEffectiveDate) {
     return TEMPORARY_EFFECTIVE_STATES.PUBLISHED_NOT_YET_EFFECTIVE;
   }
   const effectiveFrom = isoDate(operationalEffectiveDate);
-  const effectiveUntil = isoDate(document.effectiveUntil || document.expiryDate);
+  const effectiveUntil = isoDate(manualRecord.effectiveUntil || manualRecord.expiryDate);
   if (effectiveUntil && referenceDate > effectiveUntil) return TEMPORARY_EFFECTIVE_STATES.EXPIRED;
   if (effectiveFrom && referenceDate < effectiveFrom) return TEMPORARY_EFFECTIVE_STATES.PUBLISHED_NOT_YET_EFFECTIVE;
   return TEMPORARY_EFFECTIVE_STATES.EFFECTIVE;
@@ -1105,9 +1105,9 @@ export async function deleteDraftManual(companyId, manualId) {
   await deleteCompanyModuleDoc(companyId, 'manuals', manualId);
 }
 
-/* Resolves the document a user should see: the effective revision when one
+/* Resolves the manual revision a user should see: the effective revision when one
    exists, otherwise the current revision, otherwise the legacy flat file. */
-export async function resolveViewableDocument(companyId, manual, { allowFuture = false } = {}) {
+export async function resolveViewableManual(companyId, manual, { allowFuture = false } = {}) {
   if (manual.currentRevisionId) {
     const currentRevision = await getRevision(companyId, manual.id, manual.currentRevisionId);
     if (currentRevision?.documentUri && isEffectiveOn(currentRevision.effectiveDate)) {
@@ -1124,6 +1124,9 @@ export async function resolveViewableDocument(companyId, manual, { allowFuture =
   if (manual.documentUri) return { uri: manual.documentUri, revision: null };
   return { uri: null, revision: null };
 }
+
+// Backwards-compatible API alias; the Manuals UI uses the terminology-standard name.
+export const resolveViewableDocument = resolveViewableManual;
 
 export async function getRevision(companyId, manualId, revisionId) {
   if (!revisionId) return null;

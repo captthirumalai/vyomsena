@@ -225,14 +225,14 @@ function dateState(revision, revisionType, today = new Date().toISOString().slic
 }
 
 function buildAcknowledgementRecord({ companyId, manualId, revisionId, revisionType, manual, revision, recipient, distributionVersion }) {
-  const documentTitle = revisionType === 'temporary' ? revision.title : manual.title;
+  const manualTitle = revisionType === 'temporary' ? revision.title : manual.title;
   return {
     companyId,
     manualId,
     revisionId,
     revisionType,
     documentNumber: revisionType === 'temporary' ? (revision.referenceNumber || manual.documentNumber || null) : manual.documentNumber || null,
-    documentTitle: documentTitle || 'Untitled manual',
+    documentTitle: manualTitle || 'Untitled manual',
     issueNumber: revision.issueNumber ?? manual.issueNumber ?? null,
     revisionNumber: revisionType === 'temporary'
       ? revision.temporaryRevisionNumber ?? null
@@ -267,7 +267,7 @@ async function assertAdmin(db, uid, companyId) {
 
 async function callerCompany(db, request) {
   const uid = request.auth?.uid;
-  if (!uid) throw new HttpsError('unauthenticated', 'Sign in to view or acknowledge documents.');
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in to view or acknowledge manuals.');
   const token = request.auth.token || {};
   if (token.home === 'company') {
     const companyId = token.companyId;
@@ -708,7 +708,7 @@ async function acknowledge(db, request) {
     const freshManual = manualSnap.data() || {};
     if (ack.userId !== caller.uid || ack.companyId !== caller.companyId || ack.manualId !== manualId ||
         ack.revisionId !== revisionId || ack.revisionType !== revisionType) {
-      throw new HttpsError('permission-denied', 'This acknowledgement requirement belongs to another user or document.');
+      throw new HttpsError('permission-denied', 'This acknowledgement requirement belongs to another user or manual revision.');
     }
     if (ack.status === 'acknowledged') return;
     if (freshRevision.status !== 'published' || freshRevision.acknowledgementGeneration?.status !== 'complete' ||

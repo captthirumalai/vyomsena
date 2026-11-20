@@ -12,7 +12,7 @@ The EFB module lets crew or operations record **actual flight details** against 
 - **Record Actuals** form: chocks off/on, takeoff/landing (times), IR and XC time (minutes), with auto-computed block time.
 - Saving actuals sets the EFB source block, transitions status to `completed`, and triggers reconciliation against the Flight Ops planned times in FDTL.
 - Selecting a row pre-fills the form with any previously recorded actuals.
-- **Manual Distribution** tab (Milestone 1 — controlled documents): see below.
+- **Manual Distribution** tab (Milestone 1 — controlled Manuals): see below.
 
 ### Data flow
 ```
@@ -39,19 +39,20 @@ EFB console
 
 ## Manual Distribution (Milestone 1 implemented)
 
-**Terminology:** document distribution in EFB is called **Manual Distribution**.
+**Terminology:** the EFB reference-material area is **Manuals**; its distribution workflow is called **Manual Distribution**.
 
 **Purpose:** Admin (web app user) manages controlled company manuals. All linked users can view and download them to their devices for offline use. Consumers are Android-only (separate repo; contract documented in `docs/database.md`).
 
 ### Manuals Library (M1)
 - **Stats:** Total, Published, Draft (incl. In Review), Review Due (published, next review within 30 days), Archived.
-- **Toolbar:** search (title/doc number), category filter, status filter, sort (newest/oldest/title/effective), Add Manual (admin only).
-- **Table:** Doc #, Title, Category, Aircraft, Issue, Rev, Effective, Status, Actions.
+- **Toolbar:** search (title/manual number), category filter, status filter, sort (newest/oldest/title/effective), Add Manual (admin only).
+- **Table:** Manual #, Title, Category, Aircraft, Issue, Rev, Effective, Status, Actions.
 - **Actions:** View (details + PDF preview + download), History (immutable revision list with SHA-256), Edit Metadata, Upload Revision, Archive/Restore, Delete (drafts only).
-- **Add Manual form:** document identification, issue/revision dates, approval block (internal vs regulatory kept separate), acknowledgement flag (consumed by M3), file. Buttons: Save Draft / Submit for Review / Publish (publish requires a file + confirmation).
+- **Add Manual form:** manual identification, issue/revision dates, approval block (internal vs regulatory kept separate), acknowledgement flag (consumed by M3), PDF. Buttons: Save Draft / Submit for Review / Publish (publish requires a file + confirmation).
 - **Revision upload:** prefills master metadata, suggests the next revision number, requires a reason; Save Draft Revision or Upload & Publish (publish requires confirmation).
 
-### Document rules (M1)
+### Manual rules (M1)
+- The EFB interface uses Manuals terminology. Existing Firestore field names such as `documentNumber`, `documentOwner`, and `documentUri` remain unchanged for web/Android compatibility; this terminology pass does not migrate stored data.
 - **Legacy compat:** V0.4.13 records (`status: 'active'`, flat fields, files at `manuals/{companyId}/{manualId}/{fileName}`) render as **Published** and stay readable/downloadable. First revision starts history without touching the old file.
 - **Immutable revisions:** every upload goes to a new `manuals/{companyId}/{manualId}/revisions/{revisionId}/{fileName}` path; metadata + files are never overwritten. SHA-256 is computed from the actual bytes before upload and verified against a re-download afterwards (mismatch aborts and removes the object).
 - **current vs effective:** a published revision always becomes `currentRevisionId`; it becomes `effectiveRevisionId` only when its `effectiveDate ≤ today`. Future-effective revisions publish without replacing the operational revision. Effective file pointers are denormalised onto the master for Android.
@@ -70,7 +71,7 @@ EFB console
 ### Temporary revision workflow
 - Temporary revisions are children of an existing parent manual at `companies/{companyId}/manuals/{manualId}/temporary_revisions/{id}`.
 - Drafts can be created without a file and edited while in draft. Review submission requires an uploaded, checksum-verified PDF. Published revisions can be withdrawn; expiry is calculated from their validity dates and does not mutate or publish the record.
-- Effective-until is inclusive; the document expires the following day. Effective-until must be later than effective-from. A temporary revision requires an active published parent manual and approver to publish. If regulatory approval applies, it must be approved and include its reference and date.
+- Effective-until is inclusive; the temporary revision expires the following day. Effective-until must be later than effective-from. A temporary revision requires an active published parent manual and approver to publish. If regulatory approval applies, it must be approved and include its reference and date.
 - Every attachment uses a unique immutable path under `manuals/{companyId}/{manualId}/revisions/{attachmentRevisionId}/{fileName}`. Replacing a draft attachment retains its prior attachment metadata.
 - `evaluateEffectiveStatus()` is shared service logic for drafts, review, future-effective, effective, expired, withdrawn, and archived states. A date arriving never publishes a draft. Android must apply the same date and status rules.
 - The Manual Library has effectiveness, aircraft, department, and temporary-revision filters; details show targeting and validity without adding more table columns. The Temporary Revisions section supports search/filter, add/edit draft, review, publish, view/download, and withdraw.
@@ -81,12 +82,12 @@ EFB console
 - Recipient source coverage depends on currently available company accounts, linked crew profiles, Company Users, people, aircraft, and scheduled flight assignments. Aircraft targeting is limited to crew profiles assigned through company flights; department targeting requires an explicit department field. Missing data fails validation rather than widening access.
 - No Firestore/Storage rules, Android screens/sync, or acknowledgements were added in M2.
 
-## M3 — Document Acknowledgements
+## M3 — Manual Acknowledgements
 
 - Each permanent revision snapshots the parent manual's acknowledgement flag when created; each temporary revision snapshots it from its parent when published. Only exact revisions with the snapshot set to `true` require acknowledgement; older revisions are not retroactively included. Requirements point to the exact `manualId`, `revisionId`, `revisionType`, and authenticated Firebase UID.
-- Acknowledgement documents live at `companies/{companyId}/manuals/{manualId}/acknowledgements/{acknowledgementId}`. The ID is deterministic (versioned SHA-256 of company, manual, type, revision, and user identity), so retries do not duplicate requirements or overwrite a prior acknowledgement.
+- Acknowledgement records live at `companies/{companyId}/manuals/{manualId}/acknowledgements/{acknowledgementId}`. The ID is deterministic (versioned SHA-256 of company, manual, type, revision, and user identity), so retries do not duplicate requirements or overwrite a prior acknowledgement.
 - Publication invokes an admin-checked Cloud Function to resolve the saved M2 target from active company records and generate requirements. Unresolved audiences fail closed; an incomplete generation is marked and can be retried from the admin dashboard. Permanent and temporary revisions have independent counts and histories.
-- Ordinary users see their own pending/history records from an authenticated callable. They can open or download the exact revision and explicitly submit **I Acknowledge This Revision**. Opening or downloading is not acknowledgement. The callable derives identity from Firebase Auth, verifies membership and recipient ownership, and transactionally timestamps the first acknowledgement; duplicate submissions are idempotent.
+- Ordinary users see their own pending/history records from an authenticated callable. They can open or download the exact revision and explicitly submit **I Acknowledge This Revision**. M3 records explicit acknowledgements only; opening or downloading is not acknowledgement and does not create a passive read receipt. The callable derives identity from Firebase Auth, verifies membership and recipient ownership, and transactionally timestamps the first acknowledgement; duplicate submissions are idempotent.
 - ADMIN/OWNER users get per-revision recipient, pending, acknowledged, and completion counts; recipient details are loaded on demand in pages. Filters cover manual, revision type/status, applicability, department, aircraft, and publication date. CSV export includes the currently loaded recipient rows.
 - Explicit redistribution increments a `distributionVersion`, records its target history, and creates requirements only for additional recipients; previous records remain unchanged. A failed redistribution leaves the previous audience and completed requirements usable, hides uncommitted next-version records, and marks redistribution incomplete for an admin to retry. Revision withdrawal/supersession/expiry affect whether pending acknowledgement is actionable, not historical records.
 - Direct writes to the manuals subtree (including acknowledgement records) are restricted to active company admins. User acknowledgements and reports use authenticated Cloud Functions. This narrow M3 rule is not comprehensive M4 rules hardening.
@@ -145,7 +146,7 @@ EFB console
 7. With the reference date one day after effective-until, confirm it evaluates and displays as expired.
 8. Withdraw a published temporary revision and confirm it is no longer presented as effective.
 9. Test company-wide, role/department/aircraft criteria, and individual stable-ID targeting; confirm matching summaries and unresolved criteria errors.
-10. Sign in as a non-targeted user and confirm neither the permanent nor temporary targeted document appears in the UI.
+10. Sign in as a non-targeted user and confirm neither the permanent nor temporary targeted manual appears in the UI.
 11. Confirm M1 master creation/editing, immutable revision history, publishing, and archive/restore still work.
 12. Confirm the Flights tab and flight actuals workflow remain unaffected.
 
