@@ -4,6 +4,7 @@ import {
   getDownloadURL,
   deleteObject
 } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
 import { getStorageInstance } from './firebaseService.js';
 import { prepareDocumentFile, prepareProfilePhoto, prepareManualFile } from './uploadLimits.js';
 
@@ -130,26 +131,9 @@ export async function computeSha256(blob) {
     .join('');
 }
 
-// Throws when the uploaded bytes cannot be re-downloaded for verification.
-export async function verifyRemoteChecksum(url, expectedSha256) {
-  if (!url || !expectedSha256) {
-    throw new Error('A download URL and expected SHA-256 checksum are required for verification.');
-  }
-  let response;
-  try {
-    response = await fetch(url, { cache: 'no-store' });
-  } catch (error) {
-    throw new Error(`Storage re-download failed; check network, CORS, and Storage read access. ${error.message || error}`);
-  }
-  if (!response.ok) {
-    throw new Error(`Storage re-download returned HTTP ${response.status}.`);
-  }
-  const actual = await computeSha256(await response.blob());
-  return actual === expectedSha256;
-}
-
 // Immutable revision upload: bytes are hashed before upload, the object is
-// re-fetched and re-hashed afterwards, and a mismatch aborts the upload.
+// re-fetched and re-hashed by an authenticated server callable, and a mismatch
+// aborts the upload without relying on browser cross-origin download access.
 export async function uploadManualRevision({ companyId, manualId, revisionId, file }) {
   if (!companyId || !manualId || !revisionId) {
     throw new Error('companyId, manualId and revisionId are required to upload a revision.');
@@ -163,14 +147,23 @@ export async function uploadManualRevision({ companyId, manualId, revisionId, fi
 
   const path = buildManualRevisionStoragePath(companyId, manualId, revisionId, preparedFile.name);
   const targetRef = storageRef(getStorageInstance(), path);
-  await uploadBytes(targetRef, preparedFile);
+  const snapshot = await uploadBytes(targetRef, preparedFile);
 
   let downloadUrl = null;
   let verified = false;
   let verificationError = null;
   try {
-    downloadUrl = await getDownloadURL(targetRef);
-    verified = await verifyRemoteChecksum(downloadUrl, sha256);
+    const verify = httpsCallable(getFunctions(), 'verifyManualRevisionChecksum');
+    const result = await verify({
+      companyId,
+      manualId,
+      storagePath: path,
+      expectedSha256: sha256
+    });
+    verified = result.data?.verified === true;
+    if (!verified) throw new Error('The server did not confirm the uploaded file checksum.');
+    const downloadToken = snapshot.metadata?.downloadTokens?.[0];
+    downloadUrl = buildTokenDownloadUrl(path, downloadToken) || (await getDownloadURL(targetRef));
   } catch (error) {
     verificationError = error;
   }

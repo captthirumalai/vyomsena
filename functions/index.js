@@ -23,6 +23,7 @@ const {
 } = require('./lib/engine');
 const companyUsers = require('./lib/companyUsers');
 const manualAcknowledgements = require('./lib/manualAcknowledgements');
+const manualUploadVerification = require('./lib/manualUploadVerification');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -377,6 +378,21 @@ exports.getMyManualAcknowledgements = onCall(async (request) => {
 
 exports.acknowledgeManualRevision = onCall(async (request) => {
   return manualAcknowledgements.acknowledge(db, request);
+});
+
+exports.verifyManualRevisionChecksum = onCall({ timeoutSeconds: 120, memory: '512MiB' }, async (request) => {
+  const { companyId, manualId, storagePath, expectedSha256 } = request.data || {};
+  if (typeof companyId !== 'string' || !companyId.trim() || companyId.includes('/') ||
+      typeof manualId !== 'string' || !manualId.trim() || manualId.includes('/')) {
+    throw new HttpsError('invalid-argument', 'companyId and manualId are required.');
+  }
+  await manualAcknowledgements.assertAdmin(db, request.auth?.uid, companyId);
+  return manualUploadVerification.verifyManualRevisionChecksum(admin.storage().bucket(), {
+    companyId,
+    manualId,
+    storagePath,
+    expectedSha256
+  });
 });
 
 exports.getManualAcknowledgementSummary = onCall(async (request) => {

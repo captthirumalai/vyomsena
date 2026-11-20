@@ -54,7 +54,7 @@ EFB console
 ### Manual rules (M1)
 - The EFB interface uses Manuals terminology. Existing Firestore field names such as `documentNumber`, `documentOwner`, and `documentUri` remain unchanged for web/Android compatibility; this terminology pass does not migrate stored data.
 - **Legacy compat:** V0.4.13 records (`status: 'active'`, flat fields, files at `manuals/{companyId}/{manualId}/{fileName}`) render as **Published** and stay readable/downloadable. First revision starts history without touching the old file.
-- **Immutable revisions:** every upload goes to a new `manuals/{companyId}/{manualId}/revisions/{revisionId}/{fileName}` path; metadata + files are never overwritten. SHA-256 is computed from the actual bytes before upload and verified against a re-download afterwards (mismatch aborts and removes the object).
+- **Immutable revisions:** every upload goes to a new `manuals/{companyId}/{manualId}/revisions/{revisionId}/{fileName}` path; metadata + files are never overwritten. SHA-256 is computed from the selected bytes in the browser and verified against an Admin SDK re-download by the authenticated `verifyManualRevisionChecksum` callable; this avoids browser CORS dependency. A mismatch or failed verification aborts and removes the object.
 - **current vs effective:** a published revision always becomes `currentRevisionId`; it becomes `effectiveRevisionId` only when its `effectiveDate ≤ today`. Future-effective revisions publish without replacing the operational revision. Effective file pointers are denormalised onto the master for Android.
 - **Deletion:** only `draft` masters can be permanently deleted (revision files + records cleaned up). Published manuals are **archived**, never deleted; archived manuals can be restored.
 
@@ -104,7 +104,8 @@ EFB console
 - `functions/lib/manualAcknowledgements.js` + `functions/index.js` — server-side recipient resolution, deterministic/idempotent generation, membership checks, transactional acknowledgement, admin reports, and redistribution.
 - `firestore.indexes.json` — composite revision-recipient index.
 - `docs/firestorerules.md` — direct manuals-subtree writes limited to company admins; acknowledgements are written through callables.
-- `services/storageService.js` — `buildManualRevisionStoragePath()`, `computeSha256()`, `verifyRemoteChecksum()`, `uploadManualRevision()` (immutable path + checksum verification), legacy `uploadCompanyManual()` retained.
+- `services/storageService.js` — `buildManualRevisionStoragePath()`, `computeSha256()`, `uploadManualRevision()` (immutable path + callable-backed checksum verification), legacy `uploadCompanyManual()` retained.
+- `functions/lib/manualUploadVerification.js` + `functions/index.js` — admin-checked `verifyManualRevisionChecksum` callable downloads only the named company's manual revision object using the Admin SDK and verifies its SHA-256 without browser CORS.
 - `services/uploadLimits.js` — `MANUAL_MAX_SIZE_BYTES` (20 MB), `validateManualFile()` / `prepareManualFile()`.
 - `docs/database.md` — full `companies/{companyId}/manuals` + `/revisions` schema contract.
 - `docs/storagerules.md` + `firebase.json` — `manuals/` storage rules (company-scoped, admin write, ≤20 MB) deployed via CLI.
@@ -130,7 +131,7 @@ EFB console
 - [x] Linked web users can list/view/download their acknowledgement requirements through authenticated callables; Android UI and synchronization remain deferred.
 
 ### Status
-**M1, M2, and M3 web implementation complete.** Final JavaScript syntax, Firebase JSON, and whitespace checks passed. Revision and temporary attachment uploads still require Firebase Storage SHA-256 re-download verification. Browser/Firebase/Storage/Android smoke testing has not been run.
+**M1, M2, and M3 web implementation complete.** The revision upload checksum verifier runs server-side to avoid browser CORS. JavaScript syntax and whitespace checks have been run for this change; deployment and an actual Firebase Storage upload must still be verified. Browser/Firebase/Storage/Android smoke testing has not been run.
 
 ### Deferred
 - **Android:** UI, offline file synchronization, and offline acknowledgement queue/retry.
