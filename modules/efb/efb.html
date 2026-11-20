@@ -68,45 +68,206 @@
 </div>
 
 <div class="efb-tab-panel" id="efb-panel-manuals" data-panel="manuals" role="tabpanel" aria-labelledby="efb-tab-manuals">
-  <section class="card" id="efb-manual-upload-card">
-    <div class="card-heading">
-      <h3>Manual Distribution</h3>
-      <p class="muted">Company manuals uploaded by admin. All linked users can view and download them for offline use.</p>
-    </div>
-    <form id="efb-manual-upload-form" class="efb-form" novalidate>
-      <label class="efb-form-field">
-        <span>Manual Title</span>
-        <input type="text" id="efb-manual-title" placeholder="e.g. Operations Manual Rev 3" maxlength="120" />
-      </label>
-      <label class="efb-form-field">
-        <span>File (PDF or image, max 20 MB)</span>
-        <input type="file" id="efb-manual-file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" />
-      </label>
-      <div class="efb-form-actions">
-        <button type="submit" class="vs-button vs-button--primary vs-button--sm" id="efb-manual-upload-btn">Upload Manual</button>
-      </div>
-    </form>
-    <p class="efb-manual-status" id="efb-manual-status" aria-live="polite"></p>
-  </section>
-
   <section class="card">
     <div class="card-heading">
-      <h3>Company Manuals</h3>
-      <p class="muted" id="efb-manuals-hint">Loading manuals…</p>
+      <h3>Manual Distribution</h3>
+      <p class="muted">Controlled company manuals. Published manuals are archived, never deleted; revisions are immutable.</p>
     </div>
-    <div class="efb-table-wrap">
+
+    <div class="efb-ml-sections" role="tablist" aria-label="Manual distribution sections">
+      <button type="button" class="efb-ml-section active" data-esection="library" role="tab" aria-selected="true">Manuals Library</button>
+      <button type="button" class="efb-ml-section" data-esection="temporary" role="tab" aria-selected="false">Temporary Revisions</button>
+      <button type="button" class="efb-ml-section" data-esection="acknowledgements" role="tab" aria-selected="false">Acknowledgements</button>
+    </div>
+
+    <div class="efb-ml-subpanel active" data-esection-panel="library">
+    <div class="efb-ml-stats" id="efb-ml-stats">
+      <div class="efb-ml-stat">
+        <span class="efb-ml-stat-value" data-stat="total">0</span>
+        <span class="efb-ml-stat-label">Total Manuals</span>
+      </div>
+      <div class="efb-ml-stat">
+        <span class="efb-ml-stat-value" data-stat="published">0</span>
+        <span class="efb-ml-stat-label">Published</span>
+      </div>
+      <div class="efb-ml-stat">
+        <span class="efb-ml-stat-value" data-stat="draft">0</span>
+        <span class="efb-ml-stat-label">Draft</span>
+      </div>
+      <div class="efb-ml-stat">
+        <span class="efb-ml-stat-value" data-stat="reviewDue">0</span>
+        <span class="efb-ml-stat-label">Review Due</span>
+      </div>
+      <div class="efb-ml-stat">
+        <span class="efb-ml-stat-value" data-stat="archived">0</span>
+        <span class="efb-ml-stat-label">Archived</span>
+      </div>
+    </div>
+
+    <div class="efb-ml-toolbar">
+      <input type="search" id="efb-ml-search" class="efb-ml-toolbar-search" placeholder="Search title or document number" aria-label="Search manuals" />
+      <select id="efb-ml-category" aria-label="Category filter">
+        <option value="">All categories</option>
+      </select>
+      <select id="efb-ml-status" aria-label="Status filter">
+        <option value="">All statuses</option>
+        <option value="draft">Draft</option>
+        <option value="in_review">In Review</option>
+        <option value="published">Published</option>
+        <option value="archived">Archived</option>
+      </select>
+      <select id="efb-ml-sort" aria-label="Sort manuals">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="title">Title A–Z</option>
+        <option value="effective">Effective date</option>
+      </select>
+      <select id="efb-ml-aircraft-filter" aria-label="Filter by aircraft">
+        <option value="">All aircraft</option>
+      </select>
+      <select id="efb-ml-department-filter" aria-label="Filter by department">
+        <option value="">All departments</option>
+      </select>
+      <select id="efb-ml-effectiveness-filter" aria-label="Filter by effectiveness">
+        <option value="">All effectiveness states</option>
+        <option value="effective">Effective</option>
+        <option value="published_not_yet_effective">Published, not yet effective</option>
+        <option value="expired">Expired</option>
+        <option value="withdrawn">Withdrawn</option>
+      </select>
+      <select id="efb-ml-temporary-filter" aria-label="Filter manuals with temporary revisions">
+        <option value="">All manuals</option>
+        <option value="has_temporary">Has temporary revisions</option>
+      </select>
+      <button type="button" class="vs-button vs-button--primary vs-button--sm" id="efb-ml-add">+ Add Manual</button>
+    </div>
+
+    <p class="efb-manual-status" id="efb-manual-status" aria-live="polite"></p>
+
+    <div class="efb-table-wrap efb-ml-table-wrap">
       <table>
         <thead>
           <tr>
+            <th>Doc #</th>
             <th>Title</th>
-            <th>File</th>
-            <th>Size</th>
-            <th>Uploaded</th>
+            <th>Category</th>
+            <th>Aircraft</th>
+            <th>Issue</th>
+            <th>Rev</th>
+            <th>Effective</th>
+            <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody id="efb-manuals-body"></tbody>
       </table>
     </div>
+    <p class="muted efb-ml-hint" id="efb-manuals-hint"></p>
+    </div>
+
+    <div class="efb-ml-subpanel" data-esection-panel="temporary" hidden>
+      <div class="efb-ml-toolbar">
+        <input type="search" id="efb-temp-search" class="efb-ml-toolbar-search" placeholder="Search title or reference" aria-label="Search temporary revisions" />
+        <select id="efb-temp-parent-filter" aria-label="Filter by parent manual">
+          <option value="">All parent manuals</option>
+        </select>
+        <select id="efb-temp-status-filter" aria-label="Filter temporary revision status">
+          <option value="">All statuses</option>
+          <option value="draft">Draft</option>
+          <option value="in_review">In Review</option>
+          <option value="published">Published</option>
+          <option value="expired">Expired</option>
+          <option value="withdrawn">Withdrawn</option>
+        </select>
+        <select id="efb-temp-effective" aria-label="Filter temporary revision effectiveness">
+          <option value="">All effectiveness states</option>
+          <option value="effective">Effective</option>
+          <option value="published_not_yet_effective">Published, not yet effective</option>
+          <option value="expired">Expired</option>
+          <option value="withdrawn">Withdrawn</option>
+        </select>
+        <select id="efb-temp-aircraft" aria-label="Filter temporary revisions by aircraft">
+          <option value="">All aircraft</option>
+        </select>
+        <select id="efb-temp-department" aria-label="Filter temporary revisions by department">
+          <option value="">All departments</option>
+        </select>
+        <button type="button" class="vs-button vs-button--primary vs-button--sm" id="efb-temp-add">+ Add Temporary Revision</button>
+      </div>
+      <p class="efb-manual-status" id="efb-temp-status-message" aria-live="polite"></p>
+      <div class="efb-table-wrap efb-ml-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Reference</th><th>Title</th><th>Parent Manual</th><th>Revision</th><th>Effective Period</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="efb-temporary-body"></tbody>
+        </table>
+      </div>
+      <p class="muted efb-ml-hint" id="efb-temporary-hint"></p>
+    </div>
+
+    <div class="efb-ml-subpanel" data-esection-panel="acknowledgements" hidden>
+      <section class="efb-ack-user">
+        <div class="efb-ack-heading">
+          <div>
+            <h4>My Acknowledgements</h4>
+            <p class="muted">Review the exact published revision before acknowledging it. Opening or downloading does not record an acknowledgement.</p>
+          </div>
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="efb-ack-refresh">Refresh</button>
+        </div>
+        <p class="efb-manual-status" id="efb-ack-user-status" aria-live="polite"></p>
+        <div class="efb-table-wrap efb-ml-table-wrap">
+          <table>
+            <thead>
+              <tr><th>Doc #</th><th>Document / Revision</th><th>Type</th><th>Published</th><th>Effective</th><th>Status</th><th>Action</th></tr>
+            </thead>
+            <tbody id="efb-ack-user-body"></tbody>
+          </table>
+        </div>
+        <div class="efb-modal-actions"><button type="button" class="vs-button vs-button--secondary vs-button--sm" id="efb-ack-user-more" hidden>Load more history</button></div>
+      </section>
+
+      <section class="efb-ack-admin" id="efb-ack-admin" hidden>
+        <div class="efb-ack-heading">
+          <div>
+            <h4>Company Acknowledgement Dashboard</h4>
+            <p class="muted">Completion is summarized separately for each exact revision. Summary cards aggregate requirements across revisions.</p>
+          </div>
+          <button type="button" class="vs-button vs-button--secondary vs-button--sm" id="efb-ack-admin-refresh">Refresh Dashboard</button>
+        </div>
+        <div class="efb-ml-stats efb-ack-stats">
+          <div class="efb-ml-stat"><span class="efb-ml-stat-value" data-ack-stat="total">0</span><span class="efb-ml-stat-label">Total Recipients</span></div>
+          <div class="efb-ml-stat"><span class="efb-ml-stat-value" data-ack-stat="acknowledged">0</span><span class="efb-ml-stat-label">Acknowledged</span></div>
+          <div class="efb-ml-stat"><span class="efb-ml-stat-value" data-ack-stat="pending">0</span><span class="efb-ml-stat-label">Pending</span></div>
+          <div class="efb-ml-stat"><span class="efb-ml-stat-value" data-ack-stat="completion">0%</span><span class="efb-ml-stat-label">Completion</span></div>
+        </div>
+        <div class="efb-ml-toolbar efb-ack-filters">
+          <select id="efb-ack-filter-manual" aria-label="Filter acknowledgements by manual"><option value="">All manuals</option></select>
+          <select id="efb-ack-filter-type" aria-label="Filter by revision type"><option value="">All revision types</option><option value="permanent">Permanent</option><option value="temporary">Temporary</option></select>
+          <select id="efb-ack-filter-status" aria-label="Filter by revision status"><option value="">All statuses</option><option value="effective">Effective</option><option value="published_not_yet_effective">Published, not yet effective</option><option value="expired">Expired</option><option value="withdrawn">Withdrawn</option><option value="superseded">Superseded</option><option value="incomplete">Generation incomplete</option><option value="redistribution_incomplete">Redistribution incomplete</option></select>
+          <select id="efb-ack-filter-department" aria-label="Filter by department"><option value="">All departments</option></select>
+          <select id="efb-ack-filter-aircraft" aria-label="Filter by aircraft"><option value="">All aircraft</option></select>
+          <label class="efb-ack-date-filter"><span>Published from</span><input type="date" id="efb-ack-filter-from" /></label>
+          <label class="efb-ack-date-filter"><span>Published to</span><input type="date" id="efb-ack-filter-to" /></label>
+        </div>
+        <p class="efb-manual-status" id="efb-ack-admin-status" aria-live="polite"></p>
+        <div class="efb-table-wrap efb-ml-table-wrap">
+          <table>
+            <thead>
+              <tr><th>Doc #</th><th>Title</th><th>Revision</th><th>Type</th><th>Published</th><th>Target</th><th>Acknowledged</th><th>Pending</th><th>Complete</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="efb-ack-admin-body"></tbody>
+          </table>
+        </div>
+        <p class="muted efb-ml-hint" id="efb-ack-admin-hint"></p>
+      </section>
+    </div>
   </section>
+
+  <div class="efb-modal-backdrop hidden" id="efb-modal-backdrop" aria-hidden="true">
+    <div class="efb-modal" role="dialog" aria-modal="true" aria-labelledby="efb-modal-title">
+      <button type="button" class="efb-modal-close" id="efb-modal-close" aria-label="Close">&times;</button>
+      <div class="efb-modal-content" id="efb-modal-content"></div>
+    </div>
+  </div>
 </div>

@@ -51,7 +51,8 @@ service firebase.storage {
     }
 
     // Company manuals (EFB Manual Distribution)
-    // manuals/{companyId}/{manualId}/{fileName}
+    // Covers both the legacy flat path manuals/{companyId}/{manualId}/{fileName}
+    // and immutable revision paths manuals/{companyId}/{manualId}/revisions/{revisionId}/{fileName}.
     // Admin (web) uploads; linked company users (web + Android) read/download.
     function isCompanyAdminUser(companyId) {
       return isSignedIn() &&
@@ -71,7 +72,7 @@ service firebase.storage {
              firestore.get(/databases/(default)/documents/company_members/$(request.auth.uid)).data.companyId == companyId;
     }
 
-    match /manuals/{companyId}/{manualId}/{fileName} {
+    match /manuals/{companyId}/{manualId}/{allPaths=**} {
       function isAllowedManualUpload() {
         return request.resource.size <= 20 * 1024 * 1024 &&
                (request.resource.contentType == 'application/pdf' ||

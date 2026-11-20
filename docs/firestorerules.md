@@ -350,6 +350,19 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Manual data, including acknowledgement history, is written directly
+    // only by company admins. User acknowledgements go through authenticated
+    // callables so user IDs and timestamps cannot be supplied by the client.
+    match /companies/{companyId}/manuals/{document=**} {
+      allow read: if request.auth != null && (
+        isCompanyAdmin(companyId) ||
+        isCompanyAccountMember(companyId) ||
+        isCompanyMember(companyId) ||
+        hasCompanyModulePermission(companyId, 'manuals', 'view')
+      );
+      allow create, update, delete: if request.auth != null && isCompanyAdmin(companyId);
+    }
+
     // COMPANY MODULE SUBCOLLECTIONS: companies/{companyId}/{module}/{docId}
     // Covers reminder_settings/current (company-editable) and
     // reminder_runs/* (server-written, company-readable) via the generic rule.
@@ -362,6 +375,7 @@ service cloud.firestore {
       );
       allow create, update, delete: if request.auth != null
         && module != 'reminder_logs'
+        && module != 'manuals'
         && (isCompanyAdmin(companyId) || hasCompanyModulePermission(companyId, module, 'edit'));
     }
   }

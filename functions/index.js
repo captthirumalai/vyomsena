@@ -22,6 +22,7 @@ const {
   sendSingleDocumentReminder
 } = require('./lib/engine');
 const companyUsers = require('./lib/companyUsers');
+const manualAcknowledgements = require('./lib/manualAcknowledgements');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -330,4 +331,76 @@ exports.sendTestReminder = onCall({ secrets: ALL_SECRETS }, async (request) => {
   const transport = buildTransport(smtp);
   await sendTestMail(transport, { from: smtp.from, to, companyName });
   return { ok: true, to };
+});
+
+exports.createManualAcknowledgementRequirements = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async (request) => {
+  const { companyId, manualId, revisionId, revisionType } = request.data || {};
+  if (!companyId || !manualId || !revisionId) {
+    throw new HttpsError('invalid-argument', 'companyId, manualId, and revisionId are required.');
+  }
+  await manualAcknowledgements.assertAdmin(db, request.auth?.uid, companyId);
+  return manualAcknowledgements.createRequirements(db, { companyId, manualId, revisionId, revisionType });
+});
+
+exports.redistributeManualRevision = onCall({ timeoutSeconds: 300, memory: '512MiB' }, async (request) => {
+  const { companyId, manualId, revisionId, revisionType, distribution } = request.data || {};
+  if (!companyId || !manualId || !revisionId || !distribution) {
+    throw new HttpsError('invalid-argument', 'companyId, manualId, revisionId, and distribution are required.');
+  }
+  await manualAcknowledgements.assertAdmin(db, request.auth?.uid, companyId);
+  const { revision } = await manualAcknowledgements.loadRevision(
+    db,
+    companyId,
+    manualId,
+    revisionId,
+    revisionType
+  );
+  if (revision.status !== 'published' ||
+      revision.acknowledgementRequired !== true) {
+    throw new HttpsError('failed-precondition', 'Only published acknowledgement-required revisions can be redistributed.');
+  }
+  const result = await manualAcknowledgements.createRequirements(
+    db,
+    { companyId, manualId, revisionId, revisionType, actorUid: request.auth.uid },
+    { distribution, redistribution: true }
+  );
+  return { ...result, revisionId, revisionType };
+});
+
+exports.getMyManualAcknowledgements = onCall(async (request) => {
+  const caller = await manualAcknowledgements.callerCompany(db, request);
+  return manualAcknowledgements.getOwnAcknowledgements(db, caller, {
+    cursor: request.data?.cursor || null,
+    pageSize: request.data?.pageSize
+  });
+});
+
+exports.acknowledgeManualRevision = onCall(async (request) => {
+  return manualAcknowledgements.acknowledge(db, request);
+});
+
+exports.getManualAcknowledgementSummary = onCall(async (request) => {
+  const { companyId } = request.data || {};
+  if (!companyId) throw new HttpsError('invalid-argument', 'companyId is required.');
+  await manualAcknowledgements.assertAdmin(db, request.auth?.uid, companyId);
+  return manualAcknowledgements.getSummary(db, companyId);
+});
+
+exports.getManualAcknowledgementRecipients = onCall(async (request) => {
+  const { companyId, manualId, revisionId, revisionType, status, department, aircraft, cursor, pageSize } = request.data || {};
+  if (!companyId || !manualId || !revisionId) {
+    throw new HttpsError('invalid-argument', 'companyId, manualId, and revisionId are required.');
+  }
+  await manualAcknowledgements.assertAdmin(db, request.auth?.uid, companyId);
+  await manualAcknowledgements.loadRevision(db, companyId, manualId, revisionId, revisionType);
+  return manualAcknowledgements.getRecipientsPage(db, {
+    companyId,
+    manualId,
+    revisionId,
+    status,
+    department,
+    aircraft,
+    cursor,
+    pageSize
+  });
 });
