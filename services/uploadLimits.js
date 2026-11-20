@@ -2,6 +2,7 @@
    Enforced by services/storageService.js before any file reaches Firebase Storage. */
 
 export const DOCUMENT_MAX_SIZE_BYTES = 10 * 1024 * 1024;
+export const MANUAL_MAX_SIZE_BYTES = 20 * 1024 * 1024;
 export const COMPRESSED_IMAGE_CAP_BYTES = 5 * 1024 * 1024;
 export const DOCUMENT_IMAGE_MAX_DIMENSION = 1800;
 export const DOCUMENT_IMAGE_QUALITY = 0.82;
@@ -133,4 +134,37 @@ export async function prepareProfilePhoto(file) {
     maxDimension: PROFILE_PHOTO_MAX_DIMENSION,
     quality: PROFILE_PHOTO_QUALITY
   });
+}
+
+export function validateManualFile(file) {
+  if (!file) return { ok: false, error: 'No file selected.' };
+  if (!isAllowedDocumentType(file)) {
+    return { ok: false, error: 'Only PDF and image files (JPG, PNG, WebP) are allowed for manuals.' };
+  }
+  if (file.size > MANUAL_MAX_SIZE_BYTES) {
+    return {
+      ok: false,
+      error: `File is too large (${formatBytes(file.size)}). Maximum size is ${formatBytes(MANUAL_MAX_SIZE_BYTES)}.`
+    };
+  }
+  return { ok: true };
+}
+
+export async function prepareManualFile(file) {
+  const check = validateManualFile(file);
+  if (!check.ok) throw new Error(check.error);
+
+  let prepared = file;
+  if (isImageFile(file)) {
+    prepared = await compressImageFile(file, {
+      maxDimension: DOCUMENT_IMAGE_MAX_DIMENSION,
+      quality: DOCUMENT_IMAGE_QUALITY
+    });
+  }
+  if (prepared.size > MANUAL_MAX_SIZE_BYTES) {
+    throw new Error(
+      `File is still too large after processing (${formatBytes(prepared.size)}). Maximum size is ${formatBytes(MANUAL_MAX_SIZE_BYTES)}.`
+    );
+  }
+  return prepared;
 }

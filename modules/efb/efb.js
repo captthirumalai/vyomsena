@@ -2,6 +2,13 @@
 import { getCurrentOrganizationContext } from '../../services/organizationService.js';
 import { mountModuleActions, getModuleAction } from '../../shared/moduleHeader.js';
 import {
+  addCompanyModuleDoc,
+  updateCompanyModuleDoc,
+  deleteCompanyModuleDoc,
+  onCompanyModuleSnapshot
+} from '../../services/companyService.js';
+import { uploadCompanyManual, deleteCompanyManualFile } from '../../services/storageService.js';
+import {
   listFlights,
   onFlightsSnapshot,
   recordEfbActuals,
@@ -12,11 +19,15 @@ import {
 
 let flightsUnsubscribe = null;
 let crewUnsubscribe = null;
+let manualsUnsubscribe = null;
 let latestFlights = [];
 let latestCrew = [];
+let latestManuals = [];
 let selectedFlightId = null;
 let activeView = null;
 let activeOperatorUid = null;
+let activeUserUid = null;
+let manualsCanManage = false;
 
 function escapeHtml(value) {
   return `${value ?? ''}`
@@ -52,6 +63,187 @@ function computeBlockMinutes(flight) {
   const end = toDate(flight.chocksOn);
   if (!start || !end) return null;
   return Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+}
+
+function setTab(tabName) {
+  if (!activeView) return;
+  activeView.querySelectorAll('.efb-tab').forEach((button) => {
+    const isActive = button.getAttribute('data-tab') === tabName;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+  activeView.querySelectorAll('.efb-tab-panel').forEach((panel) => {
+    panel.classList.toggle('active', panel.getAttribute('data-panel') === tabName);
+  });
+}
+
+function formatBytes(bytes) {
+  const size = Number(bytes) || 0;
+  const mb = size / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(1)} MB`;
+  if (size <= 0) return '—';
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function setManualStatus(message, tone = '') {
+  const status = activeView?.querySelector('#efb-manual-status');
+  if (!status) return;
+  status.textContent = message || '';
+  status.classList.toggle('is-error', tone === 'error');
+  status.classList.toggle('is-success', tone === 'success');
+}
+
+function renderManuals() {
+  const body = activeView?.querySelector('#efb-manuals-body');
+  const hint = activeView?.querySelector('#efb-manuals-hint');
+  if (!body) return;
+
+  const sorted = [...latestManuals].sort((left, right) => {
+    const leftTime = toDate(left.createdAt || left.lastModified)?.getTime() || 0;
+    const rightTime = toDate(right.createdAt || right.lastModified)?.getTime() || 0;
+    return rightTime - leftTime;
+  });
+
+  if (!sorted.length) {
+    body.innerHTML = '<tr><td colspan="5" class="fdtl-empty">No company manuals yet.</td></tr>';
+    if (hint) hint.textContent = 'Manuals uploaded here are available to all linked users.';
+    return;
+  }
+
+  if (hint) {
+    hint.textContent = `${sorted.length} manual${sorted.length === 1 ? '' : 's'} available to linked users.`;
+  }
+
+  body.innerHTML = sorted
+    .map((manual) => {
+      const hasFile = Boolean(manual.documentUri);
+      const actions = hasFile
+        ? `<div class="efb-manual-actions">
+             <a href="${escapeHtml(manual.documentUri)}" target="_blank" rel="noopener noreferrer" data-action="view">View</a>
+             <button type="button" data-action="download">Download</button>
+             ${manualsCanManage ? `<button type="button" class="efb-manual-delete" data-action="delete">Delete</button>` : ''}
+           </div>`
+        : '<span class="fdtl-badge fdtl-badge--watch">Uploading…</span>';
+      return `<tr data-manual="${escapeHtml(manual.id)}">
+        <td><strong>${escapeHtml(manual.title || 'Untitled manual')}</strong></td>
+        <td>${escapeHtml(manual.fileName || '—')}</td>
+        <td>${escapeHtml(formatBytes(manual.size))}</td>
+        <td>${escapeHtml(formatDayShort(manual.createdAt || manual.lastModified))}</td>
+        <td>${actions}</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+async function downloadManual(manual) {
+  if (!manual?.documentUri) return;
+  try {
+    const response = await fetch(manual.documentUri);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = manual.fileName || `${manual.title || 'manual'}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.warn('Manual download failed, opening in a new tab instead:', error);
+    window.open(manual.documentUri, '_blank', 'noopener,noreferrer');
+  }
+}
+
+async function handleManualUpload(event) {
+  event.preventDefault();
+  if (!manualsCanManage || !activeOperatorUid) return;
+
+  const titleInput = activeView.querySelector('#efb-manual-title');
+  const fileInput = activeView.querySelector('#efb-manual-file');
+  const button = activeView.querySelector('#efb-manual-upload-btn');
+  const title = titleInput?.value.trim() || '';
+  const file = fileInput?.files?.[0] || null;
+
+  if (!title) {
+    setManualStatus('Enter a title for the manual.', 'error');
+    return;
+  }
+  if (!file) {
+    setManualStatus('Choose a file to upload.', 'error');
+    return;
+  }
+
+  if (button) button.disabled = true;
+  setManualStatus('Uploading manual…');
+
+  let created = null;
+  let uploaded = null;
+  try {
+    created = await addCompanyModuleDoc(activeOperatorUid, 'manuals', {
+      title,
+      fileName: file.name,
+      size: file.size,
+      contentType: file.type || null,
+      status: 'uploading',
+      uploadedBy: activeUserUid
+    });
+
+    uploaded = await uploadCompanyManual({
+      companyId: activeOperatorUid,
+      manualId: created.id,
+      file
+    });
+
+    await updateCompanyModuleDoc(activeOperatorUid, 'manuals', created.id, {
+      fileName: uploaded.fileName,
+      size: uploaded.size,
+      contentType: uploaded.contentType,
+      storagePath: uploaded.storagePath,
+      documentUri: uploaded.documentUri,
+      status: 'active'
+    });
+
+    if (titleInput) titleInput.value = '';
+    if (fileInput) fileInput.value = '';
+    setManualStatus(`"${title}" uploaded. Linked users can now view and download it.`, 'success');
+  } catch (error) {
+    console.error('Manual upload failed:', error);
+    if (uploaded?.storagePath) {
+      try {
+        await deleteCompanyManualFile(uploaded.storagePath);
+      } catch (cleanupError) {
+        console.warn('Manual file cleanup failed:', cleanupError);
+      }
+    }
+    if (created?.id) {
+      try {
+        await deleteCompanyModuleDoc(activeOperatorUid, 'manuals', created.id);
+      } catch (cleanupError) {
+        console.warn('Manual metadata cleanup failed:', cleanupError);
+      }
+    }
+    setManualStatus(error.message || 'Failed to upload manual.', 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function handleManualDelete(manualId) {
+  const manual = latestManuals.find((item) => item.id === manualId);
+  if (!manual) return;
+  const confirmed = window.confirm(`Delete "${manual.title || 'this manual'}"? Linked users will lose access to it.`);
+  if (!confirmed) return;
+
+  setManualStatus('Deleting manual…');
+  try {
+    await deleteCompanyManualFile(manual.storagePath);
+    await deleteCompanyModuleDoc(activeOperatorUid, 'manuals', manualId);
+    setManualStatus('Manual deleted.', 'success');
+  } catch (error) {
+    console.error('Manual delete failed:', error);
+    setManualStatus(error.message || 'Failed to delete manual.', 'error');
+  }
 }
 
 function renderFlights() {
@@ -198,7 +390,7 @@ export async function init(view, context) {
 
   const heading = view.querySelector('h2');
   if (heading) {
-    heading.textContent = 'Electronic Flight Bag';
+    heading.textContent = 'EFB';
   }
 
   mountModuleActions('<span id="efb-status" class="vs-page-chip">Loading flight assignments...</span>');
@@ -206,12 +398,23 @@ export async function init(view, context) {
   const operatorUid = context?.currentUser?.uid || null;
   const orgContext = getCurrentOrganizationContext(context?.currentUser);
   activeOperatorUid = orgContext.organizationId || operatorUid;
+  activeUserUid = operatorUid;
+  const userRole = `${context?.currentUser?.role || ''}`.toUpperCase();
+  manualsCanManage = ['ADMIN', 'OWNER'].includes(userRole);
 
   if (!activeOperatorUid) {
     const status = getModuleAction('efb-status');
     if (status) status.textContent = 'No authorized operator found.';
     return { destroy() {} };
   }
+
+  if (!manualsCanManage) {
+    view.querySelector('#efb-manual-upload-card')?.setAttribute('hidden', '');
+  }
+
+  view.querySelectorAll('.efb-tab').forEach((button) => {
+    button.addEventListener('click', () => setTab(button.getAttribute('data-tab')));
+  });
 
   view.querySelector('#efb-flights-body')?.addEventListener('click', (event) => {
     const row = event.target.closest('.efb-flight-row');
@@ -224,6 +427,20 @@ export async function init(view, context) {
   view.querySelector('#efb-actuals-form')?.addEventListener('submit', handleSaveActuals);
   ['#efb-actual-chocks-off', '#efb-actual-chocks-on', '#efb-actual-takeoff', '#efb-actual-landing'].forEach((selector) => {
     view.querySelector(selector)?.addEventListener('input', updateBlockHint);
+  });
+
+  view.querySelector('#efb-manual-upload-form')?.addEventListener('submit', handleManualUpload);
+  view.querySelector('#efb-manuals-body')?.addEventListener('click', (event) => {
+    const actionButton = event.target.closest('[data-action]');
+    if (!actionButton) return;
+    const row = actionButton.closest('[data-manual]');
+    if (!row) return;
+    const manual = latestManuals.find((item) => item.id === row.dataset.manual);
+    if (!manual) return;
+    const action = actionButton.getAttribute('data-action');
+    if (action === 'view') return;
+    if (action === 'download') downloadManual(manual);
+    if (action === 'delete' && manualsCanManage) handleManualDelete(manual.id);
   });
 
   try {
@@ -258,17 +475,36 @@ export async function init(view, context) {
     (error) => console.error('EFB crew snapshot error:', error)
   );
 
+  manualsUnsubscribe = onCompanyModuleSnapshot(
+    activeOperatorUid,
+    'manuals',
+    (manuals) => {
+      latestManuals = manuals;
+      renderManuals();
+    },
+    (error) => {
+      console.error('EFB manuals snapshot error:', error);
+      const hint = view.querySelector('#efb-manuals-hint');
+      if (hint) hint.textContent = 'Unable to load manuals right now.';
+    }
+  );
+
   return {
     destroy() {
       flightsUnsubscribe?.();
       crewUnsubscribe?.();
+      manualsUnsubscribe?.();
       flightsUnsubscribe = null;
       crewUnsubscribe = null;
+      manualsUnsubscribe = null;
       latestFlights = [];
       latestCrew = [];
+      latestManuals = [];
       selectedFlightId = null;
       activeView = null;
       activeOperatorUid = null;
+      activeUserUid = null;
+      manualsCanManage = false;
     }
   };
 }

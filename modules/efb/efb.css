@@ -2,6 +2,42 @@
   margin-top: 1rem;
 }
 
+.efb-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.efb-tab {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1e293b;
+  padding: 0.32rem 0.72rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.efb-tab.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+
+.efb-tab-panel {
+  display: none;
+}
+
+.efb-tab-panel.active {
+  display: block;
+}
+
+.efb-tab-panel .card + .card {
+  margin-top: 1rem;
+}
+
 .efb-table-wrap {
   margin-top: 0.8rem;
   overflow-x: auto;
@@ -67,4 +103,44 @@
   grid-column: 1 / -1;
   display: flex;
   justify-content: flex-end;
+}
+
+.efb-manual-status {
+  margin-top: 0.7rem;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.efb-manual-status.is-error {
+  color: #b91c1c;
+}
+
+.efb-manual-status.is-success {
+  color: #15803d;
+}
+
+.efb-manual-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.efb-manual-actions a,
+.efb-manual-actions button {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.efb-manual-actions .efb-manual-delete {
+  color: #b91c1c;
+}
+
+.efb-manual-file-input {
+  padding: 0.3rem 0;
 }

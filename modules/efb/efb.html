@@ -1,61 +1,112 @@
-﻿<section class="card">
-  <div class="card-heading">
-    <h3>Flight Assignments</h3>
-    <p class="muted">Planned flights created by Dispatch. Select a flight to record actuals below.</p>
-  </div>
-  <div class="efb-table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Flight</th>
-          <th>Route</th>
-          <th>P1</th>
-          <th>Status</th>
-          <th>EFB Actuals</th>
-        </tr>
-      </thead>
-      <tbody id="efb-flights-body"></tbody>
-    </table>
-  </div>
-</section>
+﻿<div class="efb-tabs" role="tablist" aria-label="EFB sections">
+  <button type="button" class="efb-tab active" id="efb-tab-flights" data-tab="flights" role="tab" aria-selected="true" aria-controls="efb-panel-flights">Flights</button>
+  <button type="button" class="efb-tab" id="efb-tab-manuals" data-tab="manuals" role="tab" aria-selected="false" aria-controls="efb-panel-manuals">Manual Distribution</button>
+</div>
 
-<section class="card">
-  <div class="card-heading">
-    <h3>Record Actuals</h3>
-    <p class="muted" id="efb-selected-hint">Select a flight from the list above.</p>
-  </div>
-  <form id="efb-actuals-form" class="efb-form" novalidate>
-    <label class="efb-form-field">
-      <span>Chocks Off</span>
-      <input type="time" id="efb-actual-chocks-off" />
-    </label>
-    <label class="efb-form-field">
-      <span>Chocks On</span>
-      <input type="time" id="efb-actual-chocks-on" />
-    </label>
-    <label class="efb-form-field">
-      <span>Takeoff</span>
-      <input type="time" id="efb-actual-takeoff" />
-    </label>
-    <label class="efb-form-field">
-      <span>Landing</span>
-      <input type="time" id="efb-actual-landing" />
-    </label>
-    <label class="efb-form-field">
-      <span>IR Time (min)</span>
-      <input type="number" id="efb-actual-ir" min="0" step="1" value="0" />
-    </label>
-    <label class="efb-form-field">
-      <span>XC Time (min)</span>
-      <input type="number" id="efb-actual-xc" min="0" step="1" value="0" />
-    </label>
-    <label class="efb-form-field">
-      <span>Block Time</span>
-      <input type="text" id="efb-actual-block" placeholder="Auto-computed" readonly />
-    </label>
-    <div class="efb-form-actions">
-      <button type="submit" class="vs-button vs-button--primary vs-button--sm" id="efb-save-actuals" disabled>Save Actuals</button>
+<div class="efb-tab-panel active" id="efb-panel-flights" data-panel="flights" role="tabpanel" aria-labelledby="efb-tab-flights">
+  <section class="card">
+    <div class="card-heading">
+      <h3>Flight Assignments</h3>
+      <p class="muted">Planned flights created by Dispatch. Select a flight to record actuals below.</p>
     </div>
-  </form>
-</section>
+    <div class="efb-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Flight</th>
+            <th>Route</th>
+            <th>P1</th>
+            <th>Status</th>
+            <th>EFB Actuals</th>
+          </tr>
+        </thead>
+        <tbody id="efb-flights-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-heading">
+      <h3>Record Actuals</h3>
+      <p class="muted" id="efb-selected-hint">Select a flight from the list above.</p>
+    </div>
+    <form id="efb-actuals-form" class="efb-form" novalidate>
+      <label class="efb-form-field">
+        <span>Chocks Off</span>
+        <input type="time" id="efb-actual-chocks-off" />
+      </label>
+      <label class="efb-form-field">
+        <span>Chocks On</span>
+        <input type="time" id="efb-actual-chocks-on" />
+      </label>
+      <label class="efb-form-field">
+        <span>Takeoff</span>
+        <input type="time" id="efb-actual-takeoff" />
+      </label>
+      <label class="efb-form-field">
+        <span>Landing</span>
+        <input type="time" id="efb-actual-landing" />
+      </label>
+      <label class="efb-form-field">
+        <span>IR Time (min)</span>
+        <input type="number" id="efb-actual-ir" min="0" step="1" value="0" />
+      </label>
+      <label class="efb-form-field">
+        <span>XC Time (min)</span>
+        <input type="number" id="efb-actual-xc" min="0" step="1" value="0" />
+      </label>
+      <label class="efb-form-field">
+        <span>Block Time</span>
+        <input type="text" id="efb-actual-block" placeholder="Auto-computed" readonly />
+      </label>
+      <div class="efb-form-actions">
+        <button type="submit" class="vs-button vs-button--primary vs-button--sm" id="efb-save-actuals" disabled>Save Actuals</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<div class="efb-tab-panel" id="efb-panel-manuals" data-panel="manuals" role="tabpanel" aria-labelledby="efb-tab-manuals">
+  <section class="card" id="efb-manual-upload-card">
+    <div class="card-heading">
+      <h3>Manual Distribution</h3>
+      <p class="muted">Company manuals uploaded by admin. All linked users can view and download them for offline use.</p>
+    </div>
+    <form id="efb-manual-upload-form" class="efb-form" novalidate>
+      <label class="efb-form-field">
+        <span>Manual Title</span>
+        <input type="text" id="efb-manual-title" placeholder="e.g. Operations Manual Rev 3" maxlength="120" />
+      </label>
+      <label class="efb-form-field">
+        <span>File (PDF or image, max 20 MB)</span>
+        <input type="file" id="efb-manual-file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" />
+      </label>
+      <div class="efb-form-actions">
+        <button type="submit" class="vs-button vs-button--primary vs-button--sm" id="efb-manual-upload-btn">Upload Manual</button>
+      </div>
+    </form>
+    <p class="efb-manual-status" id="efb-manual-status" aria-live="polite"></p>
+  </section>
+
+  <section class="card">
+    <div class="card-heading">
+      <h3>Company Manuals</h3>
+      <p class="muted" id="efb-manuals-hint">Loading manuals…</p>
+    </div>
+    <div class="efb-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>File</th>
+            <th>Size</th>
+            <th>Uploaded</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="efb-manuals-body"></tbody>
+      </table>
+    </div>
+  </section>
+</div>

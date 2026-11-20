@@ -50,6 +50,38 @@ service firebase.storage {
                              && isAllowedPhotoUpload();
     }
 
+    // Company manuals (EFB Manual Distribution)
+    // manuals/{companyId}/{manualId}/{fileName}
+    // Admin (web) uploads; linked company users (web + Android) read/download.
+    function isCompanyAdminUser(companyId) {
+      return isSignedIn() &&
+             firestore.exists(/databases/(default)/documents/admin_users/$(request.auth.uid)) &&
+             firestore.get(/databases/(default)/documents/admin_users/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    function isCompanyAccountUser(companyId) {
+      return isSignedIn() &&
+             firestore.exists(/databases/(default)/documents/company_accounts/$(request.auth.uid)) &&
+             firestore.get(/databases/(default)/documents/company_accounts/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    function isAndroidCompanyMember(companyId) {
+      return isSignedIn() &&
+             firestore.exists(/databases/(default)/documents/company_members/$(request.auth.uid)) &&
+             firestore.get(/databases/(default)/documents/company_members/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    match /manuals/{companyId}/{manualId}/{fileName} {
+      function isAllowedManualUpload() {
+        return request.resource.size <= 20 * 1024 * 1024 &&
+               (request.resource.contentType == 'application/pdf' ||
+                request.resource.contentType.matches('image/(jpeg|png|webp)'));
+      }
+      allow read: if isCompanyAdminUser(companyId) || isCompanyAccountUser(companyId) || isAndroidCompanyMember(companyId);
+      allow create, update: if isCompanyAdminUser(companyId) && isAllowedManualUpload();
+      allow delete: if isCompanyAdminUser(companyId);
+    }
+
     // Deny everything else
     match /{allPaths=**} {
       allow read, write: if false;

@@ -25,7 +25,7 @@ Tiles are **data-driven** — one config entry per module (icon key, label, dest
 | Crew | Crew Management | `/crew` | `crew` | Future |
 | Aircraft / Fleet | Fleet | `/aircraft` | `aircraft` | Future |
 | Dispatch Control | Dispatch Board | `/dispatch` | `dispatch` | Future |
-| Electronic Flight Bag | EFB Docs | `/efb` | `efb` | Future |
+| Electronic Flight Bag | EFB | `/efb` | `efb` | Future |
 | Flight Operations | Flight Ops | `/flightops` | `flight` | Future |
 | Maintenance | Maintenance Hub | `/maintenance` | `maintenance` | Future |
 | NOTAM Center | NOTAMs | `/notam` | `notam` | Future |

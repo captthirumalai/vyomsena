@@ -5,7 +5,7 @@ import {
   deleteObject
 } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js';
 import { getStorageInstance } from './firebaseService.js';
-import { prepareDocumentFile, prepareProfilePhoto } from './uploadLimits.js';
+import { prepareDocumentFile, prepareProfilePhoto, prepareManualFile } from './uploadLimits.js';
 
 function sanitizeFileName(fileName) {
   return `${fileName || 'document.bin'}`.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -72,6 +72,44 @@ export async function uploadCrewProfilePhoto({ pilotUid, file }) {
 }
 
 export async function deleteUserDocumentFile(storagePath) {
+  if (!storagePath) return;
+  await deleteObject(storageRef(getStorageInstance(), storagePath));
+}
+
+export function buildCompanyManualStoragePath(companyId, manualId, fileName) {
+  const safeCompanyId = `${companyId || ''}`.trim();
+  const safeManualId = `${manualId || ''}`.trim();
+  const safeFileName = sanitizeFileName(fileName);
+  return `manuals/${safeCompanyId}/${safeManualId}/${safeFileName}`;
+}
+
+export async function uploadCompanyManual({ companyId, manualId, file }) {
+  if (!companyId || !manualId) {
+    throw new Error('companyId and manualId are required to upload a manual.');
+  }
+  if (!file) {
+    throw new Error('No file selected for upload.');
+  }
+
+  const preparedFile = await prepareManualFile(file);
+
+  const path = buildCompanyManualStoragePath(companyId, manualId, preparedFile.name);
+  const targetRef = storageRef(getStorageInstance(), path);
+  const snapshot = await uploadBytes(targetRef, preparedFile);
+
+  const downloadToken = snapshot.metadata?.downloadTokens?.[0];
+  const downloadUrl = buildTokenDownloadUrl(path, downloadToken) || (await getDownloadURL(targetRef));
+
+  return {
+    storagePath: path,
+    documentUri: downloadUrl,
+    fileName: preparedFile.name,
+    size: preparedFile.size,
+    contentType: preparedFile.type || null
+  };
+}
+
+export async function deleteCompanyManualFile(storagePath) {
   if (!storagePath) return;
   await deleteObject(storageRef(getStorageInstance(), storagePath));
 }

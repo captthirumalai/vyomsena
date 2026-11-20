@@ -2,6 +2,9 @@
   "firestore": {
     "rules": "docs/firestorerules.md"
   },
+  "storage": {
+    "rules": "docs/storagerules.md"
+  },
   "functions": [
     {
       "source": "functions",
